@@ -21,6 +21,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
+import copy
 import pytest
 from iced_x86 import *
 
@@ -198,6 +199,67 @@ def test_offsets():
 	assert co.has_displacement
 	assert co.has_immediate
 	assert not co.has_immediate2
+
+def test_co_eq_ne_hash():
+	decoder = Decoder(64, b"\x90\x90\x83\xB3\x34\x12\x5A\xA5\x5A\x83\xB3\x34\x12\x5A\xA5\x5A")
+	instr = decoder.decode()
+	co1 = decoder.get_constant_offsets(instr)
+	instr = decoder.decode()
+	co2 = decoder.get_constant_offsets(instr)
+	instr = decoder.decode()
+	co3 = decoder.get_constant_offsets(instr)
+	instr = decoder.decode()
+	co4 = decoder.get_constant_offsets(instr)
+
+	assert id(co1) != id(co2)
+	assert id(co3) != id(co4)
+
+	assert hash(co1) == hash(co2)
+	assert hash(co3) == hash(co4)
+
+	assert co1 == co2
+	assert not (co1 != co2)
+
+	assert co3 == co4
+	assert not (co3 != co4)
+
+	assert co1 != co3
+	assert not (co1 == co3)
+
+	assert co1 != 1
+	assert co1 != 1.23
+	assert co1 != None
+	assert co1 != []
+	assert co1 != {}
+	assert co1 != (1, 2)
+
+	assert not (co1 == 1)
+	assert not (co1 == 1.23)
+	assert not (co1 == None)
+	assert not (co1 == [])
+	assert not (co1 == {})
+	assert not (co1 == (1, 2))
+
+@pytest.mark.parametrize("copy_co", [
+	lambda instr: copy.copy(instr),
+	lambda instr: copy.deepcopy(instr),
+	lambda instr: instr.clone(),
+])
+def test_co_copy_deepcopy_clone(copy_co):
+	decoder = Decoder(64, b"\x90\x83\xB3\x34\x12\x5A\xA5\x5A")
+	decoder.ip = 0x1234_5678_9ABC_DEF1
+	coa = decoder.get_constant_offsets(decoder.decode())
+	cob = decoder.get_constant_offsets(decoder.decode())
+
+	coa2 = copy_co(coa)
+	assert coa is not coa2
+	assert id(coa) != id(coa2)
+	assert coa == coa2
+
+	cob2 = copy_co(cob)
+	assert cob is not cob2
+	assert id(cob) != id(cob2)
+	assert cob == cob2
 
 def test_no_bytes():
 	decoder = Decoder(64, b"")

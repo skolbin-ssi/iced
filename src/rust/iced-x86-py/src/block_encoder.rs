@@ -22,6 +22,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 use crate::instruction::Instruction;
+use crate::utils::to_value_error;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
@@ -36,7 +37,7 @@ use pyo3::types::PyBytes;
 ///
 /// Args:
 ///     bitness (int): 16, 32 or 64
-///     fix_branches (bool): (default = `True`) Fix branches (eg. convert short to near branches if the target is too far away)
+///     fix_branches (bool): (default = ``True``) Fix branches (eg. convert short to near branches if the target is too far away)
 ///
 /// Raises:
 ///     ValueError: If `bitness` is invalid
@@ -70,7 +71,7 @@ use pyo3::types::PyBytes;
 ///     assert data == raw_data
 #[pyclass(module = "_iced_x86_py")]
 #[text_signature = "(bitness, fix_branches, /)"]
-pub struct BlockEncoder {
+pub(crate) struct BlockEncoder {
 	instructions: Vec<iced_x86::Instruction>,
 	bitness: u32,
 	options: u32,
@@ -91,7 +92,7 @@ impl BlockEncoder {
 	/// Adds an instruction that will be encoded when :class:`BlockEncoder.encode` is called.
 	///
 	/// The input `instruction` can be a decoded instruction or an instruction
-	/// created by the user, eg. `Instruction.with*()` methods.
+	/// created by the user, eg. `Instruction.create*()` methods.
 	///
 	/// Args:
 	///     `instruction` (Instruction): Next instruction to encode
@@ -124,7 +125,7 @@ impl BlockEncoder {
 		let block = iced_x86::InstructionBlock::new(&self.instructions, rip);
 		match iced_x86::BlockEncoder::encode(self.bitness, block, self.options) {
 			Ok(result) => Ok(PyBytes::new(py, &result.code_buffer)),
-			Err(error) => Err(PyValueError::new_err(format!("{}", error))),
+			Err(error) => Err(to_value_error(error)),
 		}
 	}
 }

@@ -23,7 +23,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 use crate::constant_offsets::ConstantOffsets;
 use crate::instruction::Instruction;
-use pyo3::exceptions::PyValueError;
+use crate::utils::to_value_error;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
@@ -33,6 +33,7 @@ use pyo3::types::PyBytes;
 ///
 /// Args:
 ///     bitness (int): 16, 32 or 64
+///     capacity (int): (default = 0) Initial capacity of the byte buffer
 ///
 /// Raises:
 ///     ValueError: If `bitness` is invalid
@@ -62,7 +63,7 @@ use pyo3::types::PyBytes;
 ///     assert buffer == b"\x86\x64\x32\x16"
 #[pyclass(module = "_iced_x86_py")]
 #[text_signature = "(bitness, capacity, /)"]
-pub struct Encoder {
+pub(crate) struct Encoder {
 	encoder: iced_x86::Encoder,
 }
 
@@ -71,19 +72,15 @@ impl Encoder {
 	#[new]
 	#[args(capacity = 0)]
 	fn new(bitness: u32, capacity: usize) -> PyResult<Self> {
-		match bitness {
-			16 | 32 | 64 => {}
-			_ => return Err(PyValueError::new_err("bitness must be 16, 32 or 64")),
-		}
-
-		Ok(Self { encoder: iced_x86::Encoder::with_capacity(bitness, capacity) })
+		let encoder = iced_x86::Encoder::try_with_capacity(bitness, capacity).map_err(to_value_error)?;
+		Ok(Self { encoder })
 	}
 
 	/// Encodes an instruction and returns the size of the encoded instruction
 	///
 	/// Args:
 	///     `instruction` (Instruction): Instruction to encode
-	///     `rip`(int): (``u64``) ``RIP`` of the encoded instruction
+	///     `rip` (int): (``u64``) ``RIP`` of the encoded instruction
 	///
 	/// Returns:
 	///     int: Size of the encoded instruction
@@ -117,10 +114,7 @@ impl Encoder {
 	///     assert buffer == b"\x75\xF2"
 	#[text_signature = "($self, instruction, rip, /)"]
 	fn encode(&mut self, instruction: &Instruction, rip: u64) -> PyResult<usize> {
-		match self.encoder.encode(&instruction.instr, rip) {
-			Ok(len) => Ok(len),
-			Err(err) => Err(PyValueError::new_err(format!("{}", err))),
-		}
+		self.encoder.encode(&instruction.instr, rip).map_err(to_value_error)
 	}
 
 	/// Writes a byte to the output buffer
@@ -241,7 +235,7 @@ impl Encoder {
 		self.encoder.set_evex_lig(new_value)
 	}
 
-	/// Gets the bitness (16, 32 or 64)
+	/// int: Gets the bitness (16, 32 or 64)
 	#[getter]
 	fn bitness(&self) -> u32 {
 		self.encoder.bitness()

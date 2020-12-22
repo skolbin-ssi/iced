@@ -165,7 +165,21 @@ impl Encoder {
 	#[cfg_attr(has_must_use, must_use)]
 	#[inline]
 	pub fn new(bitness: u32) -> Self {
-		Self::with_capacity(bitness, 0)
+		Self::try_new(bitness).unwrap()
+	}
+
+	/// Creates an encoder
+	///
+	/// # Errors
+	///
+	/// Fails if `bitness` is not one of 16, 32, 64.
+	///
+	/// # Arguments
+	///
+	/// * `bitness`: 16, 32 or 64
+	#[inline]
+	pub fn try_new(bitness: u32) -> Result<Self, IcedError> {
+		Self::try_with_capacity(bitness, 0)
 	}
 
 	/// Creates an encoder with an initial buffer capacity
@@ -179,10 +193,26 @@ impl Encoder {
 	/// * `bitness`: 16, 32 or 64
 	/// * `capacity`: Initial capacity of the `u8` buffer
 	#[cfg_attr(has_must_use, must_use)]
-	#[cfg_attr(feature = "cargo-clippy", allow(clippy::missing_inline_in_public_items))]
+	#[deprecated(since = "1.10.0", note = "Use try_with_capacity() instead")]
+	#[inline]
 	pub fn with_capacity(bitness: u32, capacity: usize) -> Self {
+		Self::try_with_capacity(bitness, capacity).unwrap()
+	}
+
+	/// Creates an encoder with an initial buffer capacity
+	///
+	/// # Errors
+	///
+	/// Fails if `bitness` is not one of 16, 32, 64.
+	///
+	/// # Arguments
+	///
+	/// * `bitness`: 16, 32 or 64
+	/// * `capacity`: Initial capacity of the `u8` buffer
+	#[cfg_attr(feature = "cargo-clippy", allow(clippy::missing_inline_in_public_items))]
+	pub fn try_with_capacity(bitness: u32, capacity: usize) -> Result<Self, IcedError> {
 		if bitness != 16 && bitness != 32 && bitness != 64 {
-			panic!();
+			return Err(IcedError::new("Invalid bitness"));
 		}
 
 		let opsize16_flags = if bitness != 16 { EncoderFlags::P66 } else { 0 };
@@ -190,7 +220,7 @@ impl Encoder {
 		let adrsize16_flags = if bitness != 16 { EncoderFlags::P67 } else { 0 };
 		let adrsize32_flags = if bitness != 32 { EncoderFlags::P67 } else { 0 };
 
-		Self {
+		Ok(Self {
 			current_rip: 0,
 			handler: unsafe { *HANDLERS_TABLE.get_unchecked(0) },
 			// Store it in an instance field since it's a lazy_static
@@ -220,7 +250,7 @@ impl Encoder {
 			imm_size: ImmSize::default(),
 			mod_rm: 0,
 			sib: 0,
-		}
+		})
 	}
 
 	/// Encodes an instruction and returns the size of the encoded instruction
@@ -437,7 +467,7 @@ impl Encoder {
 	}
 
 	pub(super) fn add_branch(&mut self, op_kind: OpKind, imm_size: u32, instruction: &Instruction, operand: u32) {
-		if !self.verify_op_kind(operand, op_kind, instruction.op_kind(operand)) {
+		if !self.verify_op_kind(operand, op_kind, instruction.try_op_kind(operand).unwrap_or(OpKind::FarBranch16)) {
 			return;
 		}
 
@@ -498,7 +528,7 @@ impl Encoder {
 
 	pub(super) fn add_branch_x(&mut self, imm_size: u32, instruction: &Instruction, operand: u32) {
 		if self.bitness == 64 {
-			if !self.verify_op_kind(operand, OpKind::NearBranch64, instruction.op_kind(operand)) {
+			if !self.verify_op_kind(operand, OpKind::NearBranch64, instruction.try_op_kind(operand).unwrap_or(OpKind::FarBranch16)) {
 				return;
 			}
 
@@ -520,7 +550,7 @@ impl Encoder {
 				_ => unreachable!(),
 			}
 		} else {
-			if !self.verify_op_kind(operand, OpKind::NearBranch32, instruction.op_kind(operand)) {
+			if !self.verify_op_kind(operand, OpKind::NearBranch32, instruction.try_op_kind(operand).unwrap_or(OpKind::FarBranch16)) {
 				return;
 			}
 
@@ -562,14 +592,14 @@ impl Encoder {
 
 			_ => unreachable!(),
 		}
-		if !self.verify_op_kind(operand, op_kind, instruction.op_kind(operand)) {
+		if !self.verify_op_kind(operand, op_kind, instruction.try_op_kind(operand).unwrap_or(OpKind::FarBranch16)) {
 			return;
 		}
 	}
 
 	pub(super) fn add_far_branch(&mut self, instruction: &Instruction, operand: u32, size: u32) {
 		if size == 2 {
-			if !self.verify_op_kind(operand, OpKind::FarBranch16, instruction.op_kind(operand)) {
+			if !self.verify_op_kind(operand, OpKind::FarBranch16, instruction.try_op_kind(operand).unwrap_or(OpKind::NearBranch16)) {
 				return;
 			}
 			self.imm_size = ImmSize::Size2_2;
@@ -577,7 +607,7 @@ impl Encoder {
 			self.immediate_hi = instruction.far_branch_selector() as u32;
 		} else {
 			debug_assert_eq!(4, size);
-			if !self.verify_op_kind(operand, OpKind::FarBranch32, instruction.op_kind(operand)) {
+			if !self.verify_op_kind(operand, OpKind::FarBranch32, instruction.try_op_kind(operand).unwrap_or(OpKind::NearBranch16)) {
 				return;
 			}
 			self.imm_size = ImmSize::Size4_2;
@@ -614,7 +644,7 @@ impl Encoder {
 
 	pub(super) fn add_abs_mem(&mut self, instruction: &Instruction, operand: u32) {
 		self.encoder_flags |= EncoderFlags::DISPL;
-		let op_kind = instruction.op_kind(operand);
+		let op_kind = instruction.try_op_kind(operand).unwrap_or(OpKind::FarBranch16);
 		if op_kind == OpKind::Memory64 {
 			if self.bitness != 64 {
 				self.set_error_message(format!("Operand {}: 64-bit abs address is only available in 64-bit mode", operand));
@@ -664,10 +694,10 @@ impl Encoder {
 
 	#[cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
 	pub(super) fn add_mod_rm_register(&mut self, instruction: &Instruction, operand: u32, reg_lo: Register, reg_hi: Register) {
-		if !self.verify_op_kind(operand, OpKind::Register, instruction.op_kind(operand)) {
+		if !self.verify_op_kind(operand, OpKind::Register, instruction.try_op_kind(operand).unwrap_or(OpKind::FarBranch16)) {
 			return;
 		}
-		let reg = instruction.op_register(operand);
+		let reg = instruction.try_op_register(operand).unwrap_or_default();
 		if !self.verify_register_range(operand, reg, reg_lo, reg_hi) {
 			return;
 		}
@@ -690,10 +720,10 @@ impl Encoder {
 	}
 
 	pub(super) fn add_reg(&mut self, instruction: &Instruction, operand: u32, reg_lo: Register, reg_hi: Register) {
-		if !self.verify_op_kind(operand, OpKind::Register, instruction.op_kind(operand)) {
+		if !self.verify_op_kind(operand, OpKind::Register, instruction.try_op_kind(operand).unwrap_or(OpKind::FarBranch16)) {
 			return;
 		}
-		let reg = instruction.op_register(operand);
+		let reg = instruction.try_op_register(operand).unwrap_or_default();
 		if !self.verify_register_range(operand, reg, reg_lo, reg_hi) {
 			return;
 		}
@@ -725,14 +755,14 @@ impl Encoder {
 		&mut self, instruction: &Instruction, operand: u32, reg_lo: Register, reg_hi: Register, vsib_index_reg_lo: Register,
 		vsib_index_reg_hi: Register, allow_mem_op: bool, allow_reg_op: bool,
 	) {
-		let op_kind = instruction.op_kind(operand);
+		let op_kind = instruction.try_op_kind(operand).unwrap_or(OpKind::FarBranch16);
 		self.encoder_flags |= EncoderFlags::MOD_RM;
 		if op_kind == OpKind::Register {
 			if !allow_reg_op {
 				self.set_error_message(format!("Operand {}: register operand is not allowed", operand));
 				return;
 			}
-			let reg = instruction.op_register(operand);
+			let reg = instruction.try_op_register(operand).unwrap_or_default();
 			if !self.verify_register_range(operand, reg, reg_lo, reg_hi) {
 				return;
 			}
@@ -1001,8 +1031,8 @@ impl Encoder {
 		let base_num = if base == Register::None { -1 } else { (base as i32).wrapping_sub(base_lo as i32) };
 		let index_num = if index == Register::None { -1 } else { (index as i32).wrapping_sub(index_lo as i32) };
 
-		// [ebp] => [ebp+00]
-		if displ_size == 0 && index == Register::None && (base_num & 7) == 5 {
+		// [ebp]/[ebp+index*scale] => [ebp+00]/[ebp+index*scale+00]
+		if displ_size == 0 && (base_num & 7) == 5 {
 			displ_size = 1;
 			self.displ = 0;
 		}
@@ -1011,7 +1041,7 @@ impl Encoder {
 			// Temp needed if rustc < 1.36.0 (2015 edition)
 			let tmp_displ = self.displ;
 			if let Some(compressed_value) = self.try_convert_to_disp8n(tmp_displ as i16 as i32) {
-				self.displ = compressed_value as u8 as u32;
+				self.displ = compressed_value as i32 as u32;
 			} else {
 				displ_size = addr_size / 8;
 			}

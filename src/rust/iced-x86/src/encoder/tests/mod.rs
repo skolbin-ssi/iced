@@ -98,10 +98,7 @@ fn encode_test(info: &DecoderTestInfo) {
 	assert_eq!(info.bitness(), encoder.bitness());
 	let orig_instr_copy = orig_instr;
 	let encoded_instr_len;
-	match encoder.encode(&orig_instr, orig_rip) {
-		Ok(len) => encoded_instr_len = len,
-		Err(err) => panic!("Unexpected error message: {}", err),
-	}
+	encoded_instr_len = encoder.encode(&orig_instr, orig_rip).unwrap();
 	let mut encoded_co = encoder.get_constant_offsets();
 	fix_constant_offsets(&mut encoded_co, orig_instr.len(), encoded_instr_len);
 	verify_constant_offsets(&orig_co, &encoded_co);
@@ -270,20 +267,51 @@ fn new_panics_if_bitness_128() {
 }
 
 #[test]
+fn try_new_fails_if_bitness_0() {
+	assert!(Encoder::try_new(0).is_err());
+}
+
+#[test]
+fn try_new_fails_if_bitness_128() {
+	assert!(Encoder::try_new(128).is_err());
+}
+
+#[test]
 #[should_panic]
+#[allow(deprecated)]
 fn with_capacity_panics_if_bitness_0() {
 	let _ = Encoder::with_capacity(0, 1);
 }
 
 #[test]
+fn with_capacity_fails_if_bitness_0() {
+	assert!(Encoder::try_with_capacity(0, 1).is_err());
+}
+
+#[test]
 #[should_panic]
+#[allow(deprecated)]
 fn with_capacity_panics_if_bitness_128() {
 	let _ = Encoder::with_capacity(128, 1);
 }
 
 #[test]
+fn with_capacity_failss_if_bitness_128() {
+	assert!(Encoder::try_with_capacity(128, 1).is_err());
+}
+
+#[test]
+#[allow(deprecated)]
 fn with_capacity_works() {
 	let mut encoder = Encoder::with_capacity(64, 211);
+	let buffer = encoder.take_buffer();
+	assert!(buffer.is_empty());
+	assert_eq!(211, buffer.capacity());
+}
+
+#[test]
+fn try_with_capacity_works() {
+	let mut encoder = Encoder::try_with_capacity(64, 211).unwrap();
 	let buffer = encoder.take_buffer();
 	assert!(buffer.is_empty());
 	assert_eq!(211, buffer.capacity());
@@ -344,9 +372,9 @@ fn displsize_eq_1_uses_long_form_if_it_does_not_fit_in_1_byte() {
 	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
 	#[cfg(not(feature = "no_xop"))]
 	{
-		tests.push((16, "8F E878C0 8C 3412 A5", RIP, Instruction::with_reg_mem_u32(Code::XOP_Vprotb_xmm_xmmm128_imm8, Register::XMM1, memory16, 0xA5)));
-		tests.push((32, "8F E878C0 8E 78563412 A5", RIP, Instruction::with_reg_mem_u32(Code::XOP_Vprotb_xmm_xmmm128_imm8, Register::XMM1, memory32, 0xA5)));
-		tests.push((64, "8F C878C0 8E 78563412 A5", RIP, Instruction::with_reg_mem_u32(Code::XOP_Vprotb_xmm_xmmm128_imm8, Register::XMM1, memory64, 0xA5)));
+		tests.push((16, "8F E878C0 8C 3412 A5", RIP, Instruction::try_with_reg_mem_u32(Code::XOP_Vprotb_xmm_xmmm128_imm8, Register::XMM1, memory16, 0xA5).unwrap()));
+		tests.push((32, "8F E878C0 8E 78563412 A5", RIP, Instruction::try_with_reg_mem_u32(Code::XOP_Vprotb_xmm_xmmm128_imm8, Register::XMM1, memory32, 0xA5).unwrap()));
+		tests.push((64, "8F C878C0 8E 78563412 A5", RIP, Instruction::try_with_reg_mem_u32(Code::XOP_Vprotb_xmm_xmmm128_imm8, Register::XMM1, memory64, 0xA5).unwrap()));
 	}
 
 	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
@@ -392,11 +420,33 @@ fn encode_ebp_with_no_displ() {
 }
 
 #[test]
+fn encode_ebp_edx_with_no_displ() {
+	let mut encoder = Encoder::new(32);
+	let instr = Instruction::with_reg_mem(Code::Mov_r32_rm32, Register::EAX, MemoryOperand::with_base_index(Register::EBP, Register::EDX));
+	let len = encoder.encode(&instr, 0).unwrap();
+	let expected = vec![0x8B, 0x44, 0x15, 0x00];
+	let actual = encoder.take_buffer();
+	assert_eq!(actual.len(), len);
+	assert_eq!(expected, actual);
+}
+
+#[test]
 fn encode_r13d_with_no_displ() {
 	let mut encoder = Encoder::new(64);
 	let instr = Instruction::with_reg_mem(Code::Mov_r32_rm32, Register::EAX, MemoryOperand::with_base(Register::R13D));
 	let len = encoder.encode(&instr, 0).unwrap();
 	let expected = vec![0x67, 0x41, 0x8B, 0x45, 0x00];
+	let actual = encoder.take_buffer();
+	assert_eq!(actual.len(), len);
+	assert_eq!(expected, actual);
+}
+
+#[test]
+fn encode_r13d_edx_with_no_displ() {
+	let mut encoder = Encoder::new(64);
+	let instr = Instruction::with_reg_mem(Code::Mov_r32_rm32, Register::EAX, MemoryOperand::with_base_index(Register::R13D, Register::EDX));
+	let len = encoder.encode(&instr, 0).unwrap();
+	let expected = vec![0x67, 0x41, 0x8B, 0x44, 0x15, 0x00];
 	let actual = encoder.take_buffer();
 	assert_eq!(actual.len(), len);
 	assert_eq!(expected, actual);
@@ -414,11 +464,33 @@ fn encode_rbp_with_no_displ() {
 }
 
 #[test]
+fn encode_rbp_rdx_with_no_displ() {
+	let mut encoder = Encoder::new(64);
+	let instr = Instruction::with_reg_mem(Code::Mov_r64_rm64, Register::RAX, MemoryOperand::with_base_index(Register::RBP, Register::RDX));
+	let len = encoder.encode(&instr, 0).unwrap();
+	let expected = vec![0x48, 0x8B, 0x44, 0x15, 0x00];
+	let actual = encoder.take_buffer();
+	assert_eq!(actual.len(), len);
+	assert_eq!(expected, actual);
+}
+
+#[test]
 fn encode_r13_with_no_displ() {
 	let mut encoder = Encoder::new(64);
 	let instr = Instruction::with_reg_mem(Code::Mov_r64_rm64, Register::RAX, MemoryOperand::with_base(Register::R13));
 	let len = encoder.encode(&instr, 0).unwrap();
 	let expected = vec![0x49, 0x8B, 0x45, 0x00];
+	let actual = encoder.take_buffer();
+	assert_eq!(actual.len(), len);
+	assert_eq!(expected, actual);
+}
+
+#[test]
+fn encode_r13_rdx_with_no_displ() {
+	let mut encoder = Encoder::new(64);
+	let instr = Instruction::with_reg_mem(Code::Mov_r64_rm64, Register::RAX, MemoryOperand::with_base_index(Register::R13, Register::RDX));
+	let len = encoder.encode(&instr, 0).unwrap();
+	let expected = vec![0x49, 0x8B, 0x44, 0x15, 0x00];
 	let actual = encoder.take_buffer();
 	assert_eq!(actual.len(), len);
 	assert_eq!(expected, actual);
@@ -891,16 +963,16 @@ fn test_op_code_info(tc: &OpCodeInfoTestCase) {
 	assert_eq!(tc.is_rm_group, info.is_rm_group());
 	assert_eq!(tc.rm_group_index, info.rm_group_index());
 	assert_eq!(tc.op_count, info.op_count());
-	assert_eq!(tc.op0_kind, info.op0_kind());
-	assert_eq!(tc.op1_kind, info.op1_kind());
-	assert_eq!(tc.op2_kind, info.op2_kind());
-	assert_eq!(tc.op3_kind, info.op3_kind());
-	assert_eq!(tc.op4_kind, info.op4_kind());
-	assert_eq!(tc.op0_kind, info.op_kind(0));
-	assert_eq!(tc.op1_kind, info.op_kind(1));
-	assert_eq!(tc.op2_kind, info.op_kind(2));
-	assert_eq!(tc.op3_kind, info.op_kind(3));
-	assert_eq!(tc.op4_kind, info.op_kind(4));
+	assert_eq!(tc.op_kinds[0], info.op0_kind());
+	assert_eq!(tc.op_kinds[1], info.op1_kind());
+	assert_eq!(tc.op_kinds[2], info.op2_kind());
+	assert_eq!(tc.op_kinds[3], info.op3_kind());
+	assert_eq!(tc.op_kinds[4], info.op4_kind());
+	assert_eq!(tc.op_kinds[0], info.op_kind(0));
+	assert_eq!(tc.op_kinds[1], info.op_kind(1));
+	assert_eq!(tc.op_kinds[2], info.op_kind(2));
+	assert_eq!(tc.op_kinds[3], info.op_kind(3));
+	assert_eq!(tc.op_kinds[4], info.op_kind(4));
 	let op_kinds = info.op_kinds();
 	assert_eq!(tc.op_count as usize, op_kinds.len());
 	for (i, &op_kind) in op_kinds.iter().enumerate() {
@@ -955,16 +1027,14 @@ fn make_sure_all_code_values_are_tested_exactly_once() {
 
 #[cfg(feature = "op_code_info")]
 #[test]
-#[should_panic]
-fn op_code_info_is_available_in_mode_panics_if_invalid_bitness_0() {
-	let _ = Code::Nopd.op_code().is_available_in_mode(0);
+fn op_code_info_is_available_in_mode_fails_if_invalid_bitness_0() {
+	assert!(!Code::Nopd.op_code().is_available_in_mode(0));
 }
 
 #[cfg(feature = "op_code_info")]
 #[test]
-#[should_panic]
 fn op_code_info_is_available_in_mode_panics_if_invalid_bitness_128() {
-	let _ = Code::Nopd.op_code().is_available_in_mode(128);
+	assert!(!Code::Nopd.op_code().is_available_in_mode(128));
 }
 
 #[test]

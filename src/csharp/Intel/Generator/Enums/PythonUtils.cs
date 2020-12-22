@@ -29,5 +29,15 @@ namespace Generator.Enums {
 				"OpCodeOperandKind" or "OpCodeTableKind" or "TupleType" => true,
 				_ => false,
 			};
+
+		public static (string name, string value) GetEnumNameValue(IdentifierConverter idConverter, EnumValue value, bool uppercaseRawName) {
+			var numStr = value.DeclaringType.IsFlags ? NumberFormatter.FormatHexUInt32WithSep(value.Value) : value.Value.ToString();
+			string valueName;
+			if (uppercaseRawName)
+				valueName = value.RawName.ToUpperInvariant();
+			else
+				valueName = value.Name(idConverter);
+			return (valueName, numStr);
+		}
 	}
 }

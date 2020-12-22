@@ -168,10 +168,15 @@ jobs:
         run: |
           # Make sure crates.io isn't used
           if [ "$OSTYPE" = "msys" ]; then
-            echo "paths = [\"$(pwd -W)/src/rust/iced-x86\"]" > "$HOME/.cargo/config.toml"
+            iced_x86_dir="$(pwd -W)/src/rust/iced-x86"
           else
-            echo "paths = [\"$(pwd)/src/rust/iced-x86\"]" > "$HOME/.cargo/config.toml"
+            iced_x86_dir="$(pwd)/src/rust/iced-x86"
           fi
+          if [ ! -d "$iced_x86_dir" ]; then
+            echo "Dir does not exist: $iced_x86_dir"
+            exit 1
+          fi
+          echo "paths = [\"$iced_x86_dir\"]" > "$HOME/.cargo/config.toml"
 
       # If the supported Python versions get updated (added/removed), do:
       # - Update .github/workflows/build.yml (this file)
@@ -455,7 +460,7 @@ jobs:
         shell: bash
         run: |
           python -m pip install -U twine
-          twine check /tmp/py-dist/*
+          python -m twine check /tmp/py-dist/*
           dotnet nuget push --help
           cargo publish --help
 
@@ -476,19 +481,19 @@ jobs:
             dotnet nuget push "$file" --api-key "${{secrets.NUGET_APIKEY}}" --source https://api.nuget.org/v3/index.json
           done
 
-      - name: Upload to crates.io
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: bash
-        run: |
-          git clean -xdf
-          git checkout .
-          cd src/rust/iced-x86
-          cargo login --color always -- "${{secrets.CRATES_IO_TOKEN}}"
-          # --no-verify: we've tested building everything already
-          cargo publish --color always --no-verify
+      # - name: Upload to crates.io
+      #   if: startsWith(github.ref, 'refs/tags/')
+      #   shell: bash
+      #   run: |
+      #     git clean -xdf
+      #     git checkout .
+      #     cd src/rust/iced-x86
+      #     cargo login --color always -- "${{secrets.CRATES_IO_TOKEN}}"
+      #     # --no-verify: we've tested building everything already
+      #     cargo publish --color always --no-verify
 
       - name: Upload to pypi.org
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
-          twine upload --non-interactive -u __token__ -p "${{secrets.PYPI_TOKEN}}" /tmp/py-dist/*
+          python -m twine upload --non-interactive -u __token__ -p "${{secrets.PYPI_TOKEN}}" /tmp/py-dist/*

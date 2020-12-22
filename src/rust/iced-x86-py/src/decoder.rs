@@ -119,7 +119,7 @@ enum DecoderDataRef {
 ///     assert instr.has_lock_prefix
 #[pyclass(module = "_iced_x86_py")]
 #[text_signature = "(bitness, data, options, /)"]
-pub struct Decoder {
+pub(crate) struct Decoder {
 	// * If the decoder ctor was called with a `bytes` object, data_ref is PyObj(`bytes` object)
 	//   and the decoder holds a ref to its data.
 	// * If the decoder ctor was called with a `bytearray` object, data_ref is Vec(copy of `bytearray` data)
@@ -136,6 +136,9 @@ impl Decoder {
 	#[new]
 	#[args(options = 0)]
 	fn new(bitness: u32, data: &PyAny, options: u32) -> PyResult<Self> {
+		// #[args] line assumption
+		const_assert_eq!(0, iced_x86::DecoderOptions::NONE);
+
 		match bitness {
 			16 | 32 | 64 => {}
 			_ => return Err(PyValueError::new_err("bitness must be 16, 32 or 64")),
@@ -151,7 +154,7 @@ impl Decoder {
 			let decoder_data = unsafe { slice::from_raw_parts(vec_data.as_ptr(), vec_data.len()) };
 			(DecoderDataRef::Vec(vec_data), decoder_data)
 		} else {
-			//TODO: support memoryview
+			//TODO: support memoryview (also update docs and get_temporary_byte_array_ref and the message below)
 			return Err(PyTypeError::new_err("Expected one of these types: bytes, bytearray"));
 		};
 
@@ -229,11 +232,11 @@ impl Decoder {
 	}
 
 	#[setter]
-	fn set_position(&mut self, new_pos: usize) -> PyResult<()> {
-		if new_pos > self.decoder.max_position() {
+	fn set_position(&mut self, new_value: usize) -> PyResult<()> {
+		if new_value > self.decoder.max_position() {
 			Err(PyValueError::new_err("Invalid position"))
 		} else {
-			self.decoder.set_position(new_pos);
+			self.decoder.set_position(new_value);
 			Ok(())
 		}
 	}

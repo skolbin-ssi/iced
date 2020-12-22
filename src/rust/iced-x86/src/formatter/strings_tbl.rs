@@ -35,8 +35,7 @@ pub(super) fn get_strings_table() -> Vec<String> {
 	for _ in 0..STRINGS_COUNT {
 		strings.push(reader.read_ascii_string());
 	}
-	if reader.can_read() {
-		panic!();
-	}
+	assert!(!reader.can_read());
+
 	strings
 }

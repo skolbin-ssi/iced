@@ -21,9 +21,11 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-use crate::enum_utils::{to_code, to_code_size, to_op_kind, to_register, to_rounding_control};
+use crate::enum_utils::{to_code, to_code_size, to_op_kind, to_register, to_rep_prefix_kind, to_rounding_control};
 use crate::iced_constants::IcedConstants;
+use crate::memory_operand::MemoryOperand;
 use crate::op_code_info::OpCodeInfo;
+use crate::utils::{get_temporary_byte_array_ref, to_value_error};
 use core::hash::{Hash, Hasher};
 use pyo3::class::basic::CompareOp;
 use pyo3::class::PySequenceProtocol;
@@ -32,7 +34,7 @@ use pyo3::prelude::*;
 use pyo3::PyObjectProtocol;
 use std::collections::hash_map::DefaultHasher;
 
-/// A 16/32/64-bit x86 instruction. Created by :class:`Decoder` or by ``Instruction::create*()`` methods.
+/// A 16/32/64-bit x86 instruction. Created by :class:`Decoder` or by ``Instruction.create*()`` methods.
 ///
 /// Examples:
 ///
@@ -56,6 +58,28 @@ use std::collections::hash_map::DefaultHasher;
 ///     # The above code is the same as:
 ///     if instr.code == Code.INVALID:
 ///         print("Not an instruction")
+///
+/// But there are also static `Instruction.create*()` methods that can be used to create instructions:
+///
+/// .. testcode::
+///
+///     nop = Instruction.create(Code.NOPD)
+///     xor = Instruction.create_reg_i32(Code.XOR_RM64_IMM8, Register.R14, -1)
+///     rep_stosd = Instruction.create_rep_stosd(64)
+///     add = Instruction.create_mem_i32(Code.ADD_RM64_IMM8, MemoryOperand(Register.RCX, Register.RDX, 8, 0x1234_5678), 2)
+///     print(f"{nop}")
+///     print(f"{xor}")
+///     print(f"{rep_stosd}")
+///     print(f"{add}")
+///
+/// Output:
+///
+/// .. testoutput::
+///
+///     nop
+///     xor r14,0FFFFFFFFFFFFFFFFh
+///     rep stosd
+///     add qword ptr [rcx+rdx*8+12345678h],2
 ///
 /// Once you have an instruction you can format it either by using a :class:`Formatter`
 /// or by calling the instruction's ``__repr__()``, ``__str__()`` or ``__format__()`` methods.
@@ -129,90 +153,32 @@ use std::collections::hash_map::DefaultHasher;
 /// The following format specifiers are supported in any order. If you omit the
 /// formatter kind, the default formatter is used (eg. masm):
 ///
-/// ======  =============================================================================
-/// F-Spec  Description
-/// ======  =============================================================================
-/// f       Fast formatter (masm-like syntax)
-/// g       GNU Assembler formatter
-/// i       Intel (XED) formatter
-/// m       masm formatter
-/// n       nasm formatter
-/// X       Uppercase hex numbers with ``0x`` prefix
-/// x       Lowercase hex numbers with ``0x`` prefix
-/// H       Uppercase hex numbers with ``h`` suffix
-/// h       Lowercase hex numbers with ``h`` suffix
-/// r       RIP-relative memory operands use RIP register instead of abs addr (``[rip+123h]`` vs ``[123456789ABCDEF0h]``)
-/// U       Uppercase everything except numbers and hex prefixes/suffixes (ignored by fast fmt)
-/// s       Add a space after the operand separator
-/// S       Always show the segment register
-/// B       Don't show the branch size (``SHORT`` or ``NEAR PTR``) (ignored by fast fmt)
-/// G       (GNU Assembler): Add mnemonic size suffix (eg. ``movl`` vs ``mov``)
-/// M       Always show the memory size (eg. ``BYTE PTR``) even when not needed
-/// _       Use digit separators (eg. ``0x12345678`` vs ``0x1234_5678``) (ignored by fast fmt)
-/// ======  =============================================================================
+/// ====== =============================================================================
+/// F-Spec Description
+/// ====== =============================================================================
+/// f      Fast formatter (masm-like syntax)
+/// g      GNU Assembler formatter
+/// i      Intel (XED) formatter
+/// m      masm formatter
+/// n      nasm formatter
+/// X      Uppercase hex numbers with ``0x`` prefix
+/// x      Lowercase hex numbers with ``0x`` prefix
+/// H      Uppercase hex numbers with ``h`` suffix
+/// h      Lowercase hex numbers with ``h`` suffix
+/// r      RIP-relative memory operands use RIP register instead of abs addr (``[rip+123h]`` vs ``[123456789ABCDEF0h]``)
+/// U      Uppercase everything except numbers and hex prefixes/suffixes (ignored by fast fmt)
+/// s      Add a space after the operand separator
+/// S      Always show the segment register
+/// B      Don't show the branch size (``SHORT`` or ``NEAR PTR``) (ignored by fast fmt)
+/// G      (GNU Assembler): Add mnemonic size suffix (eg. ``movl`` vs ``mov``)
+/// M      Always show the memory size (eg. ``BYTE PTR``) even when not needed
+/// _      Use digit separators (eg. ``0x12345678`` vs ``0x1234_5678``) (ignored by fast fmt)
+/// ====== =============================================================================
 #[pyclass(module = "_iced_x86_py")]
 #[text_signature = "(/)"]
 #[derive(Copy, Clone)]
-pub struct Instruction {
+pub(crate) struct Instruction {
 	pub(crate) instr: iced_x86::Instruction,
-}
-
-impl Instruction {
-	const MAX_DB_COUNT: usize = 16;
-	const MAX_DW_COUNT: usize = Instruction::MAX_DB_COUNT / 2;
-	const MAX_DD_COUNT: usize = Instruction::MAX_DB_COUNT / 4;
-	const MAX_DQ_COUNT: usize = Instruction::MAX_DB_COUNT / 8;
-
-	fn check_db_index(index: usize) -> PyResult<usize> {
-		if index >= Instruction::MAX_DB_COUNT {
-			Err(PyValueError::new_err("Invalid db index"))
-		} else {
-			Ok(index)
-		}
-	}
-
-	fn check_dw_index(index: usize) -> PyResult<usize> {
-		if index >= Instruction::MAX_DW_COUNT {
-			Err(PyValueError::new_err("Invalid dw index"))
-		} else {
-			Ok(index)
-		}
-	}
-
-	fn check_dd_index(index: usize) -> PyResult<usize> {
-		if index >= Instruction::MAX_DD_COUNT {
-			Err(PyValueError::new_err("Invalid dd index"))
-		} else {
-			Ok(index)
-		}
-	}
-
-	fn check_dq_index(index: usize) -> PyResult<usize> {
-		if index >= Instruction::MAX_DQ_COUNT {
-			Err(PyValueError::new_err("Invalid dq index"))
-		} else {
-			Ok(index)
-		}
-	}
-
-	fn check_immediate_op_kind(&self, operand: u32) -> PyResult<()> {
-		if operand >= IcedConstants::MAX_OP_COUNT as u32 {
-			Err(PyValueError::new_err("Invalid operand"))
-		} else {
-			match self.instr.op_kind(operand) {
-				iced_x86::OpKind::Immediate8
-				| iced_x86::OpKind::Immediate8to16
-				| iced_x86::OpKind::Immediate8to32
-				| iced_x86::OpKind::Immediate8to64
-				| iced_x86::OpKind::Immediate8_2nd
-				| iced_x86::OpKind::Immediate16
-				| iced_x86::OpKind::Immediate32to64
-				| iced_x86::OpKind::Immediate32
-				| iced_x86::OpKind::Immediate64 => Ok(()),
-				_ => Err(PyValueError::new_err("Operand is not an immediate")),
-			}
-		}
-	}
 }
 
 #[pymethods]
@@ -235,6 +201,9 @@ impl Instruction {
 
 	/// Returns a copy of this instance.
 	///
+	/// Args:
+	///     memo (Any): memo dict
+	///
 	/// Returns:
 	///     Instruction: A copy of this instance
 	///
@@ -255,8 +224,11 @@ impl Instruction {
 
 	/// Checks if two instructions are equal, comparing all bits, not ignoring anything. ``==`` ignores some fields.
 	///
+	/// Args:
+	///     other (:class:`Instruction`): Other instruction
+	///
 	/// Returns:
-	///     bool: `True` if `other` is exactly identical to this instance
+	///     bool: ``True`` if `other` is exactly identical to this instance
 	#[text_signature = "($self, other, /)"]
 	fn eq_all_bits(&self, other: &Self) -> bool {
 		self.instr.eq_all_bits(&other.instr)
@@ -391,8 +363,7 @@ impl Instruction {
 	/// You can also call `len(instr)` to get this value.
 	///
 	/// Note:
-	///     This is just informational. If you modify the instruction or create a new one,
-	///     this method could return the wrong value.
+	///     This is just informational. If you modify the instruction or create a new one, this method could return the wrong value.
 	#[getter]
 	fn len(&self) -> usize {
 		self.instr.len()
@@ -525,12 +496,7 @@ impl Instruction {
 
 	#[setter]
 	fn set_op4_kind(&mut self, new_value: u32) -> PyResult<()> {
-		if new_value != iced_x86::OpKind::Immediate8 as u32 {
-			Err(PyValueError::new_err("Invalid op kind"))
-		} else {
-			self.instr.set_op4_kind(to_op_kind(new_value)?);
-			Ok(())
-		}
+		self.instr.try_set_op4_kind(to_op_kind(new_value)?).map_err(to_value_error)
 	}
 
 	/// Gets an operand's kind (an :class:`OpKind` enum value) if it exists (see :class:`Instruction.op_count`)
@@ -716,12 +682,7 @@ impl Instruction {
 	///     ValueError: If `operand` is invalid or not immediate.
 	#[text_signature = "($self, operand, /)"]
 	fn immediate(&self, operand: u32) -> PyResult<u64> {
-		self.check_immediate_op_kind(operand)?;
-		if let Some(value) = self.instr.try_immediate(operand) {
-			Ok(value)
-		} else {
-			Err(PyValueError::new_err("Not an immediate operand"))
-		}
+		self.instr.try_immediate(operand).map_err(to_value_error)
 	}
 
 	/// Sets an operand's immediate value
@@ -734,9 +695,7 @@ impl Instruction {
 	///     ValueError: If `operand` is invalid or if it's not an immediate operand
 	#[text_signature = "($self, operand, new_value, /)"]
 	fn set_immediate_i32(&mut self, operand: u32, new_value: i32) -> PyResult<()> {
-		self.check_immediate_op_kind(operand)?;
-		self.instr.set_immediate_i32(operand, new_value);
-		Ok(())
+		self.instr.try_set_immediate_i32(operand, new_value).map_err(to_value_error)
 	}
 
 	/// Sets an operand's immediate value
@@ -749,9 +708,7 @@ impl Instruction {
 	///     ValueError: If `operand` is invalid or if it's not an immediate operand
 	#[text_signature = "($self, operand, new_value, /)"]
 	fn set_immediate_u32(&mut self, operand: u32, new_value: u32) -> PyResult<()> {
-		self.check_immediate_op_kind(operand)?;
-		self.instr.set_immediate_u32(operand, new_value);
-		Ok(())
+		self.instr.try_set_immediate_u32(operand, new_value).map_err(to_value_error)
 	}
 
 	/// Sets an operand's immediate value
@@ -764,9 +721,7 @@ impl Instruction {
 	///     ValueError: If `operand` is invalid or if it's not an immediate operand
 	#[text_signature = "($self, operand, new_value, /)"]
 	fn set_immediate_i64(&mut self, operand: u32, new_value: i64) -> PyResult<()> {
-		self.check_immediate_op_kind(operand)?;
-		self.instr.set_immediate_i64(operand, new_value);
-		Ok(())
+		self.instr.try_set_immediate_i64(operand, new_value).map_err(to_value_error)
 	}
 
 	/// Sets an operand's immediate value
@@ -779,9 +734,7 @@ impl Instruction {
 	///     ValueError: If `operand` is invalid or if it's not an immediate operand
 	#[text_signature = "($self, operand, new_value, /)"]
 	fn set_immediate_u64(&mut self, operand: u32, new_value: u64) -> PyResult<()> {
-		self.check_immediate_op_kind(operand)?;
-		self.instr.set_immediate_u64(operand, new_value);
-		Ok(())
+		self.instr.try_set_immediate_u64(operand, new_value).map_err(to_value_error)
 	}
 
 	/// int: (``u8``) Gets the operand's immediate value.
@@ -1094,12 +1047,7 @@ impl Instruction {
 
 	#[setter]
 	fn set_op4_register(&mut self, new_value: u32) -> PyResult<()> {
-		if new_value != iced_x86::Register::None as u32 {
-			Err(PyValueError::new_err("Invalid register"))
-		} else {
-			self.instr.set_op4_register(to_register(new_value)?);
-			Ok(())
-		}
+		self.instr.try_set_op4_register(to_register(new_value)?).map_err(to_value_error)
 	}
 
 	/// Gets the operand's register value (a :class:`Register` enum value).
@@ -1250,7 +1198,7 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, new_value, /)"]
 	fn set_declare_byte_value_i8(&mut self, index: usize, new_value: i8) -> PyResult<()> {
-		self.instr.set_declare_byte_value_i8(Instruction::check_db_index(index)?, new_value);
+		self.instr.try_set_declare_byte_value_i8(index, new_value).map_err(to_value_error)?;
 		Ok(())
 	}
 
@@ -1266,7 +1214,7 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, new_value, /)"]
 	fn set_declare_byte_value(&mut self, index: usize, new_value: u8) -> PyResult<()> {
-		self.instr.set_declare_byte_value(Instruction::check_db_index(index)?, new_value);
+		self.instr.try_set_declare_byte_value(index, new_value).map_err(to_value_error)?;
 		Ok(())
 	}
 
@@ -1284,7 +1232,8 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, /)"]
 	fn get_declare_byte_value(&self, index: usize) -> PyResult<u8> {
-		Ok(self.instr.get_declare_byte_value(Instruction::check_db_index(index)?))
+		let value = self.instr.try_get_declare_byte_value(index).map_err(to_value_error)?;
+		Ok(value)
 	}
 
 	/// Gets a ``db`` value, see also :class:`Instruction.declare_data_len`.
@@ -1301,7 +1250,8 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, /)"]
 	fn get_declare_byte_value_i8(&self, index: usize) -> PyResult<i8> {
-		Ok(self.instr.get_declare_byte_value(Instruction::check_db_index(index)?) as i8)
+		let value = self.instr.try_get_declare_byte_value(index).map_err(to_value_error)?;
+		Ok(value as i8)
 	}
 
 	/// Sets a new ``dw`` value, see also :class:`Instruction.declare_data_len`.
@@ -1316,7 +1266,7 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, new_value, /)"]
 	fn set_declare_word_value_i16(&mut self, index: usize, new_value: i16) -> PyResult<()> {
-		self.instr.set_declare_word_value_i16(Instruction::check_dw_index(index)?, new_value);
+		self.instr.try_set_declare_word_value_i16(index, new_value).map_err(to_value_error)?;
 		Ok(())
 	}
 
@@ -1332,7 +1282,7 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, new_value, /)"]
 	fn set_declare_word_value(&mut self, index: usize, new_value: u16) -> PyResult<()> {
-		self.instr.set_declare_word_value(Instruction::check_dw_index(index)?, new_value);
+		self.instr.try_set_declare_word_value(index, new_value).map_err(to_value_error)?;
 		Ok(())
 	}
 
@@ -1350,7 +1300,8 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, /)"]
 	fn get_declare_word_value(&self, index: usize) -> PyResult<u16> {
-		Ok(self.instr.get_declare_word_value(Instruction::check_dw_index(index)?))
+		let value = self.instr.try_get_declare_word_value(index).map_err(to_value_error)?;
+		Ok(value)
 	}
 
 	/// Gets a ``dw`` value, see also :class:`Instruction.declare_data_len`.
@@ -1367,7 +1318,8 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, /)"]
 	fn get_declare_word_value_i16(&self, index: usize) -> PyResult<i16> {
-		Ok(self.instr.get_declare_word_value(Instruction::check_dw_index(index)?) as i16)
+		let value = self.instr.try_get_declare_word_value(index).map_err(to_value_error)?;
+		Ok(value as i16)
 	}
 
 	/// Sets a new ``dd`` value, see also :class:`Instruction.declare_data_len`.
@@ -1382,7 +1334,7 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, new_value, /)"]
 	fn set_declare_dword_value_i32(&mut self, index: usize, new_value: i32) -> PyResult<()> {
-		self.instr.set_declare_dword_value_i32(Instruction::check_dd_index(index)?, new_value);
+		self.instr.try_set_declare_dword_value_i32(index, new_value).map_err(to_value_error)?;
 		Ok(())
 	}
 
@@ -1398,7 +1350,7 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, new_value, /)"]
 	fn set_declare_dword_value(&mut self, index: usize, new_value: u32) -> PyResult<()> {
-		self.instr.set_declare_dword_value(Instruction::check_dd_index(index)?, new_value);
+		self.instr.try_set_declare_dword_value(index, new_value).map_err(to_value_error)?;
 		Ok(())
 	}
 
@@ -1416,7 +1368,8 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, /)"]
 	fn get_declare_dword_value(&self, index: usize) -> PyResult<u32> {
-		Ok(self.instr.get_declare_dword_value(Instruction::check_dd_index(index)?))
+		let value = self.instr.try_get_declare_dword_value(index).map_err(to_value_error)?;
+		Ok(value)
 	}
 
 	/// Gets a ``dd`` value, see also :class:`Instruction.declare_data_len`.
@@ -1433,7 +1386,8 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, /)"]
 	fn get_declare_dword_value_i32(&self, index: usize) -> PyResult<i32> {
-		Ok(self.instr.get_declare_dword_value(Instruction::check_dd_index(index)?) as i32)
+		let value = self.instr.try_get_declare_dword_value(index).map_err(to_value_error)?;
+		Ok(value as i32)
 	}
 
 	/// Sets a new ``dq`` value, see also :class:`Instruction.declare_data_len`.
@@ -1448,7 +1402,7 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, new_value, /)"]
 	fn set_declare_qword_value_i64(&mut self, index: usize, new_value: i64) -> PyResult<()> {
-		self.instr.set_declare_qword_value_i64(Instruction::check_dq_index(index)?, new_value);
+		self.instr.try_set_declare_qword_value_i64(index, new_value).map_err(to_value_error)?;
 		Ok(())
 	}
 
@@ -1464,7 +1418,7 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, new_value, /)"]
 	fn set_declare_qword_value(&mut self, index: usize, new_value: u64) -> PyResult<()> {
-		self.instr.set_declare_qword_value(Instruction::check_dq_index(index)?, new_value);
+		self.instr.try_set_declare_qword_value(index, new_value).map_err(to_value_error)?;
 		Ok(())
 	}
 
@@ -1482,7 +1436,8 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, /)"]
 	fn get_declare_qword_value(&self, index: usize) -> PyResult<u64> {
-		Ok(self.instr.get_declare_qword_value(Instruction::check_dq_index(index)?))
+		let value = self.instr.try_get_declare_qword_value(index).map_err(to_value_error)?;
+		Ok(value)
 	}
 
 	/// Gets a ``dq`` value, see also :class:`Instruction.declare_data_len`.
@@ -1499,7 +1454,8 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, /)"]
 	fn get_declare_qword_value_i64(&self, index: usize) -> PyResult<i64> {
-		Ok(self.instr.get_declare_qword_value(Instruction::check_dq_index(index)?) as i64)
+		let value = self.instr.try_get_declare_qword_value(index).map_err(to_value_error)?;
+		Ok(value as i64)
 	}
 
 	/// bool: Checks if this is a VSIB instruction, see also :class:`Instruction.is_vsib32`, :class:`Instruction.is_vsib64`
@@ -1520,14 +1476,11 @@ impl Instruction {
 		self.instr.is_vsib64()
 	}
 
-	/// Checks if it's a vsib instruction.
+	/// bool, None: Checks if it's a vsib instruction.
 	///
 	/// - Returns ``True`` if it's a VSIB instruction with 64-bit indexes
 	/// - Returns ``False`` if it's a VSIB instruction with 32-bit indexes
 	/// - Returns `None` if it's not a VSIB instruction.
-	///
-	/// Returns:
-	///     bool, None: See above
 	#[getter]
 	fn vsib(&self) -> Option<bool> {
 		self.instr.vsib()
@@ -1567,7 +1520,7 @@ impl Instruction {
 ///     `writes_top` (bool): ``True`` if ``TOP`` is written (it's a conditional/unconditional push/pop, ``FNSAVE``, ``FLDENV``, etc)
 #[pyclass(module = "_iced_x86_py")]
 #[text_signature = "(increment, conditional, writes_top, /)"]
-pub struct FpuStackIncrementInfo {
+pub(crate) struct FpuStackIncrementInfo {
 	info: iced_x86::FpuStackIncrementInfo,
 }
 
@@ -1671,6 +1624,9 @@ impl Instruction {
 	}
 
 	/// Gets the CPU or CPUID feature flags (a list of :class:`CpuidFeature` enum values)
+	///
+	/// Returns:
+	///     List[:class:`CpuidFeature`]: CPU or CPUID feature flags
 	///
 	/// Examples:
 	///
@@ -2183,7 +2139,7 @@ impl Instruction {
 	///
 	/// Returns:
 	///     :class:`OpCodeInfo`: Op code info
-	#[text_signature = "(/)"]
+	#[text_signature = "($self, /)"]
 	fn op_code(&self) -> PyResult<OpCodeInfo> {
 		OpCodeInfo::new(self.instr.code() as u32)
 	}
@@ -2329,5 +2285,2876 @@ impl PySequenceProtocol for Instruction {
 
 #[pymethods]
 impl Instruction {
-	//TODO: all generated create() methods
+	// GENERATOR-BEGIN: Create
+	// ⚠️This was generated by GENERATOR!🦹‍♂️
+	/// Creates an instruction with no operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, /)"]
+	fn create(code: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		Ok(Instruction { instr: iced_x86::Instruction::with(code) })
+	}
+
+	/// Creates an instruction with 1 operand
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register` (:class:`Register`): op0: Register
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register, /)"]
+	fn create_reg(code: u32, register: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register = to_register(register)?;
+		Ok(Instruction { instr: iced_x86::Instruction::with_reg(code, register) })
+	}
+
+	/// Creates an instruction with 1 operand
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `immediate` (int): (``i32``) op0: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, immediate, /)"]
+	fn create_i32(code: u32, immediate: i32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_i32(code, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 1 operand
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `immediate` (int): (``u32``) op0: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, immediate, /)"]
+	fn create_u32(code: u32, immediate: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_u32(code, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 1 operand
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `memory` (:class:`MemoryOperand`): op0: Memory operand
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, memory, /)"]
+	fn create_mem(code: u32, memory: MemoryOperand) -> PyResult<Self> {
+		let code = to_code(code)?;
+		Ok(Instruction { instr: iced_x86::Instruction::with_mem(code, memory.mem) })
+	}
+
+	/// Creates an instruction with 2 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, /)"]
+	fn create_reg_reg(code: u32, register1: u32, register2: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		Ok(Instruction { instr: iced_x86::Instruction::with_reg_reg(code, register1, register2) })
+	}
+
+	/// Creates an instruction with 2 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register` (:class:`Register`): op0: Register
+	///     `immediate` (int): (``i32``) op1: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register, immediate, /)"]
+	fn create_reg_i32(code: u32, register: u32, immediate: i32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register = to_register(register)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_i32(code, register, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 2 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register` (:class:`Register`): op0: Register
+	///     `immediate` (int): (``u32``) op1: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register, immediate, /)"]
+	fn create_reg_u32(code: u32, register: u32, immediate: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register = to_register(register)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_u32(code, register, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 2 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register` (:class:`Register`): op0: Register
+	///     `immediate` (int): (``i64``) op1: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register, immediate, /)"]
+	fn create_reg_i64(code: u32, register: u32, immediate: i64) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register = to_register(register)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_i64(code, register, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 2 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register` (:class:`Register`): op0: Register
+	///     `immediate` (int): (``u64``) op1: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register, immediate, /)"]
+	fn create_reg_u64(code: u32, register: u32, immediate: u64) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register = to_register(register)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_u64(code, register, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 2 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register` (:class:`Register`): op0: Register
+	///     `memory` (:class:`MemoryOperand`): op1: Memory operand
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register, memory, /)"]
+	fn create_reg_mem(code: u32, register: u32, memory: MemoryOperand) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register = to_register(register)?;
+		Ok(Instruction { instr: iced_x86::Instruction::with_reg_mem(code, register, memory.mem) })
+	}
+
+	/// Creates an instruction with 2 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `immediate` (int): (``i32``) op0: Immediate value
+	///     `register` (:class:`Register`): op1: Register
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, immediate, register, /)"]
+	fn create_i32_reg(code: u32, immediate: i32, register: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register = to_register(register)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_i32_reg(code, immediate, register).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 2 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `immediate` (int): (``u32``) op0: Immediate value
+	///     `register` (:class:`Register`): op1: Register
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, immediate, register, /)"]
+	fn create_u32_reg(code: u32, immediate: u32, register: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register = to_register(register)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_u32_reg(code, immediate, register).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 2 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `immediate1` (int): (``i32``) op0: Immediate value
+	///     `immediate2` (int): (``i32``) op1: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, immediate1, immediate2, /)"]
+	fn create_i32_i32(code: u32, immediate1: i32, immediate2: i32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_i32_i32(code, immediate1, immediate2).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 2 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `immediate1` (int): (``u32``) op0: Immediate value
+	///     `immediate2` (int): (``u32``) op1: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, immediate1, immediate2, /)"]
+	fn create_u32_u32(code: u32, immediate1: u32, immediate2: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_u32_u32(code, immediate1, immediate2).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 2 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `memory` (:class:`MemoryOperand`): op0: Memory operand
+	///     `register` (:class:`Register`): op1: Register
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, memory, register, /)"]
+	fn create_mem_reg(code: u32, memory: MemoryOperand, register: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register = to_register(register)?;
+		Ok(Instruction { instr: iced_x86::Instruction::with_mem_reg(code, memory.mem, register) })
+	}
+
+	/// Creates an instruction with 2 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `memory` (:class:`MemoryOperand`): op0: Memory operand
+	///     `immediate` (int): (``i32``) op1: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, memory, immediate, /)"]
+	fn create_mem_i32(code: u32, memory: MemoryOperand, immediate: i32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_mem_i32(code, memory.mem, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 2 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `memory` (:class:`MemoryOperand`): op0: Memory operand
+	///     `immediate` (int): (``u32``) op1: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, memory, immediate, /)"]
+	fn create_mem_u32(code: u32, memory: MemoryOperand, immediate: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_mem_u32(code, memory.mem, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 3 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `register3` (:class:`Register`): op2: Register
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, register3, /)"]
+	fn create_reg_reg_reg(code: u32, register1: u32, register2: u32, register3: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		let register3 = to_register(register3)?;
+		Ok(Instruction { instr: iced_x86::Instruction::with_reg_reg_reg(code, register1, register2, register3) })
+	}
+
+	/// Creates an instruction with 3 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `immediate` (int): (``i32``) op2: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, immediate, /)"]
+	fn create_reg_reg_i32(code: u32, register1: u32, register2: u32, immediate: i32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_reg_i32(code, register1, register2, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 3 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `immediate` (int): (``u32``) op2: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, immediate, /)"]
+	fn create_reg_reg_u32(code: u32, register1: u32, register2: u32, immediate: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_reg_u32(code, register1, register2, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 3 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `memory` (:class:`MemoryOperand`): op2: Memory operand
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, memory, /)"]
+	fn create_reg_reg_mem(code: u32, register1: u32, register2: u32, memory: MemoryOperand) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		Ok(Instruction { instr: iced_x86::Instruction::with_reg_reg_mem(code, register1, register2, memory.mem) })
+	}
+
+	/// Creates an instruction with 3 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register` (:class:`Register`): op0: Register
+	///     `immediate1` (int): (``i32``) op1: Immediate value
+	///     `immediate2` (int): (``i32``) op2: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register, immediate1, immediate2, /)"]
+	fn create_reg_i32_i32(code: u32, register: u32, immediate1: i32, immediate2: i32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register = to_register(register)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_i32_i32(code, register, immediate1, immediate2).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 3 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register` (:class:`Register`): op0: Register
+	///     `immediate1` (int): (``u32``) op1: Immediate value
+	///     `immediate2` (int): (``u32``) op2: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register, immediate1, immediate2, /)"]
+	fn create_reg_u32_u32(code: u32, register: u32, immediate1: u32, immediate2: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register = to_register(register)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_u32_u32(code, register, immediate1, immediate2).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 3 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `memory` (:class:`MemoryOperand`): op1: Memory operand
+	///     `register2` (:class:`Register`): op2: Register
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, memory, register2, /)"]
+	fn create_reg_mem_reg(code: u32, register1: u32, memory: MemoryOperand, register2: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		Ok(Instruction { instr: iced_x86::Instruction::with_reg_mem_reg(code, register1, memory.mem, register2) })
+	}
+
+	/// Creates an instruction with 3 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register` (:class:`Register`): op0: Register
+	///     `memory` (:class:`MemoryOperand`): op1: Memory operand
+	///     `immediate` (int): (``i32``) op2: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register, memory, immediate, /)"]
+	fn create_reg_mem_i32(code: u32, register: u32, memory: MemoryOperand, immediate: i32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register = to_register(register)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_mem_i32(code, register, memory.mem, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 3 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register` (:class:`Register`): op0: Register
+	///     `memory` (:class:`MemoryOperand`): op1: Memory operand
+	///     `immediate` (int): (``u32``) op2: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register, memory, immediate, /)"]
+	fn create_reg_mem_u32(code: u32, register: u32, memory: MemoryOperand, immediate: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register = to_register(register)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_mem_u32(code, register, memory.mem, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 3 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `memory` (:class:`MemoryOperand`): op0: Memory operand
+	///     `register1` (:class:`Register`): op1: Register
+	///     `register2` (:class:`Register`): op2: Register
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, memory, register1, register2, /)"]
+	fn create_mem_reg_reg(code: u32, memory: MemoryOperand, register1: u32, register2: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		Ok(Instruction { instr: iced_x86::Instruction::with_mem_reg_reg(code, memory.mem, register1, register2) })
+	}
+
+	/// Creates an instruction with 3 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `memory` (:class:`MemoryOperand`): op0: Memory operand
+	///     `register` (:class:`Register`): op1: Register
+	///     `immediate` (int): (``i32``) op2: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, memory, register, immediate, /)"]
+	fn create_mem_reg_i32(code: u32, memory: MemoryOperand, register: u32, immediate: i32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register = to_register(register)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_mem_reg_i32(code, memory.mem, register, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 3 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `memory` (:class:`MemoryOperand`): op0: Memory operand
+	///     `register` (:class:`Register`): op1: Register
+	///     `immediate` (int): (``u32``) op2: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, memory, register, immediate, /)"]
+	fn create_mem_reg_u32(code: u32, memory: MemoryOperand, register: u32, immediate: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register = to_register(register)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_mem_reg_u32(code, memory.mem, register, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 4 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `register3` (:class:`Register`): op2: Register
+	///     `register4` (:class:`Register`): op3: Register
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, register3, register4, /)"]
+	fn create_reg_reg_reg_reg(code: u32, register1: u32, register2: u32, register3: u32, register4: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		let register3 = to_register(register3)?;
+		let register4 = to_register(register4)?;
+		Ok(Instruction { instr: iced_x86::Instruction::with_reg_reg_reg_reg(code, register1, register2, register3, register4) })
+	}
+
+	/// Creates an instruction with 4 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `register3` (:class:`Register`): op2: Register
+	///     `immediate` (int): (``i32``) op3: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, register3, immediate, /)"]
+	fn create_reg_reg_reg_i32(code: u32, register1: u32, register2: u32, register3: u32, immediate: i32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		let register3 = to_register(register3)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_reg_reg_i32(code, register1, register2, register3, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 4 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `register3` (:class:`Register`): op2: Register
+	///     `immediate` (int): (``u32``) op3: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, register3, immediate, /)"]
+	fn create_reg_reg_reg_u32(code: u32, register1: u32, register2: u32, register3: u32, immediate: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		let register3 = to_register(register3)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_reg_reg_u32(code, register1, register2, register3, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 4 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `register3` (:class:`Register`): op2: Register
+	///     `memory` (:class:`MemoryOperand`): op3: Memory operand
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, register3, memory, /)"]
+	fn create_reg_reg_reg_mem(code: u32, register1: u32, register2: u32, register3: u32, memory: MemoryOperand) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		let register3 = to_register(register3)?;
+		Ok(Instruction { instr: iced_x86::Instruction::with_reg_reg_reg_mem(code, register1, register2, register3, memory.mem) })
+	}
+
+	/// Creates an instruction with 4 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `immediate1` (int): (``i32``) op2: Immediate value
+	///     `immediate2` (int): (``i32``) op3: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, immediate1, immediate2, /)"]
+	fn create_reg_reg_i32_i32(code: u32, register1: u32, register2: u32, immediate1: i32, immediate2: i32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_reg_i32_i32(code, register1, register2, immediate1, immediate2).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 4 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `immediate1` (int): (``u32``) op2: Immediate value
+	///     `immediate2` (int): (``u32``) op3: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, immediate1, immediate2, /)"]
+	fn create_reg_reg_u32_u32(code: u32, register1: u32, register2: u32, immediate1: u32, immediate2: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_reg_u32_u32(code, register1, register2, immediate1, immediate2).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 4 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `memory` (:class:`MemoryOperand`): op2: Memory operand
+	///     `register3` (:class:`Register`): op3: Register
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, memory, register3, /)"]
+	fn create_reg_reg_mem_reg(code: u32, register1: u32, register2: u32, memory: MemoryOperand, register3: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		let register3 = to_register(register3)?;
+		Ok(Instruction { instr: iced_x86::Instruction::with_reg_reg_mem_reg(code, register1, register2, memory.mem, register3) })
+	}
+
+	/// Creates an instruction with 4 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `memory` (:class:`MemoryOperand`): op2: Memory operand
+	///     `immediate` (int): (``i32``) op3: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, memory, immediate, /)"]
+	fn create_reg_reg_mem_i32(code: u32, register1: u32, register2: u32, memory: MemoryOperand, immediate: i32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_reg_mem_i32(code, register1, register2, memory.mem, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 4 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `memory` (:class:`MemoryOperand`): op2: Memory operand
+	///     `immediate` (int): (``u32``) op3: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, memory, immediate, /)"]
+	fn create_reg_reg_mem_u32(code: u32, register1: u32, register2: u32, memory: MemoryOperand, immediate: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_reg_mem_u32(code, register1, register2, memory.mem, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 5 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `register3` (:class:`Register`): op2: Register
+	///     `register4` (:class:`Register`): op3: Register
+	///     `immediate` (int): (``i32``) op4: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, register3, register4, immediate, /)"]
+	fn create_reg_reg_reg_reg_i32(code: u32, register1: u32, register2: u32, register3: u32, register4: u32, immediate: i32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		let register3 = to_register(register3)?;
+		let register4 = to_register(register4)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_reg_reg_reg_i32(code, register1, register2, register3, register4, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 5 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `register3` (:class:`Register`): op2: Register
+	///     `register4` (:class:`Register`): op3: Register
+	///     `immediate` (int): (``u32``) op4: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, register3, register4, immediate, /)"]
+	fn create_reg_reg_reg_reg_u32(code: u32, register1: u32, register2: u32, register3: u32, register4: u32, immediate: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		let register3 = to_register(register3)?;
+		let register4 = to_register(register4)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_reg_reg_reg_u32(code, register1, register2, register3, register4, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 5 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `register3` (:class:`Register`): op2: Register
+	///     `memory` (:class:`MemoryOperand`): op3: Memory operand
+	///     `immediate` (int): (``i32``) op4: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, register3, memory, immediate, /)"]
+	fn create_reg_reg_reg_mem_i32(code: u32, register1: u32, register2: u32, register3: u32, memory: MemoryOperand, immediate: i32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		let register3 = to_register(register3)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_reg_reg_mem_i32(code, register1, register2, register3, memory.mem, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 5 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `register3` (:class:`Register`): op2: Register
+	///     `memory` (:class:`MemoryOperand`): op3: Memory operand
+	///     `immediate` (int): (``u32``) op4: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, register3, memory, immediate, /)"]
+	fn create_reg_reg_reg_mem_u32(code: u32, register1: u32, register2: u32, register3: u32, memory: MemoryOperand, immediate: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		let register3 = to_register(register3)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_reg_reg_mem_u32(code, register1, register2, register3, memory.mem, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 5 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `memory` (:class:`MemoryOperand`): op2: Memory operand
+	///     `register3` (:class:`Register`): op3: Register
+	///     `immediate` (int): (``i32``) op4: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, memory, register3, immediate, /)"]
+	fn create_reg_reg_mem_reg_i32(code: u32, register1: u32, register2: u32, memory: MemoryOperand, register3: u32, immediate: i32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		let register3 = to_register(register3)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_reg_mem_reg_i32(code, register1, register2, memory.mem, register3, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with 5 operands
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register1` (:class:`Register`): op0: Register
+	///     `register2` (:class:`Register`): op1: Register
+	///     `memory` (:class:`MemoryOperand`): op2: Memory operand
+	///     `register3` (:class:`Register`): op3: Register
+	///     `immediate` (int): (``u32``) op4: Immediate value
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the immediate is invalid
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register1, register2, memory, register3, immediate, /)"]
+	fn create_reg_reg_mem_reg_u32(code: u32, register1: u32, register2: u32, memory: MemoryOperand, register3: u32, immediate: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		let register3 = to_register(register3)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_reg_reg_mem_reg_u32(code, register1, register2, memory.mem, register3, immediate).map_err(to_value_error)? })
+	}
+
+	/// Creates a new near/short branch instruction
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `target` (int): (``u64``) Target address
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the created instruction doesn't have a near branch operand
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, target, /)"]
+	fn create_branch(code: u32, target: u64) -> PyResult<Self> {
+		let code = to_code(code)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_branch(code, target).map_err(to_value_error)? })
+	}
+
+	/// Creates a new far branch instruction
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `selector` (int): (``u16``) Selector/segment value
+	///     `offset` (int): (``u32``) Offset
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If the created instruction doesn't have a far branch operand
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, selector, offset, /)"]
+	fn create_far_branch(code: u32, selector: u16, offset: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_far_branch(code, selector, offset).map_err(to_value_error)? })
+	}
+
+	/// Creates a new ``XBEGIN`` instruction
+	///
+	/// Args:
+	///     `bitness` (int): (``u32``) 16, 32, or 64
+	///     `target` (int): (``u64``) Target address
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `bitness` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(bitness, target, /)"]
+	fn create_xbegin(bitness: u32, target: u64) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_xbegin(bitness, target).map_err(to_value_error)? })
+	}
+
+	/// Creates an instruction with a 64-bit memory offset as the second operand, eg. ``mov al,[123456789ABCDEF0]``
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `register` (:class:`Register`): Register (``AL``, ``AX``, ``EAX``, ``RAX``)
+	///     `address` (int): (``u64``) 64-bit address
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, register, address, segment_prefix, /)"]
+	#[args(segment_prefix = 0)]
+	fn create_reg_mem64(code: u32, register: u32, address: u64, segment_prefix: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register = to_register(register)?;
+		let segment_prefix = to_register(segment_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::with_reg_mem64(code, register, address, segment_prefix) })
+	}
+
+	/// Creates an instruction with a 64-bit memory offset as the first operand, eg. ``mov [123456789ABCDEF0],al``
+	///
+	/// Args:
+	///     `code` (:class:`Code`): Code value
+	///     `address` (int): (``u64``) 64-bit address
+	///     `register` (:class:`Register`): Register (``AL``, ``AX``, ``EAX``, ``RAX``)
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(code, address, register, segment_prefix, /)"]
+	#[args(segment_prefix = 0)]
+	fn create_mem64_reg(code: u32, address: u64, register: u32, segment_prefix: u32) -> PyResult<Self> {
+		let code = to_code(code)?;
+		let register = to_register(register)?;
+		let segment_prefix = to_register(segment_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::with_mem64_reg(code, address, register, segment_prefix) })
+	}
+
+	/// Creates a ``OUTSB`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, segment_prefix, rep_prefix, /)"]
+	#[args(segment_prefix = 0, rep_prefix = 0)]
+	fn create_outsb(address_size: u32, segment_prefix: u32, rep_prefix: u32) -> PyResult<Self> {
+		let segment_prefix = to_register(segment_prefix)?;
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_outsb(address_size, segment_prefix, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP OUTSB`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_outsb(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_outsb(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``OUTSW`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, segment_prefix, rep_prefix, /)"]
+	#[args(segment_prefix = 0, rep_prefix = 0)]
+	fn create_outsw(address_size: u32, segment_prefix: u32, rep_prefix: u32) -> PyResult<Self> {
+		let segment_prefix = to_register(segment_prefix)?;
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_outsw(address_size, segment_prefix, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP OUTSW`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_outsw(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_outsw(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``OUTSD`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, segment_prefix, rep_prefix, /)"]
+	#[args(segment_prefix = 0, rep_prefix = 0)]
+	fn create_outsd(address_size: u32, segment_prefix: u32, rep_prefix: u32) -> PyResult<Self> {
+		let segment_prefix = to_register(segment_prefix)?;
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_outsd(address_size, segment_prefix, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP OUTSD`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_outsd(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_outsd(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``LODSB`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, segment_prefix, rep_prefix, /)"]
+	#[args(segment_prefix = 0, rep_prefix = 0)]
+	fn create_lodsb(address_size: u32, segment_prefix: u32, rep_prefix: u32) -> PyResult<Self> {
+		let segment_prefix = to_register(segment_prefix)?;
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_lodsb(address_size, segment_prefix, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP LODSB`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_lodsb(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_lodsb(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``LODSW`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, segment_prefix, rep_prefix, /)"]
+	#[args(segment_prefix = 0, rep_prefix = 0)]
+	fn create_lodsw(address_size: u32, segment_prefix: u32, rep_prefix: u32) -> PyResult<Self> {
+		let segment_prefix = to_register(segment_prefix)?;
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_lodsw(address_size, segment_prefix, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP LODSW`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_lodsw(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_lodsw(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``LODSD`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, segment_prefix, rep_prefix, /)"]
+	#[args(segment_prefix = 0, rep_prefix = 0)]
+	fn create_lodsd(address_size: u32, segment_prefix: u32, rep_prefix: u32) -> PyResult<Self> {
+		let segment_prefix = to_register(segment_prefix)?;
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_lodsd(address_size, segment_prefix, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP LODSD`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_lodsd(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_lodsd(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``LODSQ`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, segment_prefix, rep_prefix, /)"]
+	#[args(segment_prefix = 0, rep_prefix = 0)]
+	fn create_lodsq(address_size: u32, segment_prefix: u32, rep_prefix: u32) -> PyResult<Self> {
+		let segment_prefix = to_register(segment_prefix)?;
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_lodsq(address_size, segment_prefix, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP LODSQ`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_lodsq(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_lodsq(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``SCASB`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, rep_prefix, /)"]
+	#[args(rep_prefix = 0)]
+	fn create_scasb(address_size: u32, rep_prefix: u32) -> PyResult<Self> {
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_scasb(address_size, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REPE SCASB`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_repe_scasb(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_repe_scasb(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REPNE SCASB`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_repne_scasb(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_repne_scasb(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``SCASW`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, rep_prefix, /)"]
+	#[args(rep_prefix = 0)]
+	fn create_scasw(address_size: u32, rep_prefix: u32) -> PyResult<Self> {
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_scasw(address_size, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REPE SCASW`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_repe_scasw(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_repe_scasw(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REPNE SCASW`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_repne_scasw(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_repne_scasw(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``SCASD`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, rep_prefix, /)"]
+	#[args(rep_prefix = 0)]
+	fn create_scasd(address_size: u32, rep_prefix: u32) -> PyResult<Self> {
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_scasd(address_size, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REPE SCASD`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_repe_scasd(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_repe_scasd(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REPNE SCASD`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_repne_scasd(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_repne_scasd(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``SCASQ`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, rep_prefix, /)"]
+	#[args(rep_prefix = 0)]
+	fn create_scasq(address_size: u32, rep_prefix: u32) -> PyResult<Self> {
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_scasq(address_size, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REPE SCASQ`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_repe_scasq(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_repe_scasq(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REPNE SCASQ`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_repne_scasq(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_repne_scasq(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``INSB`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, rep_prefix, /)"]
+	#[args(rep_prefix = 0)]
+	fn create_insb(address_size: u32, rep_prefix: u32) -> PyResult<Self> {
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_insb(address_size, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP INSB`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_insb(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_insb(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``INSW`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, rep_prefix, /)"]
+	#[args(rep_prefix = 0)]
+	fn create_insw(address_size: u32, rep_prefix: u32) -> PyResult<Self> {
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_insw(address_size, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP INSW`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_insw(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_insw(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``INSD`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, rep_prefix, /)"]
+	#[args(rep_prefix = 0)]
+	fn create_insd(address_size: u32, rep_prefix: u32) -> PyResult<Self> {
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_insd(address_size, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP INSD`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_insd(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_insd(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``STOSB`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, rep_prefix, /)"]
+	#[args(rep_prefix = 0)]
+	fn create_stosb(address_size: u32, rep_prefix: u32) -> PyResult<Self> {
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_stosb(address_size, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP STOSB`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_stosb(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_stosb(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``STOSW`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, rep_prefix, /)"]
+	#[args(rep_prefix = 0)]
+	fn create_stosw(address_size: u32, rep_prefix: u32) -> PyResult<Self> {
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_stosw(address_size, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP STOSW`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_stosw(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_stosw(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``STOSD`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, rep_prefix, /)"]
+	#[args(rep_prefix = 0)]
+	fn create_stosd(address_size: u32, rep_prefix: u32) -> PyResult<Self> {
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_stosd(address_size, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP STOSD`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_stosd(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_stosd(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``STOSQ`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, rep_prefix, /)"]
+	#[args(rep_prefix = 0)]
+	fn create_stosq(address_size: u32, rep_prefix: u32) -> PyResult<Self> {
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_stosq(address_size, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP STOSQ`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_stosq(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_stosq(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``CMPSB`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, segment_prefix, rep_prefix, /)"]
+	#[args(segment_prefix = 0, rep_prefix = 0)]
+	fn create_cmpsb(address_size: u32, segment_prefix: u32, rep_prefix: u32) -> PyResult<Self> {
+		let segment_prefix = to_register(segment_prefix)?;
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_cmpsb(address_size, segment_prefix, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REPE CMPSB`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_repe_cmpsb(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_repe_cmpsb(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REPNE CMPSB`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_repne_cmpsb(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_repne_cmpsb(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``CMPSW`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, segment_prefix, rep_prefix, /)"]
+	#[args(segment_prefix = 0, rep_prefix = 0)]
+	fn create_cmpsw(address_size: u32, segment_prefix: u32, rep_prefix: u32) -> PyResult<Self> {
+		let segment_prefix = to_register(segment_prefix)?;
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_cmpsw(address_size, segment_prefix, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REPE CMPSW`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_repe_cmpsw(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_repe_cmpsw(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REPNE CMPSW`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_repne_cmpsw(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_repne_cmpsw(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``CMPSD`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, segment_prefix, rep_prefix, /)"]
+	#[args(segment_prefix = 0, rep_prefix = 0)]
+	fn create_cmpsd(address_size: u32, segment_prefix: u32, rep_prefix: u32) -> PyResult<Self> {
+		let segment_prefix = to_register(segment_prefix)?;
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_cmpsd(address_size, segment_prefix, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REPE CMPSD`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_repe_cmpsd(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_repe_cmpsd(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REPNE CMPSD`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_repne_cmpsd(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_repne_cmpsd(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``CMPSQ`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, segment_prefix, rep_prefix, /)"]
+	#[args(segment_prefix = 0, rep_prefix = 0)]
+	fn create_cmpsq(address_size: u32, segment_prefix: u32, rep_prefix: u32) -> PyResult<Self> {
+		let segment_prefix = to_register(segment_prefix)?;
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_cmpsq(address_size, segment_prefix, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REPE CMPSQ`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_repe_cmpsq(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_repe_cmpsq(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REPNE CMPSQ`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_repne_cmpsq(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_repne_cmpsq(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``MOVSB`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, segment_prefix, rep_prefix, /)"]
+	#[args(segment_prefix = 0, rep_prefix = 0)]
+	fn create_movsb(address_size: u32, segment_prefix: u32, rep_prefix: u32) -> PyResult<Self> {
+		let segment_prefix = to_register(segment_prefix)?;
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_movsb(address_size, segment_prefix, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP MOVSB`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_movsb(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_movsb(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``MOVSW`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, segment_prefix, rep_prefix, /)"]
+	#[args(segment_prefix = 0, rep_prefix = 0)]
+	fn create_movsw(address_size: u32, segment_prefix: u32, rep_prefix: u32) -> PyResult<Self> {
+		let segment_prefix = to_register(segment_prefix)?;
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_movsw(address_size, segment_prefix, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP MOVSW`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_movsw(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_movsw(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``MOVSD`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, segment_prefix, rep_prefix, /)"]
+	#[args(segment_prefix = 0, rep_prefix = 0)]
+	fn create_movsd(address_size: u32, segment_prefix: u32, rep_prefix: u32) -> PyResult<Self> {
+		let segment_prefix = to_register(segment_prefix)?;
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_movsd(address_size, segment_prefix, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP MOVSD`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_movsd(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_movsd(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``MOVSQ`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///     `rep_prefix` (:class:`RepPrefixKind`): Rep prefix or :class:`RepPrefixKind.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, segment_prefix, rep_prefix, /)"]
+	#[args(segment_prefix = 0, rep_prefix = 0)]
+	fn create_movsq(address_size: u32, segment_prefix: u32, rep_prefix: u32) -> PyResult<Self> {
+		let segment_prefix = to_register(segment_prefix)?;
+		let rep_prefix = to_rep_prefix_kind(rep_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_movsq(address_size, segment_prefix, rep_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``REP MOVSQ`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, /)"]
+	fn create_rep_movsq(address_size: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_rep_movsq(address_size).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``MASKMOVQ`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `register1` (:class:`Register`): Register
+	///     `register2` (:class:`Register`): Register
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, register1, register2, segment_prefix, /)"]
+	#[args(segment_prefix = 0)]
+	fn create_maskmovq(address_size: u32, register1: u32, register2: u32, segment_prefix: u32) -> PyResult<Self> {
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		let segment_prefix = to_register(segment_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_maskmovq(address_size, register1, register2, segment_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``MASKMOVDQU`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `register1` (:class:`Register`): Register
+	///     `register2` (:class:`Register`): Register
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, register1, register2, segment_prefix, /)"]
+	#[args(segment_prefix = 0)]
+	fn create_maskmovdqu(address_size: u32, register1: u32, register2: u32, segment_prefix: u32) -> PyResult<Self> {
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		let segment_prefix = to_register(segment_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_maskmovdqu(address_size, register1, register2, segment_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``VMASKMOVDQU`` instruction
+	///
+	/// Args:
+	///     `address_size` (int): (``u32``) 16, 32, or 64
+	///     `register1` (:class:`Register`): Register
+	///     `register2` (:class:`Register`): Register
+	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `address_size` is not one of 16, 32, 64.
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(address_size, register1, register2, segment_prefix, /)"]
+	#[args(segment_prefix = 0)]
+	fn create_vmaskmovdqu(address_size: u32, register1: u32, register2: u32, segment_prefix: u32) -> PyResult<Self> {
+		let register1 = to_register(register1)?;
+		let register2 = to_register(register2)?;
+		let segment_prefix = to_register(segment_prefix)?;
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_vmaskmovdqu(address_size, register1, register2, segment_prefix).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``db``/``.byte`` asm directive
+	///
+	/// Args:
+	///     `b0` (int): (``u8``) Byte 0
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(b0, /)"]
+	fn create_declare_byte_1(b0: u8) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_byte_1(b0).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``db``/``.byte`` asm directive
+	///
+	/// Args:
+	///     `b0` (int): (``u8``) Byte 0
+	///     `b1` (int): (``u8``) Byte 1
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(b0, b1, /)"]
+	fn create_declare_byte_2(b0: u8, b1: u8) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_byte_2(b0, b1).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``db``/``.byte`` asm directive
+	///
+	/// Args:
+	///     `b0` (int): (``u8``) Byte 0
+	///     `b1` (int): (``u8``) Byte 1
+	///     `b2` (int): (``u8``) Byte 2
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(b0, b1, b2, /)"]
+	fn create_declare_byte_3(b0: u8, b1: u8, b2: u8) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_byte_3(b0, b1, b2).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``db``/``.byte`` asm directive
+	///
+	/// Args:
+	///     `b0` (int): (``u8``) Byte 0
+	///     `b1` (int): (``u8``) Byte 1
+	///     `b2` (int): (``u8``) Byte 2
+	///     `b3` (int): (``u8``) Byte 3
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(b0, b1, b2, b3, /)"]
+	fn create_declare_byte_4(b0: u8, b1: u8, b2: u8, b3: u8) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_byte_4(b0, b1, b2, b3).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``db``/``.byte`` asm directive
+	///
+	/// Args:
+	///     `b0` (int): (``u8``) Byte 0
+	///     `b1` (int): (``u8``) Byte 1
+	///     `b2` (int): (``u8``) Byte 2
+	///     `b3` (int): (``u8``) Byte 3
+	///     `b4` (int): (``u8``) Byte 4
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(b0, b1, b2, b3, b4, /)"]
+	fn create_declare_byte_5(b0: u8, b1: u8, b2: u8, b3: u8, b4: u8) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_byte_5(b0, b1, b2, b3, b4).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``db``/``.byte`` asm directive
+	///
+	/// Args:
+	///     `b0` (int): (``u8``) Byte 0
+	///     `b1` (int): (``u8``) Byte 1
+	///     `b2` (int): (``u8``) Byte 2
+	///     `b3` (int): (``u8``) Byte 3
+	///     `b4` (int): (``u8``) Byte 4
+	///     `b5` (int): (``u8``) Byte 5
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(b0, b1, b2, b3, b4, b5, /)"]
+	fn create_declare_byte_6(b0: u8, b1: u8, b2: u8, b3: u8, b4: u8, b5: u8) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_byte_6(b0, b1, b2, b3, b4, b5).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``db``/``.byte`` asm directive
+	///
+	/// Args:
+	///     `b0` (int): (``u8``) Byte 0
+	///     `b1` (int): (``u8``) Byte 1
+	///     `b2` (int): (``u8``) Byte 2
+	///     `b3` (int): (``u8``) Byte 3
+	///     `b4` (int): (``u8``) Byte 4
+	///     `b5` (int): (``u8``) Byte 5
+	///     `b6` (int): (``u8``) Byte 6
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(b0, b1, b2, b3, b4, b5, b6, /)"]
+	fn create_declare_byte_7(b0: u8, b1: u8, b2: u8, b3: u8, b4: u8, b5: u8, b6: u8) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_byte_7(b0, b1, b2, b3, b4, b5, b6).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``db``/``.byte`` asm directive
+	///
+	/// Args:
+	///     `b0` (int): (``u8``) Byte 0
+	///     `b1` (int): (``u8``) Byte 1
+	///     `b2` (int): (``u8``) Byte 2
+	///     `b3` (int): (``u8``) Byte 3
+	///     `b4` (int): (``u8``) Byte 4
+	///     `b5` (int): (``u8``) Byte 5
+	///     `b6` (int): (``u8``) Byte 6
+	///     `b7` (int): (``u8``) Byte 7
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(b0, b1, b2, b3, b4, b5, b6, b7, /)"]
+	fn create_declare_byte_8(b0: u8, b1: u8, b2: u8, b3: u8, b4: u8, b5: u8, b6: u8, b7: u8) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_byte_8(b0, b1, b2, b3, b4, b5, b6, b7).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``db``/``.byte`` asm directive
+	///
+	/// Args:
+	///     `b0` (int): (``u8``) Byte 0
+	///     `b1` (int): (``u8``) Byte 1
+	///     `b2` (int): (``u8``) Byte 2
+	///     `b3` (int): (``u8``) Byte 3
+	///     `b4` (int): (``u8``) Byte 4
+	///     `b5` (int): (``u8``) Byte 5
+	///     `b6` (int): (``u8``) Byte 6
+	///     `b7` (int): (``u8``) Byte 7
+	///     `b8` (int): (``u8``) Byte 8
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(b0, b1, b2, b3, b4, b5, b6, b7, b8, /)"]
+	fn create_declare_byte_9(b0: u8, b1: u8, b2: u8, b3: u8, b4: u8, b5: u8, b6: u8, b7: u8, b8: u8) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_byte_9(b0, b1, b2, b3, b4, b5, b6, b7, b8).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``db``/``.byte`` asm directive
+	///
+	/// Args:
+	///     `b0` (int): (``u8``) Byte 0
+	///     `b1` (int): (``u8``) Byte 1
+	///     `b2` (int): (``u8``) Byte 2
+	///     `b3` (int): (``u8``) Byte 3
+	///     `b4` (int): (``u8``) Byte 4
+	///     `b5` (int): (``u8``) Byte 5
+	///     `b6` (int): (``u8``) Byte 6
+	///     `b7` (int): (``u8``) Byte 7
+	///     `b8` (int): (``u8``) Byte 8
+	///     `b9` (int): (``u8``) Byte 9
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, /)"]
+	fn create_declare_byte_10(b0: u8, b1: u8, b2: u8, b3: u8, b4: u8, b5: u8, b6: u8, b7: u8, b8: u8, b9: u8) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_byte_10(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``db``/``.byte`` asm directive
+	///
+	/// Args:
+	///     `b0` (int): (``u8``) Byte 0
+	///     `b1` (int): (``u8``) Byte 1
+	///     `b2` (int): (``u8``) Byte 2
+	///     `b3` (int): (``u8``) Byte 3
+	///     `b4` (int): (``u8``) Byte 4
+	///     `b5` (int): (``u8``) Byte 5
+	///     `b6` (int): (``u8``) Byte 6
+	///     `b7` (int): (``u8``) Byte 7
+	///     `b8` (int): (``u8``) Byte 8
+	///     `b9` (int): (``u8``) Byte 9
+	///     `b10` (int): (``u8``) Byte 10
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, /)"]
+	fn create_declare_byte_11(b0: u8, b1: u8, b2: u8, b3: u8, b4: u8, b5: u8, b6: u8, b7: u8, b8: u8, b9: u8, b10: u8) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_byte_11(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``db``/``.byte`` asm directive
+	///
+	/// Args:
+	///     `b0` (int): (``u8``) Byte 0
+	///     `b1` (int): (``u8``) Byte 1
+	///     `b2` (int): (``u8``) Byte 2
+	///     `b3` (int): (``u8``) Byte 3
+	///     `b4` (int): (``u8``) Byte 4
+	///     `b5` (int): (``u8``) Byte 5
+	///     `b6` (int): (``u8``) Byte 6
+	///     `b7` (int): (``u8``) Byte 7
+	///     `b8` (int): (``u8``) Byte 8
+	///     `b9` (int): (``u8``) Byte 9
+	///     `b10` (int): (``u8``) Byte 10
+	///     `b11` (int): (``u8``) Byte 11
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, /)"]
+	fn create_declare_byte_12(b0: u8, b1: u8, b2: u8, b3: u8, b4: u8, b5: u8, b6: u8, b7: u8, b8: u8, b9: u8, b10: u8, b11: u8) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_byte_12(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``db``/``.byte`` asm directive
+	///
+	/// Args:
+	///     `b0` (int): (``u8``) Byte 0
+	///     `b1` (int): (``u8``) Byte 1
+	///     `b2` (int): (``u8``) Byte 2
+	///     `b3` (int): (``u8``) Byte 3
+	///     `b4` (int): (``u8``) Byte 4
+	///     `b5` (int): (``u8``) Byte 5
+	///     `b6` (int): (``u8``) Byte 6
+	///     `b7` (int): (``u8``) Byte 7
+	///     `b8` (int): (``u8``) Byte 8
+	///     `b9` (int): (``u8``) Byte 9
+	///     `b10` (int): (``u8``) Byte 10
+	///     `b11` (int): (``u8``) Byte 11
+	///     `b12` (int): (``u8``) Byte 12
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, /)"]
+	fn create_declare_byte_13(b0: u8, b1: u8, b2: u8, b3: u8, b4: u8, b5: u8, b6: u8, b7: u8, b8: u8, b9: u8, b10: u8, b11: u8, b12: u8) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_byte_13(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``db``/``.byte`` asm directive
+	///
+	/// Args:
+	///     `b0` (int): (``u8``) Byte 0
+	///     `b1` (int): (``u8``) Byte 1
+	///     `b2` (int): (``u8``) Byte 2
+	///     `b3` (int): (``u8``) Byte 3
+	///     `b4` (int): (``u8``) Byte 4
+	///     `b5` (int): (``u8``) Byte 5
+	///     `b6` (int): (``u8``) Byte 6
+	///     `b7` (int): (``u8``) Byte 7
+	///     `b8` (int): (``u8``) Byte 8
+	///     `b9` (int): (``u8``) Byte 9
+	///     `b10` (int): (``u8``) Byte 10
+	///     `b11` (int): (``u8``) Byte 11
+	///     `b12` (int): (``u8``) Byte 12
+	///     `b13` (int): (``u8``) Byte 13
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, /)"]
+	fn create_declare_byte_14(b0: u8, b1: u8, b2: u8, b3: u8, b4: u8, b5: u8, b6: u8, b7: u8, b8: u8, b9: u8, b10: u8, b11: u8, b12: u8, b13: u8) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_byte_14(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``db``/``.byte`` asm directive
+	///
+	/// Args:
+	///     `b0` (int): (``u8``) Byte 0
+	///     `b1` (int): (``u8``) Byte 1
+	///     `b2` (int): (``u8``) Byte 2
+	///     `b3` (int): (``u8``) Byte 3
+	///     `b4` (int): (``u8``) Byte 4
+	///     `b5` (int): (``u8``) Byte 5
+	///     `b6` (int): (``u8``) Byte 6
+	///     `b7` (int): (``u8``) Byte 7
+	///     `b8` (int): (``u8``) Byte 8
+	///     `b9` (int): (``u8``) Byte 9
+	///     `b10` (int): (``u8``) Byte 10
+	///     `b11` (int): (``u8``) Byte 11
+	///     `b12` (int): (``u8``) Byte 12
+	///     `b13` (int): (``u8``) Byte 13
+	///     `b14` (int): (``u8``) Byte 14
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, /)"]
+	fn create_declare_byte_15(b0: u8, b1: u8, b2: u8, b3: u8, b4: u8, b5: u8, b6: u8, b7: u8, b8: u8, b9: u8, b10: u8, b11: u8, b12: u8, b13: u8, b14: u8) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_byte_15(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``db``/``.byte`` asm directive
+	///
+	/// Args:
+	///     `b0` (int): (``u8``) Byte 0
+	///     `b1` (int): (``u8``) Byte 1
+	///     `b2` (int): (``u8``) Byte 2
+	///     `b3` (int): (``u8``) Byte 3
+	///     `b4` (int): (``u8``) Byte 4
+	///     `b5` (int): (``u8``) Byte 5
+	///     `b6` (int): (``u8``) Byte 6
+	///     `b7` (int): (``u8``) Byte 7
+	///     `b8` (int): (``u8``) Byte 8
+	///     `b9` (int): (``u8``) Byte 9
+	///     `b10` (int): (``u8``) Byte 10
+	///     `b11` (int): (``u8``) Byte 11
+	///     `b12` (int): (``u8``) Byte 12
+	///     `b13` (int): (``u8``) Byte 13
+	///     `b14` (int): (``u8``) Byte 14
+	///     `b15` (int): (``u8``) Byte 15
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, /)"]
+	fn create_declare_byte_16(b0: u8, b1: u8, b2: u8, b3: u8, b4: u8, b5: u8, b6: u8, b7: u8, b8: u8, b9: u8, b10: u8, b11: u8, b12: u8, b13: u8, b14: u8, b15: u8) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_byte_16(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``db``/``.byte`` asm directive
+	///
+	/// Args:
+	///     `data` (bytes, bytearray): Data
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	///
+	/// Raises:
+	///     ValueError: If `len(data)` is not 1-16
+	///     TypeError: If `data` is not a supported type
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(data, /)"]
+	fn create_declare_byte(data: &PyAny) -> PyResult<Self> {
+		let data = unsafe { get_temporary_byte_array_ref(data)? };
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_byte(data).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``dw``/``.word`` asm directive
+	///
+	/// Args:
+	///     `w0` (int): (``u16``) Word 0
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(w0, /)"]
+	fn create_declare_word_1(w0: u16) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_word_1(w0).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``dw``/``.word`` asm directive
+	///
+	/// Args:
+	///     `w0` (int): (``u16``) Word 0
+	///     `w1` (int): (``u16``) Word 1
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(w0, w1, /)"]
+	fn create_declare_word_2(w0: u16, w1: u16) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_word_2(w0, w1).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``dw``/``.word`` asm directive
+	///
+	/// Args:
+	///     `w0` (int): (``u16``) Word 0
+	///     `w1` (int): (``u16``) Word 1
+	///     `w2` (int): (``u16``) Word 2
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(w0, w1, w2, /)"]
+	fn create_declare_word_3(w0: u16, w1: u16, w2: u16) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_word_3(w0, w1, w2).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``dw``/``.word`` asm directive
+	///
+	/// Args:
+	///     `w0` (int): (``u16``) Word 0
+	///     `w1` (int): (``u16``) Word 1
+	///     `w2` (int): (``u16``) Word 2
+	///     `w3` (int): (``u16``) Word 3
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(w0, w1, w2, w3, /)"]
+	fn create_declare_word_4(w0: u16, w1: u16, w2: u16, w3: u16) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_word_4(w0, w1, w2, w3).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``dw``/``.word`` asm directive
+	///
+	/// Args:
+	///     `w0` (int): (``u16``) Word 0
+	///     `w1` (int): (``u16``) Word 1
+	///     `w2` (int): (``u16``) Word 2
+	///     `w3` (int): (``u16``) Word 3
+	///     `w4` (int): (``u16``) Word 4
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(w0, w1, w2, w3, w4, /)"]
+	fn create_declare_word_5(w0: u16, w1: u16, w2: u16, w3: u16, w4: u16) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_word_5(w0, w1, w2, w3, w4).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``dw``/``.word`` asm directive
+	///
+	/// Args:
+	///     `w0` (int): (``u16``) Word 0
+	///     `w1` (int): (``u16``) Word 1
+	///     `w2` (int): (``u16``) Word 2
+	///     `w3` (int): (``u16``) Word 3
+	///     `w4` (int): (``u16``) Word 4
+	///     `w5` (int): (``u16``) Word 5
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(w0, w1, w2, w3, w4, w5, /)"]
+	fn create_declare_word_6(w0: u16, w1: u16, w2: u16, w3: u16, w4: u16, w5: u16) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_word_6(w0, w1, w2, w3, w4, w5).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``dw``/``.word`` asm directive
+	///
+	/// Args:
+	///     `w0` (int): (``u16``) Word 0
+	///     `w1` (int): (``u16``) Word 1
+	///     `w2` (int): (``u16``) Word 2
+	///     `w3` (int): (``u16``) Word 3
+	///     `w4` (int): (``u16``) Word 4
+	///     `w5` (int): (``u16``) Word 5
+	///     `w6` (int): (``u16``) Word 6
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(w0, w1, w2, w3, w4, w5, w6, /)"]
+	fn create_declare_word_7(w0: u16, w1: u16, w2: u16, w3: u16, w4: u16, w5: u16, w6: u16) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_word_7(w0, w1, w2, w3, w4, w5, w6).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``dw``/``.word`` asm directive
+	///
+	/// Args:
+	///     `w0` (int): (``u16``) Word 0
+	///     `w1` (int): (``u16``) Word 1
+	///     `w2` (int): (``u16``) Word 2
+	///     `w3` (int): (``u16``) Word 3
+	///     `w4` (int): (``u16``) Word 4
+	///     `w5` (int): (``u16``) Word 5
+	///     `w6` (int): (``u16``) Word 6
+	///     `w7` (int): (``u16``) Word 7
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(w0, w1, w2, w3, w4, w5, w6, w7, /)"]
+	fn create_declare_word_8(w0: u16, w1: u16, w2: u16, w3: u16, w4: u16, w5: u16, w6: u16, w7: u16) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_word_8(w0, w1, w2, w3, w4, w5, w6, w7).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``dd``/``.int`` asm directive
+	///
+	/// Args:
+	///     `d0` (int): (``u32``) Dword 0
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(d0, /)"]
+	fn create_declare_dword_1(d0: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_dword_1(d0).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``dd``/``.int`` asm directive
+	///
+	/// Args:
+	///     `d0` (int): (``u32``) Dword 0
+	///     `d1` (int): (``u32``) Dword 1
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(d0, d1, /)"]
+	fn create_declare_dword_2(d0: u32, d1: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_dword_2(d0, d1).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``dd``/``.int`` asm directive
+	///
+	/// Args:
+	///     `d0` (int): (``u32``) Dword 0
+	///     `d1` (int): (``u32``) Dword 1
+	///     `d2` (int): (``u32``) Dword 2
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(d0, d1, d2, /)"]
+	fn create_declare_dword_3(d0: u32, d1: u32, d2: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_dword_3(d0, d1, d2).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``dd``/``.int`` asm directive
+	///
+	/// Args:
+	///     `d0` (int): (``u32``) Dword 0
+	///     `d1` (int): (``u32``) Dword 1
+	///     `d2` (int): (``u32``) Dword 2
+	///     `d3` (int): (``u32``) Dword 3
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(d0, d1, d2, d3, /)"]
+	fn create_declare_dword_4(d0: u32, d1: u32, d2: u32, d3: u32) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_dword_4(d0, d1, d2, d3).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``dq``/``.quad`` asm directive
+	///
+	/// Args:
+	///     `q0` (int): (``u64``) Qword 0
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(q0, /)"]
+	fn create_declare_qword_1(q0: u64) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_qword_1(q0).map_err(to_value_error)? })
+	}
+
+	/// Creates a ``dq``/``.quad`` asm directive
+	///
+	/// Args:
+	///     `q0` (int): (``u64``) Qword 0
+	///     `q1` (int): (``u64``) Qword 1
+	///
+	/// Returns:
+	///     :class:`Instruction`: Created instruction
+	#[rustfmt::skip]
+	#[staticmethod]
+	#[text_signature = "(q0, q1, /)"]
+	fn create_declare_qword_2(q0: u64, q1: u64) -> PyResult<Self> {
+		Ok(Instruction { instr: iced_x86::Instruction::try_with_declare_qword_2(q0, q1).map_err(to_value_error)? })
+	}
+	// GENERATOR-END: Create
 }

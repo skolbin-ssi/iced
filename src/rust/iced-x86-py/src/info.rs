@@ -41,13 +41,13 @@ pub(crate) struct UsedRegister {
 impl UsedRegister {
 	/// :class:`Register`: Gets the register
 	#[getter]
-	pub fn register(&self) -> u32 {
+	fn register(&self) -> u32 {
 		self.info.register() as u32
 	}
 
 	/// :class:`OpAccess`: Gets the register access
 	#[getter]
-	pub fn access(&self) -> u32 {
+	fn access(&self) -> u32 {
 		self.info.access() as u32
 	}
 
@@ -63,6 +63,9 @@ impl UsedRegister {
 	}
 
 	/// Returns a copy of this instance.
+	///
+	/// Args:
+	///     memo (Any): memo dict
 	///
 	/// Returns:
 	///     UsedRegister: A copy of this instance
@@ -111,61 +114,61 @@ pub(crate) struct UsedMemory {
 impl UsedMemory {
 	/// :class:`Register`: Effective segment register or :class:`Register.NONE` if the segment register is ignored
 	#[getter]
-	pub fn segment(&self) -> u32 {
+	fn segment(&self) -> u32 {
 		self.info.segment() as u32
 	}
 
 	/// :class:`Register`: Base register or :class:`Register.NONE` if none
 	#[getter]
-	pub fn base(&self) -> u32 {
+	fn base(&self) -> u32 {
 		self.info.base() as u32
 	}
 
 	/// :class:`Register`: Index register or :class:`Register.NONE` if none
 	#[getter]
-	pub fn index(&self) -> u32 {
+	fn index(&self) -> u32 {
 		self.info.index() as u32
 	}
 
 	/// int: Index scale (1, 2, 4 or 8)
 	#[getter]
-	pub fn scale(&self) -> u32 {
+	fn scale(&self) -> u32 {
 		self.info.scale()
 	}
 
 	/// int: (``u64``) Displacement
 	#[getter]
-	pub fn displacement(&self) -> u64 {
+	fn displacement(&self) -> u64 {
 		self.info.displacement()
 	}
 
 	/// int: (``i64``) Displacement
 	#[getter]
-	pub fn displacement_i64(&self) -> i64 {
+	fn displacement_i64(&self) -> i64 {
 		self.info.displacement() as i64
 	}
 
 	/// :class:`MemorySize`: Size of location (enum value)
 	#[getter]
-	pub fn memory_size(&self) -> u32 {
+	fn memory_size(&self) -> u32 {
 		self.info.memory_size() as u32
 	}
 
 	/// :class:`OpAccess`: Memory access
 	#[getter]
-	pub fn access(&self) -> u32 {
+	fn access(&self) -> u32 {
 		self.info.access() as u32
 	}
 
 	/// :class:`CodeSize`: Address size
 	#[getter]
-	pub fn address_size(&self) -> u32 {
+	fn address_size(&self) -> u32 {
 		self.info.address_size() as u32
 	}
 
 	/// int: VSIB size (`0`, `4` or `8`)
 	#[getter]
-	pub fn vsib_size(&self) -> u32 {
+	fn vsib_size(&self) -> u32 {
 		self.info.vsib_size()
 	}
 
@@ -181,6 +184,9 @@ impl UsedMemory {
 	}
 
 	/// Returns a copy of this instance.
+	///
+	/// Args:
+	///     memo (Any): memo dict
 	///
 	/// Returns:
 	///     UsedMemory: A copy of this instance
@@ -230,48 +236,54 @@ impl InstructionInfo {
 	///
 	/// This method doesn't return all accessed registers if :class:`Instruction.is_save_restore_instruction` is ``True``.
 	///
+	/// Returns:
+	///     List[UsedRegister]: All accessed registers
+	///
 	/// Some instructions have a ``r16``/``r32`` operand but only use the low 8 bits of the register. In that case
 	/// this method returns the 8-bit register even if it's ``SPL``, ``BPL``, ``SIL``, ``DIL`` and the
 	/// instruction was decoded in 16 or 32-bit mode. This is more accurate than returning the ``r16``/``r32``
 	/// register. Example instructions that do this: ``PINSRB``, ``ARPL``
 	#[text_signature = "($self, /)"]
-	pub fn used_registers(&self) -> Vec<UsedRegister> {
+	fn used_registers(&self) -> Vec<UsedRegister> {
 		self.info.used_registers().iter().map(|a| UsedRegister { info: *a }).collect()
 	}
 
 	/// Gets all accessed memory locations
+	///
+	/// Returns:
+	///     List[UsedMemory]: All accessed memory locations
 	#[text_signature = "($self, /)"]
-	pub fn used_memory(&self) -> Vec<UsedMemory> {
+	fn used_memory(&self) -> Vec<UsedMemory> {
 		self.info.used_memory().iter().map(|a| UsedMemory { info: *a }).collect()
 	}
 
 	/// :class:`OpAccess`: Operand #0 access
 	#[getter]
-	pub fn op0_access(&self) -> u32 {
+	fn op0_access(&self) -> u32 {
 		self.info.op0_access() as u32
 	}
 
 	/// :class:`OpAccess`: Operand #1 access
 	#[getter]
-	pub fn op1_access(&self) -> u32 {
+	fn op1_access(&self) -> u32 {
 		self.info.op1_access() as u32
 	}
 
 	/// :class:`OpAccess`: Operand #2 access
 	#[getter]
-	pub fn op2_access(&self) -> u32 {
+	fn op2_access(&self) -> u32 {
 		self.info.op2_access() as u32
 	}
 
 	/// :class:`OpAccess`: Operand #3 access
 	#[getter]
-	pub fn op3_access(&self) -> u32 {
+	fn op3_access(&self) -> u32 {
 		self.info.op3_access() as u32
 	}
 
 	/// :class:`OpAccess`: Operand #4 access
 	#[getter]
-	pub fn op4_access(&self) -> u32 {
+	fn op4_access(&self) -> u32 {
 		self.info.op4_access() as u32
 	}
 
@@ -286,7 +298,7 @@ impl InstructionInfo {
 	/// Raises:
 	///     ValueError: If `operand` is invalid
 	#[text_signature = "($self, operand, /)"]
-	pub fn op_access(&self, operand: u32) -> PyResult<u32> {
+	fn op_access(&self, operand: u32) -> PyResult<u32> {
 		if operand >= IcedConstants::MAX_OP_COUNT as u32 {
 			Err(PyValueError::new_err("Invalid operand"))
 		} else {
@@ -307,6 +319,13 @@ impl InstructionInfo {
 ///     data = b"\x42\x01\xB4\xE7\x34\x12\x5A\xA5"
 ///     decoder = Decoder(64, data)
 ///
+///     def create_enum_dict(module):
+///         return {module.__dict__[key]:key for key in module.__dict__ if isinstance(module.__dict__[key], int)}
+///
+///     reg_to_str = create_enum_dict(Register)
+///     op_access_to_str = create_enum_dict(OpAccess)
+///     memsz_to_str = create_enum_dict(MemorySize)
+///
 ///     info_factory = InstructionInfoFactory()
 ///     for instr in decoder:
 ///         print(f"Instruction: {instr}")
@@ -316,16 +335,16 @@ impl InstructionInfo {
 ///         for mem_info in info.used_memory():
 ///             # Register and OpAccess enum values
 ///             print(f"Used memory:")
-///             print(f"  seg: {mem_info.segment} (Register enum)")
-///             print(f"  base: {mem_info.base} (Register enum)")
-///             print(f"  index: {mem_info.index} (Register enum)")
+///             print(f"  seg: {reg_to_str[mem_info.segment]}")
+///             print(f"  base: {reg_to_str[mem_info.base]}")
+///             print(f"  index: {reg_to_str[mem_info.index]}")
 ///             print(f"  scale: {mem_info.scale}")
 ///             print(f"  displacement: 0x{mem_info.displacement:X}")
-///             print(f"  MemorySize enum: {mem_info.memory_size}")
-///             print(f"  OpAccess enum: {mem_info.access}")
+///             print(f"  MemorySize enum: {memsz_to_str[mem_info.memory_size]}")
+///             print(f"  OpAccess enum: {op_access_to_str[mem_info.access]}")
 ///
 ///         for reg_info in info.used_registers():
-///             print(f"Used register: reg={reg_info.register} (Register enum) access={reg_info.access} (OpAccess enum)")
+///             print(f"Used register: reg={reg_to_str[reg_info.register]} access={op_access_to_str[reg_info.access]}")
 ///
 /// Output:
 ///
@@ -333,16 +352,16 @@ impl InstructionInfo {
 ///
 ///     Instruction: add [rdi+r12*8-5AA5EDCCh],esi
 ///     Used memory:
-///       seg: 74 (Register enum)
-///       base: 60 (Register enum)
-///       index: 65 (Register enum)
+///       seg: DS
+///       base: RDI
+///       index: R12
 ///       scale: 8
 ///       displacement: 0xFFFFFFFFA55A1234
-///       MemorySize enum: 3
-///       OpAccess enum: 5
-///     Used register: reg=60 (Register enum) access=1 (OpAccess enum)
-///     Used register: reg=65 (Register enum) access=1 (OpAccess enum)
-///     Used register: reg=43 (Register enum) access=1 (OpAccess enum)
+///       MemorySize enum: UINT32
+///       OpAccess enum: READ_WRITE
+///     Used register: reg=RDI access=READ
+///     Used register: reg=R12 access=READ
+///     Used register: reg=ESI access=READ
 #[pyclass(module = "_iced_x86_py")]
 #[text_signature = "(/)"]
 pub(crate) struct InstructionInfoFactory {
@@ -398,7 +417,7 @@ impl InstructionInfoFactory {
 	///     assert regs[2].register == Register.ESI
 	///     assert regs[2].access == OpAccess.READ
 	#[text_signature = "($self, instruction, /)"]
-	pub fn info(&mut self, instruction: &Instruction) -> InstructionInfo {
+	fn info(&mut self, instruction: &Instruction) -> InstructionInfo {
 		InstructionInfo { info: self.info.info(&instruction.instr).clone() }
 	}
 }
