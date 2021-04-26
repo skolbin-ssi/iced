@@ -1,29 +1,9 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::super::super::iced_error::IcedError;
-use super::super::*;
-use super::*;
+use crate::block_enc::instr::*;
+use crate::block_enc::*;
+use crate::iced_error::IcedError;
 use core::cell::RefCell;
 use core::{cmp, i32, i8, u32};
 
@@ -155,9 +135,7 @@ impl SimpleBranchInstr {
 		}
 
 		if self.pointer_data.is_none() {
-			// Temp needed if rustc < 1.36.0 (2015 edition)
-			let tmp = Rc::clone(&self.block);
-			self.pointer_data = Some(tmp.borrow_mut().alloc_pointer_location());
+			self.pointer_data = Some(Rc::clone(&self.block).borrow_mut().alloc_pointer_location());
 		}
 		self.instr_kind = InstrKind::Long;
 		false
@@ -231,13 +209,11 @@ impl Instr for SimpleBranchInstr {
 		let instr_len;
 		match self.instr_kind {
 			InstrKind::Unchanged | InstrKind::Short => {
-				// Temp needed if rustc < 1.36.0 (2015 edition)
-				let tmp = self.target_instr.address(self);
-				self.instruction.set_near_branch64(tmp);
-				match block.encoder.encode(&self.instruction, self.ip) {
-					Err(err) => Err(IcedError::with_string(InstrUtils::create_error_message(&err, &self.instruction))),
-					Ok(_) => Ok((block.encoder.get_constant_offsets(), true)),
-				}
+				self.instruction.set_near_branch64(self.target_instr.address(self));
+				block.encoder.encode(&self.instruction, self.ip).map_or_else(
+					|err| Err(IcedError::with_string(InstrUtils::create_error_message(&err, &self.instruction))),
+					|_| Ok((block.encoder.get_constant_offsets(), true)),
+				)
 			}
 
 			InstrKind::Near => {
@@ -251,10 +227,10 @@ impl Instr for SimpleBranchInstr {
 				instr = self.instruction;
 				instr.set_code(self.native_code);
 				instr.set_near_branch64(self.ip.wrapping_add(self.native_instruction_size as u64).wrapping_add(2));
-				size = match block.encoder.encode(&instr, self.ip) {
-					Err(err) => return Err(IcedError::with_string(InstrUtils::create_error_message(&err, &self.instruction))),
-					Ok(len) => len as u32,
-				};
+				size = block
+					.encoder
+					.encode(&instr, self.ip)
+					.map_err(|err| IcedError::with_string(InstrUtils::create_error_message(&err, &self.instruction)))? as u32;
 
 				instr = Instruction::default();
 				instr.set_near_branch64(self.ip.wrapping_add(self.near_instruction_size as u64));
@@ -279,24 +255,24 @@ impl Instr for SimpleBranchInstr {
 
 					_ => unreachable!(),
 				};
-				instr_len = match block.encoder.encode(&instr, self.ip.wrapping_add(size as u64)) {
-					Err(err) => return Err(IcedError::with_string(InstrUtils::create_error_message(&err, &self.instruction))),
-					Ok(len) => len as u32,
-				};
+				instr_len = block
+					.encoder
+					.encode(&instr, self.ip.wrapping_add(size as u64))
+					.map_err(|err| IcedError::with_string(InstrUtils::create_error_message(&err, &self.instruction)))? as u32;
 				size += instr_len;
 
 				instr.set_code(code_near);
 				instr.set_near_branch64(self.target_instr.address(self));
-				match block.encoder.encode(&instr, self.ip.wrapping_add(size as u64)) {
-					Err(err) => Err(IcedError::with_string(InstrUtils::create_error_message(&err, &self.instruction))),
-					Ok(_) => Ok((ConstantOffsets::default(), false)),
-				}
+				block.encoder.encode(&instr, self.ip.wrapping_add(size as u64)).map_or_else(
+					|err| Err(IcedError::with_string(InstrUtils::create_error_message(&err, &self.instruction))),
+					|_| Ok((ConstantOffsets::default(), false)),
+				)
 			}
 
 			InstrKind::Long => {
-				debug_assert_eq!(64, block.encoder.bitness());
+				debug_assert_eq!(block.encoder.bitness(), 64);
 				debug_assert!(self.pointer_data.is_some());
-				let pointer_data = self.pointer_data.clone().unwrap();
+				let pointer_data = self.pointer_data.clone().ok_or_else(|| IcedError::new("Internal error"))?;
 				pointer_data.borrow_mut().data = self.target_instr.address(self);
 
 				// Code:
@@ -309,10 +285,10 @@ impl Instr for SimpleBranchInstr {
 				instr = self.instruction;
 				instr.set_code(self.native_code);
 				instr.set_near_branch64(self.ip.wrapping_add(self.native_instruction_size as u64).wrapping_add(2));
-				size = match block.encoder.encode(&instr, self.ip) {
-					Err(err) => return Err(IcedError::with_string(InstrUtils::create_error_message(&err, &self.instruction))),
-					Ok(len) => len as u32,
-				};
+				size = block
+					.encoder
+					.encode(&instr, self.ip)
+					.map_err(|err| IcedError::with_string(InstrUtils::create_error_message(&err, &self.instruction)))? as u32;
 
 				instr = Instruction::default();
 				instr.set_near_branch64(self.ip.wrapping_add(self.long_instruction_size as u64));
@@ -334,22 +310,17 @@ impl Instr for SimpleBranchInstr {
 
 					_ => unreachable!(),
 				}
-				instr_len = match block.encoder.encode(&instr, self.ip.wrapping_add(size as u64)) {
-					Err(err) => return Err(IcedError::with_string(InstrUtils::create_error_message(&err, &self.instruction))),
-					Ok(len) => len as u32,
-				};
+				instr_len = block
+					.encoder
+					.encode(&instr, self.ip.wrapping_add(size as u64))
+					.map_err(|err| IcedError::with_string(InstrUtils::create_error_message(&err, &self.instruction)))? as u32;
 				size += instr_len;
 
-				match InstrUtils::encode_branch_to_pointer_data(
-					block,
-					false,
-					self.ip.wrapping_add(size as u64),
-					pointer_data,
-					self.size.wrapping_sub(size),
-				) {
-					Ok(_) => Ok((ConstantOffsets::default(), false)),
-					Err(err) => Err(IcedError::with_string(InstrUtils::create_error_message(&err, &self.instruction))),
-				}
+				InstrUtils::encode_branch_to_pointer_data(block, false, self.ip.wrapping_add(size as u64), pointer_data, self.size.wrapping_sub(size))
+					.map_or_else(
+						|err| Err(IcedError::with_string(InstrUtils::create_error_message(&err, &self.instruction))),
+						|_| Ok((ConstantOffsets::default(), false)),
+					)
 			}
 
 			InstrKind::Uninitialized => unreachable!(),

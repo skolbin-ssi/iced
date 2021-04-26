@@ -1,12 +1,12 @@
 [package]
 name = "iced-x86"
 # The version number can't be the same as iced-x86's version number or cargo build will fail
-version = "1.10.1000"
-authors = ["0xd4d <de4dot@gmail.com>"]
+version = "1.11.1000"
+authors = ["iced project and contributors <https://github.com/icedland>"]
 license = "MIT"
-description = "iced-x86 is a high performance and correct x86/x64 disassembler, assembler and instruction decoder written in Rust and compiled to WebAssembly"
-homepage = "https://github.com/0xd4d/iced"
-repository = "https://github.com/0xd4d/iced"
+description = "iced-x86 is a blazing fast and correct x86/x64 disassembler, assembler and instruction decoder written in Rust and compiled to WebAssembly"
+homepage = "https://github.com/icedland/iced"
+repository = "https://github.com/icedland/iced"
 readme = "README.md"
 keywords = ["disassembler", "javascript", "assembler", "x86", "amd64"]
 categories = ["wasm", "development-tools::debugging", "encoding", "hardware-support"]
@@ -40,8 +40,7 @@ no_d3now = ["iced-x86-rust/no_d3now"]
 
 [dependencies]
 static_assertions = "1.1.0"
-#TODO: force version 0.2.65, see https://github.com/rustwasm/wasm-pack/issues/886
-wasm-bindgen = { version = "=0.2.65", features = ["strict-macro"] }
+wasm-bindgen = { version = "0.2.70", features = ["strict-macro"] }
 js-sys = "0.3.37"
 
 [dependencies.iced-x86-rust]

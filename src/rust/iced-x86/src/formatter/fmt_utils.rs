@@ -1,36 +1,16 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::super::{Code, Instruction, Register};
-use super::enums::{FormatterFlowControl, PrefixKind};
-use super::enums_shared::FormatterTextKind;
-use super::fmt_utils_all::{show_rep_or_repe_prefix_bool, show_repne_prefix_bool, show_segment_prefix_bool};
-use super::{FormatterOptions, FormatterOutput};
-#[cfg(not(feature = "std"))]
+use crate::formatter::enums::{FormatterFlowControl, PrefixKind};
+use crate::formatter::enums_shared::FormatterTextKind;
+use crate::formatter::fmt_utils_all::{show_rep_or_repe_prefix_bool, show_repne_prefix_bool, show_segment_prefix_bool};
+use crate::formatter::{FormatterOptions, FormatterOutput};
+use crate::{Code, Instruction, Register};
 use alloc::string::String;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::{cmp, mem};
+use lazy_static::lazy_static;
+use static_assertions::const_assert_eq;
 
 lazy_static! {
 	static ref SPACES_TABLE: Vec<String> = create_strings(' ', 20);
@@ -47,12 +27,12 @@ fn create_strings(c: char, cap: usize) -> Vec<String> {
 		v.push(s.clone());
 	}
 	s.push(c);
-	assert_eq!(cap, s.len());
+	debug_assert_eq!(s.len(), cap);
 	v.push(s);
 	v
 }
 
-pub(super) fn add_tabs(output: &mut FormatterOutput, mut column: u32, mut first_operand_char_index: u32, tab_size: u32) {
+pub(super) fn add_tabs(output: &mut dyn FormatterOutput, mut column: u32, mut first_operand_char_index: u32, tab_size: u32) {
 	const MAX_FIRST_OPERAND_CHAR_INDEX: u32 = 256;
 	first_operand_char_index = cmp::min(first_operand_char_index, MAX_FIRST_OPERAND_CHAR_INDEX);
 
@@ -76,7 +56,7 @@ pub(super) fn add_tabs(output: &mut FormatterOutput, mut column: u32, mut first_
 	}
 }
 
-fn add_strings(output: &mut FormatterOutput, strings: &[String], count: u32) {
+fn add_strings(output: &mut dyn FormatterOutput, strings: &[String], count: u32) {
 	let mut count = count as usize;
 	while count > 0 {
 		let n = cmp::min(count, strings.len());
@@ -85,13 +65,13 @@ fn add_strings(output: &mut FormatterOutput, strings: &[String], count: u32) {
 	}
 }
 
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 #[inline]
 pub(super) fn is_call(kind: FormatterFlowControl) -> bool {
 	kind == FormatterFlowControl::NearCall || kind == FormatterFlowControl::FarCall
 }
 
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 pub(super) fn get_flow_control(instruction: &Instruction) -> FormatterFlowControl {
 	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
 	match instruction.code() {
@@ -258,7 +238,7 @@ pub(super) fn show_repne_prefix(code: Code, options: &FormatterOptions) -> bool 
 	show_repne_prefix_bool(code, options.show_useless_prefixes())
 }
 
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 #[inline]
 pub(super) fn get_segment_register_prefix_kind(register: Register) -> PrefixKind {
 	debug_assert!(
@@ -269,11 +249,12 @@ pub(super) fn get_segment_register_prefix_kind(register: Register) -> PrefixKind
 			|| register == Register::FS
 			|| register == Register::GS
 	);
-	const_assert_eq!(PrefixKind::CS as u32, PrefixKind::ES as u32 + 1);
-	const_assert_eq!(PrefixKind::SS as u32, PrefixKind::ES as u32 + 2);
-	const_assert_eq!(PrefixKind::DS as u32, PrefixKind::ES as u32 + 3);
-	const_assert_eq!(PrefixKind::FS as u32, PrefixKind::ES as u32 + 4);
-	const_assert_eq!(PrefixKind::GS as u32, PrefixKind::ES as u32 + 5);
+	const_assert_eq!(PrefixKind::ES as u32 + 1, PrefixKind::CS as u32);
+	const_assert_eq!(PrefixKind::ES as u32 + 2, PrefixKind::SS as u32);
+	const_assert_eq!(PrefixKind::ES as u32 + 3, PrefixKind::DS as u32);
+	const_assert_eq!(PrefixKind::ES as u32 + 4, PrefixKind::FS as u32);
+	const_assert_eq!(PrefixKind::ES as u32 + 5, PrefixKind::GS as u32);
+	// SAFETY: callers only pass in a valid segment register (ES,CS,SS,DS,FS,GS)
 	unsafe { mem::transmute(((register as u32 - Register::ES as u32) + PrefixKind::ES as u32) as u8) }
 }
 

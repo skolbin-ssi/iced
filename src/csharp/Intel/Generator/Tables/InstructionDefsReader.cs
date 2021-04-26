@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 using System;
 using System.Collections.Generic;
@@ -1610,20 +1590,6 @@ namespace Generator.Tables {
 			return true;
 		}
 
-		static bool TryGetMoffsIndex(InstructionDefState def, out int addrIndex, [NotNullWhen(false)] out string? error) {
-			if (def.OpKinds.Length > 0 && def.OpKinds[0].OperandEncoding == OperandEncoding.MemOffset)
-				addrIndex = 0;
-			else if (def.OpKinds.Length > 1 && def.OpKinds[1].OperandEncoding == OperandEncoding.MemOffset)
-				addrIndex = 1;
-			else {
-				addrIndex = -1;
-				error = "1st or 2nd operand must be `mem_offs`";
-				return false;
-			}
-			error = null;
-			return true;
-		}
-
 		static bool TryGetBooleanArg(FmtLineParser parser, string name, out bool result, [NotNullWhen(false)] out string? error) {
 			if (parser.TryGetNext(out var next)) {
 				if (next == name)
@@ -1863,10 +1829,7 @@ namespace Generator.Tables {
 
 				case "movabs":
 					result.CtorKind = gasCtorKind[nameof(Enums.Formatter.Gas.CtorKind.movabs)];
-					if (!TryGetMoffsIndex(def, out var addrIndex, out error))
-						return false;
 					result.Args.Add(result.GetUsedSuffix());
-					result.Args.Add(addrIndex);
 					result.Args.Add("movabs");
 					break;
 
@@ -2245,9 +2208,6 @@ namespace Generator.Tables {
 
 				case "movabs":
 					result.CtorKind = intelCtorKind[nameof(Enums.Formatter.Intel.CtorKind.movabs)];
-					if (!TryGetMoffsIndex(def, out var addrIndex, out error))
-						return false;
-					result.Args.Add(addrIndex);
 					break;
 
 				case "nop":
@@ -3027,9 +2987,6 @@ namespace Generator.Tables {
 
 				case "movabs":
 					result.CtorKind = nasmCtorKind[nameof(Enums.Formatter.Nasm.CtorKind.movabs)];
-					if (!TryGetMoffsIndex(def, out var addrIndex, out error))
-						return false;
-					result.Args.Add(addrIndex);
 					break;
 
 				case "nop":

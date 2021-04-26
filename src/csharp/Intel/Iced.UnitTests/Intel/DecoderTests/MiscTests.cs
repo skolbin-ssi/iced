@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 using System;
 using System.Collections.Generic;
@@ -56,22 +36,20 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 			foreach (var info in DecoderTestUtils.GetDecoderTests(includeOtherTests: false, includeInvalid: true)) {
 				var data = HexUtils.ToByteArray(info.HexBytes);
 				var decoder = Decoder.Create(info.Bitness, new ByteArrayCodeReader(data), info.Options);
+				decoder.IP = info.IP;
 				Decoder decoderAll;
 				switch (info.Bitness) {
 				case 16:
-					decoder.IP = DecoderConstants.DEFAULT_IP16;
 					reader16.SetArray(data);
 					if (!decoderDict16.TryGetValue(info.Options, out decoderAll))
 						decoderDict16.Add(info.Options, decoderAll = Decoder.Create(info.Bitness, reader16, info.Options));
 					break;
 				case 32:
-					decoder.IP = DecoderConstants.DEFAULT_IP32;
 					reader32.SetArray(data);
 					if (!decoderDict32.TryGetValue(info.Options, out decoderAll))
 						decoderDict32.Add(info.Options, decoderAll = Decoder.Create(info.Bitness, reader32, info.Options));
 					break;
 				case 64:
-					decoder.IP = DecoderConstants.DEFAULT_IP64;
 					reader64.SetArray(data);
 					if (!decoderDict64.TryGetValue(info.Options, out decoderAll))
 						decoderDict64.Add(info.Options, decoderAll = Decoder.Create(info.Bitness, reader64, info.Options));
@@ -203,11 +181,15 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 		[Fact]
 		void Test_Decoder_Create_throws() {
 			foreach (var bitness in BitnessUtils.GetInvalidBitnessValues()) {
+				Assert.Throws<ArgumentOutOfRangeException>(() => Decoder.Create(bitness, new ByteArrayCodeReader("90"), 0, DecoderOptions.None));
+				Assert.Throws<ArgumentOutOfRangeException>(() => Decoder.Create(bitness, new byte[] { 0x90 }, 0, DecoderOptions.None));
 				Assert.Throws<ArgumentOutOfRangeException>(() => Decoder.Create(bitness, new ByteArrayCodeReader("90"), DecoderOptions.None));
 				Assert.Throws<ArgumentOutOfRangeException>(() => Decoder.Create(bitness, new byte[] { 0x90 }, DecoderOptions.None));
 			}
 
 			foreach (var bitness in new[] { 16, 32, 64 }) {
+				Assert.Throws<ArgumentNullException>(() => Decoder.Create(bitness, (CodeReader)null, 0, DecoderOptions.None));
+				Assert.Throws<ArgumentNullException>(() => Decoder.Create(bitness, (byte[])null, 0, DecoderOptions.None));
 				Assert.Throws<ArgumentNullException>(() => Decoder.Create(bitness, (CodeReader)null, DecoderOptions.None));
 				Assert.Throws<ArgumentNullException>(() => Decoder.Create(bitness, (byte[])null, DecoderOptions.None));
 			}
@@ -330,6 +312,30 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 			decoder = Decoder.Create(64, data);
 			var array = decoder.ToArray();
 			Assert.Equal(list, array);
+		}
+
+		[Fact]
+		void Decoder_without_ip() {
+			{
+				var decoder = Decoder.Create(64, new ByteArrayCodeReader(new byte[] { }), DecoderOptions.None);
+				Assert.Equal(0UL, decoder.IP);
+			}
+			{
+				var decoder = Decoder.Create(64, new byte[] { }, DecoderOptions.None);
+				Assert.Equal(0UL, decoder.IP);
+			}
+		}
+
+		[Fact]
+		void Decoder_with_ip() {
+			{
+				var decoder = Decoder.Create(64, new ByteArrayCodeReader(new byte[] { }), 0x123456789ABCDEF1UL, DecoderOptions.None);
+				Assert.Equal(0x123456789ABCDEF1UL, decoder.IP);
+			}
+			{
+				var decoder = Decoder.Create(64, new byte[] { }, 0x123456789ABCDEF1UL, DecoderOptions.None);
+				Assert.Equal(0x123456789ABCDEF1UL, decoder.IP);
+			}
 		}
 	}
 }

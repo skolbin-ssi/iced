@@ -1,68 +1,48 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::super::iced_constants::IcedConstants;
-use super::super::Register;
+use crate::iced_constants::IcedConstants;
+use crate::Register;
 use std::panic;
 
 #[test]
-#[cfg_attr(feature = "cargo-clippy", allow(clippy::identity_op))]
+#[allow(clippy::identity_op)]
 fn test_reg_add_ops() {
-	assert_eq!(Register::AX, 0i32 + Register::AX);
-	assert_eq!(Register::AX, 0u32 + Register::AX);
-	assert_eq!(Register::AX, Register::AX + 0i32);
-	assert_eq!(Register::EAX, Register::EAX + 0u32);
+	assert_eq!(0i32 + Register::AX, Register::AX);
+	assert_eq!(0u32 + Register::AX, Register::AX);
+	assert_eq!(Register::AX + 0i32, Register::AX);
+	assert_eq!(Register::EAX + 0u32, Register::EAX);
 
-	assert_eq!(Register::BX, 3i32 + Register::AX);
-	assert_eq!(Register::EBX, 3u32 + Register::EAX);
-	assert_eq!(Register::BX, Register::AX + 3i32);
-	assert_eq!(Register::EBX, Register::EAX + 3u32);
+	assert_eq!(3i32 + Register::AX, Register::BX);
+	assert_eq!(3u32 + Register::EAX, Register::EBX);
+	assert_eq!(Register::AX + 3i32, Register::BX);
+	assert_eq!(Register::EAX + 3u32, Register::EBX);
 
 	let mut reg = Register::AX;
 	reg += 3i32;
-	assert_eq!(Register::BX, reg);
+	assert_eq!(reg, Register::BX);
 
 	let mut reg = Register::EAX;
 	reg += 3u32;
-	assert_eq!(Register::EBX, reg);
+	assert_eq!(reg, Register::EBX);
 }
 
 #[test]
-#[cfg_attr(feature = "cargo-clippy", allow(clippy::identity_op))]
+#[allow(clippy::identity_op)]
 fn test_reg_sub_ops() {
-	assert_eq!(Register::SP, Register::SP - 0i32);
-	assert_eq!(Register::ESP, Register::ESP - 0u32);
+	assert_eq!(Register::SP - 0i32, Register::SP);
+	assert_eq!(Register::ESP - 0u32, Register::ESP);
 
-	assert_eq!(Register::DX, Register::SP - 2i32);
-	assert_eq!(Register::EDX, Register::ESP - 2u32);
+	assert_eq!(Register::SP - 2i32, Register::DX);
+	assert_eq!(Register::ESP - 2u32, Register::EDX);
 
 	let mut reg = Register::SP;
 	reg -= 2i32;
-	assert_eq!(Register::DX, reg);
+	assert_eq!(reg, Register::DX);
 
 	let mut reg = Register::ESP;
 	reg -= 2u32;
-	assert_eq!(Register::EDX, reg);
+	assert_eq!(reg, Register::EDX);
 }
 
 #[test]

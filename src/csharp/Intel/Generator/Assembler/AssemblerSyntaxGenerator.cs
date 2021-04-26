@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 using System;
 using System.Collections.Generic;
@@ -943,14 +923,6 @@ namespace Generator.Assembler {
 				_ => false,
 			};
 
-		protected bool IsMoffs(InstructionDef def) =>
-			// Special case for moffs
-			GetOrigCodeValue(def.Code) switch {
-				Code.Mov_AL_moffs8 or Code.Mov_AX_moffs16 or Code.Mov_EAX_moffs32 or Code.Mov_RAX_moffs64 or Code.Mov_moffs8_AL or
-				Code.Mov_moffs16_AX or Code.Mov_moffs32_EAX or Code.Mov_moffs64_RAX => true,
-				_ => false,
-			};
-
 		static int GetImmediateSizeInBits(InstructionDef def) {
 			var opKindDef = def.OpKindDefs[0];
 			return opKindDef.OperandEncoding == OperandEncoding.Immediate ? opKindDef.ImmediateSignExtSize : 0;
@@ -1660,13 +1632,6 @@ namespace Generator.Assembler {
 				return true;
 			}
 		}
-
-		protected static bool IsMemOffs64Selector(OpCodeSelectorKind kind) =>
-			kind switch {
-				OpCodeSelectorKind.MemOffs64_RAX or OpCodeSelectorKind.MemOffs64_EAX or OpCodeSelectorKind.MemOffs64_AX or
-				OpCodeSelectorKind.MemOffs64_AL => true,
-				_ => false,
-			};
 
 		protected static (OpCodeArgFlags, OpCodeArgFlags) GetIfElseContextFlags(OpCodeSelectorKind kind) =>
 			kind switch {

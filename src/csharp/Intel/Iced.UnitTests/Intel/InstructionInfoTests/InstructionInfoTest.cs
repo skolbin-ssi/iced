@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 #if INSTR_INFO
 using System;
@@ -110,7 +90,7 @@ namespace Iced.UnitTests.Intel.InstructionInfoTests {
 					}
 				}
 				else {
-					var decoder = CreateDecoder(bitness, codeBytes, options);
+					var decoder = CreateDecoder(bitness, codeBytes, testCase.IP, options);
 					instruction = decoder.Decode();
 					if (codeBytes.Length > 1 && codeBytes[0] == 0x9B && instruction.Length == 1) {
 						instruction = decoder.Decode();
@@ -137,7 +117,7 @@ namespace Iced.UnitTests.Intel.InstructionInfoTests {
 				}
 			}
 			else {
-				var decoder = CreateDecoder(bitness, codeBytes, options);
+				var decoder = CreateDecoder(bitness, codeBytes, testCase.IP, options);
 				instruction = decoder.Decode();
 			}
 			Assert.Equal(code, instruction.Code);
@@ -145,6 +125,7 @@ namespace Iced.UnitTests.Intel.InstructionInfoTests {
 			Assert.Equal(testCase.StackPointerIncrement, instruction.StackPointerIncrement);
 
 			var info = new InstructionInfoFactory().GetInfo(instruction);
+#pragma warning disable CS0618 // Type or member is obsolete
 			Assert.Equal(testCase.Encoding, info.Encoding);
 			Assert.Equal(testCase.CpuidFeatures, info.CpuidFeatures);
 			Assert.Equal(testCase.RflagsRead, info.RflagsRead);
@@ -156,6 +137,7 @@ namespace Iced.UnitTests.Intel.InstructionInfoTests {
 			Assert.Equal(testCase.IsStackInstruction, info.IsStackInstruction);
 			Assert.Equal(testCase.IsSaveRestoreInstruction, info.IsSaveRestoreInstruction);
 			Assert.Equal(testCase.FlowControl, info.FlowControl);
+#pragma warning restore CS0618 // Type or member is obsolete
 			Assert.Equal(testCase.Op0Access, info.Op0Access);
 			Assert.Equal(testCase.Op1Access, info.Op1Access);
 			Assert.Equal(testCase.Op2Access, info.Op2Access);
@@ -203,11 +185,13 @@ namespace Iced.UnitTests.Intel.InstructionInfoTests {
 			for (int i = instruction.OpCount; i < IcedConstants.MaxOpCount; i++)
 				Assert.Equal(OpAccess.None, info.GetOpAccess(i));
 
+#pragma warning disable CS0618 // Type or member is obsolete
 			Assert.Equal(RflagsBits.None, info.RflagsWritten & (info.RflagsCleared | info.RflagsSet | info.RflagsUndefined));
 			Assert.Equal(RflagsBits.None, info.RflagsCleared & (info.RflagsWritten | info.RflagsSet | info.RflagsUndefined));
 			Assert.Equal(RflagsBits.None, info.RflagsSet & (info.RflagsWritten | info.RflagsCleared | info.RflagsUndefined));
 			Assert.Equal(RflagsBits.None, info.RflagsUndefined & (info.RflagsWritten | info.RflagsCleared | info.RflagsSet));
 			Assert.Equal(info.RflagsWritten | info.RflagsCleared | info.RflagsSet | info.RflagsUndefined, info.RflagsModified);
+#pragma warning restore CS0618 // Type or member is obsolete
 
 			var info2 = new InstructionInfoFactory().GetInfo(instruction, InstructionInfoOptions.None);
 			CheckEqual(ref info, ref info2, hasRegs2: true, hasMem2: true);
@@ -218,9 +202,10 @@ namespace Iced.UnitTests.Intel.InstructionInfoTests {
 			info2 = new InstructionInfoFactory().GetInfo(instruction, InstructionInfoOptions.NoRegisterUsage | InstructionInfoOptions.NoMemoryUsage);
 			CheckEqual(ref info, ref info2, hasRegs2: false, hasMem2: false);
 
+#pragma warning disable CS0618 // Type or member is obsolete
 			Assert.Equal(info.Encoding, instruction.Code.Encoding());
 #if ENCODER && OPCODE_INFO
-			Assert.Equal(code.ToOpCode().Encoding, instruction.Code.Encoding());
+			Assert.Equal(code.ToOpCode().Encoding, info.Encoding);
 #endif
 			Assert.Equal(info.CpuidFeatures, instruction.Code.CpuidFeatures());
 			Assert.Equal(info.FlowControl, instruction.Code.FlowControl());
@@ -240,6 +225,7 @@ namespace Iced.UnitTests.Intel.InstructionInfoTests {
 			Assert.Equal(info.RflagsSet, instruction.RflagsSet);
 			Assert.Equal(info.RflagsUndefined, instruction.RflagsUndefined);
 			Assert.Equal(info.RflagsModified, instruction.RflagsModified);
+#pragma warning restore CS0618 // Type or member is obsolete
 		}
 
 		void CheckEqual(ref InstructionInfo info1, ref InstructionInfo info2, bool hasRegs2, bool hasMem2) {
@@ -251,23 +237,27 @@ namespace Iced.UnitTests.Intel.InstructionInfoTests {
 				Assert.Equal(info1.GetUsedMemory(), info2.GetUsedMemory(), UsedMemoryEqualityComparer.Instance);
 			else
 				Assert.Empty(info2.GetUsedMemory());
+#pragma warning disable CS0618 // Type or member is obsolete
 			Assert.Equal(info1.IsPrivileged, info2.IsPrivileged);
 			Assert.Equal(info1.IsStackInstruction, info2.IsStackInstruction);
 			Assert.Equal(info1.IsSaveRestoreInstruction, info2.IsSaveRestoreInstruction);
 			Assert.Equal(info1.Encoding, info2.Encoding);
 			Assert.Equal(info1.CpuidFeatures, info2.CpuidFeatures);
 			Assert.Equal(info1.FlowControl, info2.FlowControl);
+#pragma warning restore CS0618 // Type or member is obsolete
 			Assert.Equal(info1.Op0Access, info2.Op0Access);
 			Assert.Equal(info1.Op1Access, info2.Op1Access);
 			Assert.Equal(info1.Op2Access, info2.Op2Access);
 			Assert.Equal(info1.Op3Access, info2.Op3Access);
 			Assert.Equal(info1.Op4Access, info2.Op4Access);
+#pragma warning disable CS0618 // Type or member is obsolete
 			Assert.Equal(info1.RflagsRead, info2.RflagsRead);
 			Assert.Equal(info1.RflagsWritten, info2.RflagsWritten);
 			Assert.Equal(info1.RflagsCleared, info2.RflagsCleared);
 			Assert.Equal(info1.RflagsSet, info2.RflagsSet);
 			Assert.Equal(info1.RflagsUndefined, info2.RflagsUndefined);
 			Assert.Equal(info1.RflagsModified, info2.RflagsModified);
+#pragma warning restore CS0618 // Type or member is obsolete
 		}
 
 		IEnumerable<UsedRegister> GetUsedRegisters(IEnumerable<UsedRegister> usedRegisterIterator) {
@@ -412,16 +402,10 @@ namespace Iced.UnitTests.Intel.InstructionInfoTests {
 			return -1;
 		}
 
-		Decoder CreateDecoder(int bitness, byte[] codeBytes, DecoderOptions options) {
+		Decoder CreateDecoder(int bitness, byte[] codeBytes, ulong ip, DecoderOptions options) {
 			var codeReader = new ByteArrayCodeReader(codeBytes);
 			var decoder = Decoder.Create(bitness, codeReader, options);
-
-			decoder.IP = bitness switch {
-				16 => DecoderConstants.DEFAULT_IP16,
-				32 => DecoderConstants.DEFAULT_IP32,
-				64 => DecoderConstants.DEFAULT_IP64,
-				_ => throw new ArgumentOutOfRangeException(nameof(bitness)),
-			};
+			decoder.IP = ip;
 			Assert.Equal(bitness, decoder.Bitness);
 			return decoder;
 		}

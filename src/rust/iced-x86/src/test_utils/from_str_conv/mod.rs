@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 #[cfg(any(feature = "gas", feature = "intel", feature = "masm", feature = "nasm"))]
 mod cc_table;
@@ -50,49 +30,43 @@ mod register_table;
 #[cfg(all(feature = "encoder", feature = "op_code_info"))]
 mod tuple_type_table;
 
+#[cfg(any(feature = "gas", feature = "intel", feature = "masm", feature = "nasm", feature = "fast_fmt"))]
+use crate::formatter::tests::enums::OptionsProps;
 #[cfg(any(feature = "gas", feature = "intel", feature = "masm", feature = "nasm"))]
-use self::cc_table::*;
-use self::code_table::*;
+use crate::test_utils::from_str_conv::cc_table::*;
+use crate::test_utils::from_str_conv::code_table::*;
 #[cfg(feature = "instr_info")]
-use self::condition_code_table::*;
+use crate::test_utils::from_str_conv::condition_code_table::*;
 #[cfg(feature = "instr_info")]
-use self::cpuid_feature_table::*;
-use self::decoder_error_table::*;
+use crate::test_utils::from_str_conv::cpuid_feature_table::*;
+use crate::test_utils::from_str_conv::decoder_error_table::*;
 #[cfg(any(feature = "decoder", feature = "instr_info", feature = "gas", feature = "intel", feature = "masm", feature = "nasm"))]
-use self::decoder_options_table::*;
+use crate::test_utils::from_str_conv::decoder_options_table::*;
 #[cfg(feature = "instr_info")]
-use self::encoding_kind_table::*;
+use crate::test_utils::from_str_conv::encoding_kind_table::*;
 #[cfg(feature = "instr_info")]
-use self::flow_control_table::*;
-use self::ignored_code_table::*;
+use crate::test_utils::from_str_conv::flow_control_table::*;
+use crate::test_utils::from_str_conv::ignored_code_table::*;
 #[cfg(any(feature = "gas", feature = "intel", feature = "masm", feature = "nasm", feature = "fast_fmt"))]
-use self::memory_size_options_table::*;
-use self::memory_size_table::*;
-use self::mnemonic_table::*;
+use crate::test_utils::from_str_conv::memory_size_options_table::*;
+use crate::test_utils::from_str_conv::memory_size_table::*;
+use crate::test_utils::from_str_conv::mnemonic_table::*;
 #[cfg(any(feature = "gas", feature = "intel", feature = "masm", feature = "nasm"))]
-use self::number_base_table::*;
+use crate::test_utils::from_str_conv::number_base_table::*;
 #[cfg(all(feature = "encoder", feature = "op_code_info"))]
-use self::op_code_operand_kind_table::*;
+use crate::test_utils::from_str_conv::op_code_operand_kind_table::*;
 #[cfg(any(feature = "gas", feature = "intel", feature = "masm", feature = "nasm", feature = "fast_fmt"))]
-use self::options_props_table::*;
-use self::register_table::*;
+use crate::test_utils::from_str_conv::options_props_table::*;
+use crate::test_utils::from_str_conv::register_table::*;
 #[cfg(all(feature = "encoder", feature = "op_code_info"))]
-use self::tuple_type_table::*;
-#[cfg(any(feature = "gas", feature = "intel", feature = "masm", feature = "nasm", feature = "fast_fmt"))]
-use super::super::formatter::tests::enums::OptionsProps;
-use super::super::*;
-#[cfg(not(feature = "std"))]
+use crate::test_utils::from_str_conv::tuple_type_table::*;
+use crate::*;
 use alloc::string::String;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 #[cfg(any(feature = "gas", feature = "intel", feature = "masm", feature = "nasm"))]
 use core::{i16, i8};
 use core::{i32, u16, u32, u8};
 #[cfg(feature = "instr_info")]
-#[cfg(not(feature = "std"))]
-use hashbrown::HashMap;
-#[cfg(feature = "instr_info")]
-#[cfg(feature = "std")]
 use std::collections::HashMap;
 
 pub(crate) fn to_vec_u8(hex_data: &str) -> Result<Vec<u8>, String> {

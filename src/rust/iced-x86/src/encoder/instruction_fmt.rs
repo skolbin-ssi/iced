@@ -1,31 +1,10 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::super::iced_constants::IcedConstants;
-use super::super::*;
-use super::mnemonic_str_tbl::TO_MNEMONIC_STR;
-use super::op_code::OpCodeInfo;
-#[cfg(not(feature = "std"))]
+use crate::encoder::mnemonic_str_tbl::TO_MNEMONIC_STR;
+use crate::encoder::op_code::OpCodeInfo;
+use crate::iced_constants::IcedConstants;
+use crate::*;
 use alloc::string::String;
 use core::char;
 use core::fmt::Write;
@@ -290,34 +269,31 @@ impl<'a, 'b> InstructionFormatter<'a, 'b> {
 
 		self.sb.clear();
 
-		// Temp needed if rustc < 1.36.0 (2015 edition)
-		let tmp_mnemonic = TO_MNEMONIC_STR[self.op_code.code().mnemonic() as usize];
-		self.write(tmp_mnemonic, true);
+		self.write(TO_MNEMONIC_STR[self.op_code.mnemonic() as usize], true);
 		if self.start_op_index < self.op_count {
 			self.sb.push(' ');
 			let mut sae_er_index = self.op_count - 1;
-			if self.op_code.encoding() != EncodingKind::Legacy && self.op_code.op_kind(sae_er_index) == OpCodeOperandKind::imm8 {
+			if self.op_code.encoding() != EncodingKind::Legacy
+				&& self.op_code.try_op_kind(sae_er_index).unwrap_or(OpCodeOperandKind::None) == OpCodeOperandKind::imm8
+			{
 				sae_er_index -= 1;
 			}
 			let mut add_comma = false;
 			for i in self.start_op_index..self.op_count {
 				let mut tmp;
-				let tmp2;
 				if add_comma {
 					self.write_op_separator();
 				}
 				add_comma = true;
 
-				let op_kind = self.op_code.op_kind(i);
+				let op_kind = self.op_code.try_op_kind(i).unwrap_or(OpCodeOperandKind::None);
 				match op_kind {
 					OpCodeOperandKind::farbr2_2 => self.sb.push_str("ptr16:16"),
 					OpCodeOperandKind::farbr4_2 => self.sb.push_str("ptr16:32"),
 
 					OpCodeOperandKind::mem_offs => {
 						self.sb.push_str("moffs");
-						// Temp needed if rustc < 1.36.0 (2015 edition)
-						let tmp_mem_size = self.get_memory_size(false);
-						self.write_memory_size(tmp_mem_size);
+						self.write_memory_size(self.get_memory_size(false));
 					}
 
 					OpCodeOperandKind::mem | OpCodeOperandKind::mem_mpx => self.write_memory(),
@@ -378,9 +354,8 @@ impl<'a, 'b> InstructionFormatter<'a, 'b> {
 					| OpCodeOperandKind::r32_opcode
 					| OpCodeOperandKind::r32_vvvv => {
 						self.write_reg_op1("r32");
-						tmp2 = self.r32_count;
 						tmp = self.r32_index;
-						self.append_gpr_suffix(tmp2, &mut tmp);
+						self.append_gpr_suffix(self.r32_count, &mut tmp);
 						self.r32_index = tmp;
 					}
 
@@ -390,9 +365,8 @@ impl<'a, 'b> InstructionFormatter<'a, 'b> {
 					| OpCodeOperandKind::r64_opcode
 					| OpCodeOperandKind::r64_vvvv => {
 						self.write_reg_op1("r64");
-						tmp2 = self.r64_count;
 						tmp = self.r64_index;
-						self.append_gpr_suffix(tmp2, &mut tmp);
+						self.append_gpr_suffix(self.r64_count, &mut tmp);
 						self.r64_index = tmp;
 					}
 
@@ -482,7 +456,7 @@ impl<'a, 'b> InstructionFormatter<'a, 'b> {
 								_ => self.sb.push_str("(0)"),
 							}
 						} else {
-							debug_assert_eq!(OpCodeOperandKind::sti_opcode, op_kind);
+							debug_assert_eq!(op_kind, OpCodeOperandKind::sti_opcode);
 							self.sb.push_str("(i)");
 						}
 					}
@@ -663,6 +637,7 @@ impl<'a, 'b> InstructionFormatter<'a, 'b> {
 		self.sb.push('}');
 	}
 
+	#[allow(clippy::unwrap_used)]
 	fn append_gpr_suffix(&mut self, count: u32, index: &mut u32) {
 		if count <= 1 || self.no_gpr_suffix {
 			return;

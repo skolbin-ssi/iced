@@ -1,35 +1,14 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::super::super::test_utils::*;
-use super::decoder_mem_test_case::*;
-use super::decoder_test_case::*;
-use super::mem_test_parser::*;
-use super::test_parser::*;
-#[cfg(not(feature = "std"))]
+use crate::decoder::tests::decoder_mem_test_case::*;
+use crate::decoder::tests::decoder_test_case::*;
+use crate::decoder::tests::mem_test_parser::*;
+use crate::decoder::tests::test_parser::*;
+use crate::test_utils::*;
 use alloc::string::String;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+use lazy_static::lazy_static;
 
 fn read_decoder_test_cases_core(bitness: u32, filename: String) -> Vec<DecoderTestCase> {
 	let mut path = get_decoder_unit_tests_dir();

@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 #if GAS
 using System;
@@ -362,11 +342,11 @@ namespace Iced.Intel.GasFormatterInternal {
 			if (options.GasShowMnemonicSizeSuffix)
 				return mnemonic_suffix;
 			if ((flags & InstrOpInfoFlags.MnemonicSuffixIfMem) != 0 && MemorySizes.AllMemorySizes[(int)instruction.MemorySize].Length == 0) {
-				OpKind opKind;
-				if ((opKind = instruction.Op0Kind) == OpKind.Memory || opKind == OpKind.Memory64 ||
-					(opKind = instruction.Op1Kind) == OpKind.Memory || opKind == OpKind.Memory64 ||
-					instruction.Op2Kind == OpKind.Memory)
+				if (instruction.Op0Kind == OpKind.Memory ||
+					instruction.Op1Kind == OpKind.Memory ||
+					instruction.Op2Kind == OpKind.Memory) {
 					return mnemonic_suffix;
+				}
 			}
 			return mnemonic;
 		}
@@ -913,14 +893,12 @@ namespace Iced.Intel.GasFormatterInternal {
 	}
 
 	sealed class SimpleInstrInfo_movabs : InstrInfo {
-		readonly int memOpNumber;
 		readonly FormatterString mnemonic;
 		readonly FormatterString mnemonic_suffix;
 		readonly FormatterString mnemonic64;
 		readonly FormatterString mnemonic_suffix64;
 
-		public SimpleInstrInfo_movabs(int memOpNumber, string mnemonic, string mnemonic_suffix, string mnemonic64, string mnemonic_suffix64) {
-			this.memOpNumber = memOpNumber;
+		public SimpleInstrInfo_movabs(string mnemonic, string mnemonic_suffix, string mnemonic64, string mnemonic_suffix64) {
 			this.mnemonic = new FormatterString(mnemonic);
 			this.mnemonic_suffix = new FormatterString(mnemonic_suffix);
 			this.mnemonic64 = new FormatterString(mnemonic64);
@@ -930,20 +908,24 @@ namespace Iced.Intel.GasFormatterInternal {
 		public override void GetOpInfo(FormatterOptions options, in Instruction instruction, out InstrOpInfo info) {
 			var flags = InstrOpInfoFlags.None;
 			int instrBitness = GetBitness(instruction.CodeSize);
-			var opKind = instruction.GetOpKind(memOpNumber);
 			int memSize;
 			FormatterString mnemonic, mnemonic_suffix;
-			if (opKind == OpKind.Memory64) {
+			switch (instruction.MemoryDisplSize) {
+			case 2:
+				mnemonic = this.mnemonic;
+				mnemonic_suffix = this.mnemonic_suffix;
+				memSize = 16;
+				break;
+			case 4:
+				mnemonic = this.mnemonic;
+				mnemonic_suffix = this.mnemonic_suffix;
+				memSize = 32;
+				break;
+			default:
 				mnemonic = mnemonic64;
 				mnemonic_suffix = mnemonic_suffix64;
 				memSize = 64;
-			}
-			else {
-				mnemonic = this.mnemonic;
-				mnemonic_suffix = this.mnemonic_suffix;
-				Debug.Assert(opKind == OpKind.Memory);
-				int displSize = instruction.MemoryDisplSize;
-				memSize = displSize == 2 ? 16 : 32;
+				break;
 			}
 			if (instrBitness == 0)
 				instrBitness = memSize;

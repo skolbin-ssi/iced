@@ -1,28 +1,8 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 use crate::enum_utils::to_code;
-use crate::iced_constants::IcedConstants;
+use crate::utils::to_value_error;
 use core::hash::{Hash, Hasher};
 use pyo3::class::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
@@ -224,19 +204,19 @@ impl OpCodeInfo {
 		self.info.can_suppress_all_exceptions()
 	}
 
-	/// bool: (EVEX) ``True`` if an op mask register can be used
+	/// bool: (EVEX) ``True`` if an opmask register can be used
 	#[getter]
 	fn can_use_op_mask_register(&self) -> bool {
 		self.info.can_use_op_mask_register()
 	}
 
-	/// bool: (EVEX) ``True`` if a non-zero op mask register must be used
+	/// bool: (EVEX) ``True`` if a non-zero opmask register must be used
 	#[getter]
 	fn require_op_mask_register(&self) -> bool {
 		self.info.require_op_mask_register()
 	}
 
-	/// bool: (EVEX) ``True`` if the instruction supports zeroing masking (if one of the op mask registers ``K1``-``K7`` is used and destination operand is not a memory operand)
+	/// bool: (EVEX) ``True`` if the instruction supports zeroing masking (if one of the opmask registers ``K1``-``K7`` is used and destination operand is not a memory operand)
 	#[getter]
 	fn can_use_zeroing_masking(&self) -> bool {
 		self.info.can_use_zeroing_masking()
@@ -453,7 +433,7 @@ impl OpCodeInfo {
 		self.info.ignores_segment()
 	}
 
-	/// bool: ``True`` if the op mask register is read and written (instead of just read). This also implies that it can't be ``K0``.
+	/// bool: ``True`` if the opmask register is read and written (instead of just read). This also implies that it can't be ``K0``.
 	#[getter]
 	fn is_op_mask_read_write(&self) -> bool {
 		self.info.is_op_mask_read_write()
@@ -776,11 +756,7 @@ impl OpCodeInfo {
 	///     ValueError: If `operand` is invalid
 	#[text_signature = "($self, operand, /)"]
 	fn op_kind(&self, operand: u32) -> PyResult<u32> {
-		if operand < IcedConstants::MAX_OP_COUNT as u32 {
-			Ok(self.info.op_kind(operand) as u32)
-		} else {
-			Err(PyValueError::new_err("Invalid operand"))
-		}
+		self.info.try_op_kind(operand).map_or_else(|e| Err(to_value_error(e)), |op_kind| Ok(op_kind as u32))
 	}
 
 	/// Gets all operand kinds (a list of :class:`OpCodeOperandKind` enum values)
@@ -849,7 +825,7 @@ impl PyObjectProtocol for OpCodeInfo {
 		match format_spec {
 			"" | "i" => Ok(self.info.instruction_string()),
 			"o" => Ok(self.info.op_code_string()),
-			_ => Err(PyValueError::new_err(format!("Unknown format code '{}'", format_spec))),
+			_ => Err(PyValueError::new_err(format!("Unknown format specifier '{}'", format_spec))),
 		}
 	}
 

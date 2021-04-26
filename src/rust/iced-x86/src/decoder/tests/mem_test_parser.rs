@@ -1,33 +1,12 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::super::super::test_utils::from_str_conv::*;
-use super::super::super::*;
-use super::decoder_mem_test_case::*;
-use super::enums::DecoderTestOptions;
-#[cfg(not(feature = "std"))]
+use crate::decoder::tests::decoder_mem_test_case::*;
+use crate::decoder::tests::enums::DecoderTestOptions;
+use crate::test_utils::from_str_conv::*;
+use crate::test_utils::get_default_ip;
+use crate::*;
 use alloc::string::String;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::iter::IntoIterator;
 use std::fs::File;
@@ -71,30 +50,25 @@ impl Iterator for IntoIter {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		loop {
-			match self.lines.next() {
-				None => return None,
-				Some(info) => {
-					let result = match info {
-						Ok(line) => {
-							self.line_number += 1;
-							if line.is_empty() || line.starts_with('#') {
-								continue;
-							}
-							self.read_next_test_case(line, self.line_number)
-						}
-						Err(err) => Err(err.to_string()),
-					};
-					match result {
-						Ok(tc) => {
-							if let Some(tc) = tc {
-								return Some(tc);
-							} else {
-								continue;
-							}
-						}
-						Err(err) => panic!("Error parsing decoder memory test case file '{}', line {}: {}", self.filename, self.line_number, err),
+			let result = match self.lines.next()? {
+				Ok(line) => {
+					self.line_number += 1;
+					if line.is_empty() || line.starts_with('#') {
+						continue;
+					}
+					self.read_next_test_case(line, self.line_number)
+				}
+				Err(err) => Err(err.to_string()),
+			};
+			match result {
+				Ok(tc) => {
+					if let Some(tc) = tc {
+						return Some(tc);
+					} else {
+						continue;
 					}
 				}
+				Err(err) => panic!("Error parsing decoder memory test case file '{}', line {}: {}", self.filename, self.line_number, err),
 			}
 		}
 	}
@@ -108,6 +82,7 @@ impl IntoIter {
 		}
 
 		let hex_bytes = parts[0].trim();
+		let ip = get_default_ip(self.bitness);
 		let _ = to_vec_u8(hex_bytes)?;
 		if is_ignored_code(parts[1].trim()) {
 			return Ok(None);
@@ -119,7 +94,7 @@ impl IntoIter {
 		let base_register = to_register(parts[5].trim())?;
 		let index_register = to_register(parts[6].trim())?;
 		let scale = to_u32(parts[7].trim())?;
-		let displacement = to_u32(parts[8].trim())?;
+		let displacement = to_u64(parts[8].trim())?;
 		let displ_size = to_u32(parts[9].trim())?;
 		let constant_offsets = super::test_parser::parse_constant_offsets(parts[10].trim())?;
 		let encoded_hex_bytes = if parts.len() == 11 { hex_bytes } else { parts[11].trim() };
@@ -130,6 +105,7 @@ impl IntoIter {
 		Ok(Some(DecoderMemoryTestCase {
 			bitness: self.bitness,
 			hex_bytes: hex_bytes.to_string(),
+			ip,
 			code,
 			register,
 			prefix_segment,

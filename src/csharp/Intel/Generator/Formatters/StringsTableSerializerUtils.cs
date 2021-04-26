@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 using System;
 using Generator.IO;
@@ -33,7 +13,7 @@ namespace Generator.Formatters {
 			return count;
 		}
 
-		public static void SerializeTable(FileWriter writer, StringsTable.Info[] sortedInfos) {
+		public static void SerializeTable(FileWriter writer, StringsTable.Info[] sortedInfos, int extraPadding = -1, string fastStrMsg = "") {
 			foreach (var info in sortedInfos) {
 				var s = info.String;
 				if (s.Length > byte.MaxValue)
@@ -45,6 +25,18 @@ namespace Generator.Formatters {
 					writer.WriteByte((byte)c);
 				}
 				writer.WriteCommentLine(s);
+			}
+
+			// Include comment even if padding is 0
+			if (extraPadding >= 0) {
+				writer.WriteCommentLine(fastStrMsg);
+				if (extraPadding > 0) {
+					for (int i = 0; i < extraPadding; i++)
+						writer.WriteByte(0);
+					writer.WriteLine();
+				}
+				else
+					writer.WriteCommentLine("No padding needed");
 			}
 		}
 	}

@@ -1,29 +1,9 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::super::*;
-use super::enums::*;
-use super::Encoder;
+use crate::encoder::enums::*;
+use crate::encoder::Encoder;
+use crate::*;
 use core::mem;
 
 pub(crate) trait Op {
@@ -134,6 +114,7 @@ impl Op for OpModRM_regF0 {
 			&& instruction.try_op_register(operand).unwrap_or(Register::None) as u32 <= self.reg_lo as u32 + 15
 		{
 			encoder.encoder_flags |= EncoderFlags::PF0;
+			// SAFETY: reg_lo is eg. CR0 and CR0 + 15 == CR15, a valid value (CR0-CR15 are consecutive enum values)
 			let reg_lo = unsafe { mem::transmute(self.reg_lo as u8 + 8) };
 			let reg_hi = unsafe { mem::transmute(self.reg_lo as u8 + 15) };
 			encoder.add_mod_rm_register(instruction, operand, reg_lo, reg_hi);
@@ -294,8 +275,8 @@ impl Op for OpI4 {
 		if !encoder.verify_op_kind(operand, OpKind::Immediate8, op_imm_kind) {
 			return;
 		}
-		debug_assert_eq!(ImmSize::SizeIbReg, encoder.imm_size);
-		debug_assert_eq!(0, encoder.immediate & 0xF);
+		debug_assert_eq!(encoder.imm_size, ImmSize::SizeIbReg);
+		debug_assert_eq!(encoder.immediate & 0xF, 0);
 		if instruction.immediate8() > 0xF {
 			encoder.set_error_message(format!("Operand {}: Immediate value must be 0-15, but value is 0x{:02X}", operand, instruction.immediate8()));
 			return;
@@ -406,7 +387,7 @@ impl Op for OpMRBX {
 		} else if base == Register::EBX {
 			4
 		} else {
-			debug_assert_eq!(Register::BX, base);
+			debug_assert_eq!(base, Register::BX);
 			2
 		};
 		encoder.set_addr_size(reg_size);
@@ -492,7 +473,6 @@ impl Op for OpImm {
 		}
 		if instruction.immediate8() != self.value {
 			encoder.set_error_message(format!("Operand {}: Expected 0x{:02X}, actual: 0x{:02X}", operand, self.value, instruction.immediate8()));
-			return;
 		}
 	}
 

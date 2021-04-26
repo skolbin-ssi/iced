@@ -1,25 +1,5 @@
-#
-# Copyright (C) 2018-2019 de4dot@gmail.com
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2018-present iced project and contributors
 
 import copy
 import pytest
@@ -92,6 +72,9 @@ def test_iter():
 
 def test_ip():
 	decoder = Decoder(64, b"\x48\x09\xCE\x90")
+	assert decoder.ip == 0
+	decoder = Decoder(64, b"\x48\x09\xCE\x90", ip=0xABCD_EF01_2345_6789)
+	assert decoder.ip == 0xABCD_EF01_2345_6789
 	decoder.ip = 0x1234_5678_9ABC_DEF0
 	assert decoder.ip == 0x1234_5678_9ABC_DEF0
 	decoder.decode()
@@ -243,11 +226,10 @@ def test_co_eq_ne_hash():
 @pytest.mark.parametrize("copy_co", [
 	lambda instr: copy.copy(instr),
 	lambda instr: copy.deepcopy(instr),
-	lambda instr: instr.clone(),
+	lambda instr: instr.copy(),
 ])
-def test_co_copy_deepcopy_clone(copy_co):
-	decoder = Decoder(64, b"\x90\x83\xB3\x34\x12\x5A\xA5\x5A")
-	decoder.ip = 0x1234_5678_9ABC_DEF1
+def test_co_copy_deepcopy_mcopy(copy_co):
+	decoder = Decoder(64, b"\x90\x83\xB3\x34\x12\x5A\xA5\x5A", ip=0x1234_5678_9ABC_DEF1)
 	coa = decoder.get_constant_offsets(decoder.decode())
 	cob = decoder.get_constant_offsets(decoder.decode())
 

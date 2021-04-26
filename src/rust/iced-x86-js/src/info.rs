@@ -1,32 +1,12 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::encoding_kind::{iced_to_encoding_kind, EncodingKind};
-use super::flow_control::{iced_to_flow_control, FlowControl};
-use super::instruction::Instruction;
-use super::memory_size::{iced_to_memory_size, MemorySize};
-use super::op_access::{iced_to_op_access, OpAccess};
-use super::register::{iced_to_register, Register};
+use crate::ex_utils::to_js_error;
+use crate::instruction::Instruction;
+use crate::memory_size::{iced_to_memory_size, MemorySize};
+use crate::op_access::{iced_to_op_access, OpAccess};
+use crate::register::{iced_to_register, Register};
+use static_assertions::const_assert_eq;
 use wasm_bindgen::prelude::*;
 
 /// A register used by an instruction
@@ -136,7 +116,7 @@ impl UsedMemory {
 	}
 }
 
-/// Contains information about an instruction, eg. read/written registers, read/written `RFLAGS` bits, `CPUID` feature bit, etc.
+/// Contains accessed registers and memory locations
 /// Created by an [`InstructionInfoFactory`].
 ///
 /// [`InstructionInfoFactory`]: struct.InstructionInfoFactory.html
@@ -168,59 +148,6 @@ impl InstructionInfo {
 	pub fn used_memory(&self) -> js_sys::Array {
 		//TODO: https://github.com/rustwasm/wasm-bindgen/issues/111
 		self.0.used_memory().iter().map(|&m| JsValue::from(UsedMemory(m))).collect()
-	}
-
-	/// `true` if it's a privileged instruction (all CPL=0 instructions (except `VMCALL`) and IOPL instructions `IN`, `INS`, `OUT`, `OUTS`, `CLI`, `STI`)
-	#[wasm_bindgen(getter)]
-	#[wasm_bindgen(js_name = "isPrivileged")]
-	pub fn is_privileged(&self) -> bool {
-		self.0.is_privileged()
-	}
-
-	/// `true` if this is an instruction that implicitly uses the stack pointer (`SP`/`ESP`/`RSP`), eg. `CALL`, `PUSH`, `POP`, `RET`, etc.
-	/// See also [`Instruction.stackPointerIncrement`]
-	///
-	/// [`Instruction.stackPointerIncrement`]: struct.Instruction.html#method.stack_pointer_increment
-	#[wasm_bindgen(getter)]
-	#[wasm_bindgen(js_name = "isStackInstruction")]
-	pub fn is_stack_instruction(&self) -> bool {
-		self.0.is_stack_instruction()
-	}
-
-	/// `true` if it's an instruction that saves or restores too many registers (eg. `FXRSTOR`, `XSAVE`, etc).
-	/// [`usedRegisters()`] won't return all accessed registers.
-	///
-	/// [`usedRegisters()`]: #method.used_registers
-	#[wasm_bindgen(getter)]
-	#[wasm_bindgen(js_name = "isSaveRestoreInstruction")]
-	pub fn is_save_restore_instruction(&self) -> bool {
-		self.0.is_save_restore_instruction()
-	}
-
-	/// Instruction encoding (an [`EncodingKind`] enum value), eg. Legacy, 3DNow!, VEX, EVEX, XOP
-	///
-	/// [`EncodingKind`]: enum.EncodingKind.html
-	#[wasm_bindgen(getter)]
-	pub fn encoding(&self) -> EncodingKind {
-		iced_to_encoding_kind(self.0.encoding())
-	}
-
-	/// Gets the CPU or CPUID feature flags (an array of [`CpuidFeature`] values)
-	///
-	/// [`CpuidFeature`]: enum.CpuidFeature.html
-	#[wasm_bindgen(js_name = "cpuidFeatures")]
-	pub fn cpuid_features(&self) -> Vec<i32> {
-		// It's not possible to return a Vec<CpuidFeature>
-		self.0.cpuid_features().iter().map(|&a| a as i32).collect()
-	}
-
-	/// Control flow info (a [`FlowControl`] enum value)
-	///
-	/// [`FlowControl`]: enum.FlowControl.html
-	#[wasm_bindgen(getter)]
-	#[wasm_bindgen(js_name = "flowControl")]
-	pub fn flow_control(&self) -> FlowControl {
-		iced_to_flow_control(self.0.flow_control())
 	}
 
 	/// Operand #0 access (an [`OpAccess`] enum value)
@@ -280,73 +207,8 @@ impl InstructionInfo {
 	///
 	/// * `operand`: Operand number, 0-4
 	#[wasm_bindgen(js_name = "opAccess")]
-	pub fn op_access(&self, operand: u32) -> OpAccess {
-		iced_to_op_access(self.0.op_access(operand))
-	}
-
-	/// All flags that are read by the CPU when executing the instruction.
-	/// This method returns a [`RflagsBits`] value. See also [`rflagsModified`].
-	///
-	/// [`RflagsBits`]: enum.RflagsBits.html
-	/// [`rflagsModified`]: #method.rflags_modified
-	#[wasm_bindgen(getter)]
-	#[wasm_bindgen(js_name = "rflagsRead")]
-	pub fn rflags_read(&self) -> u32 {
-		self.0.rflags_read()
-	}
-
-	/// All flags that are written by the CPU, except those flags that are known to be undefined, always set or always cleared.
-	/// This method returns a [`RflagsBits`] value. See also [`rflagsModified`].
-	///
-	/// [`RflagsBits`]: enum.RflagsBits.html
-	/// [`rflagsModified`]: #method.rflags_modified
-	#[wasm_bindgen(getter)]
-	#[wasm_bindgen(js_name = "rflagsWritten")]
-	pub fn rflags_written(&self) -> u32 {
-		self.0.rflags_written()
-	}
-
-	/// All flags that are always cleared by the CPU.
-	/// This method returns a [`RflagsBits`] value. See also [`rflagsModified`].
-	///
-	/// [`RflagsBits`]: enum.RflagsBits.html
-	/// [`rflagsModified`]: #method.rflags_modified
-	#[wasm_bindgen(getter)]
-	#[wasm_bindgen(js_name = "rflagsCleared")]
-	pub fn rflags_cleared(&self) -> u32 {
-		self.0.rflags_cleared()
-	}
-
-	/// All flags that are always set by the CPU.
-	/// This method returns a [`RflagsBits`] value. See also [`rflagsModified`].
-	///
-	/// [`RflagsBits`]: enum.RflagsBits.html
-	/// [`rflagsModified`]: #method.rflags_modified
-	#[wasm_bindgen(getter)]
-	#[wasm_bindgen(js_name = "rflagsSet")]
-	pub fn rflags_set(&self) -> u32 {
-		self.0.rflags_set()
-	}
-
-	/// All flags that are undefined after executing the instruction.
-	/// This method returns a [`RflagsBits`] value. See also [`rflagsModified`].
-	///
-	/// [`RflagsBits`]: enum.RflagsBits.html
-	/// [`rflagsModified`]: #method.rflags_modified
-	#[wasm_bindgen(getter)]
-	#[wasm_bindgen(js_name = "rflagsUndefined")]
-	pub fn rflags_undefined(&self) -> u32 {
-		self.0.rflags_undefined()
-	}
-
-	/// All flags that are modified by the CPU. This is `rflagsWritten + rflagsCleared + rflagsSet + rflagsUndefined`.
-	/// This method returns a [`RflagsBits`] value.
-	///
-	/// [`RflagsBits`]: enum.RflagsBits.html
-	#[wasm_bindgen(getter)]
-	#[wasm_bindgen(js_name = "rflagsModified")]
-	pub fn rflags_modified(&self) -> u32 {
-		self.0.rflags_modified()
+	pub fn op_access(&self, operand: u32) -> Result<OpAccess, JsValue> {
+		Ok(iced_to_op_access(self.0.try_op_access(operand).map_err(to_js_error)?))
 	}
 }
 
@@ -519,9 +381,9 @@ impl InstructionInfoFactory {
 	/// [`InstructionInfoOptions`]: struct.InstructionInfoOptions.html
 	#[wasm_bindgen(js_name = "infoOptions")]
 	pub fn info_options(&mut self, instruction: &Instruction, options: u32 /*flags: InstructionInfoOptions*/) -> InstructionInfo {
-		const_assert_eq!(iced_x86_rust::InstructionInfoOptions::NONE, InstructionInfoOptions::None as u32);
-		const_assert_eq!(iced_x86_rust::InstructionInfoOptions::NO_MEMORY_USAGE, InstructionInfoOptions::NoMemoryUsage as u32);
-		const_assert_eq!(iced_x86_rust::InstructionInfoOptions::NO_REGISTER_USAGE, InstructionInfoOptions::NoRegisterUsage as u32);
+		const_assert_eq!(InstructionInfoOptions::None as u32, iced_x86_rust::InstructionInfoOptions::NONE);
+		const_assert_eq!(InstructionInfoOptions::NoMemoryUsage as u32, iced_x86_rust::InstructionInfoOptions::NO_MEMORY_USAGE);
+		const_assert_eq!(InstructionInfoOptions::NoRegisterUsage as u32, iced_x86_rust::InstructionInfoOptions::NO_REGISTER_USAGE);
 		InstructionInfo((*self.0.info_options(&instruction.0, options)).clone())
 	}
 }

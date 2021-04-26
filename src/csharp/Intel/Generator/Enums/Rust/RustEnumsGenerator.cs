@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 using System;
 using System.Collections.Generic;
@@ -65,15 +45,15 @@ namespace Generator.Enums.Rust {
 			toPartialFileInfo.Add(TypeIds.ConditionCode, new PartialEnumFileInfo("ConditionCode", dirs.GetRustFilename("enums.rs"), new[] { RustConstants.AttributeCopyEqOrdHash, RustConstants.FeatureInstrInfo, RustConstants.AttributeAllowNonCamelCaseTypes }));
 			toPartialFileInfo.Add(TypeIds.CpuidFeature, new PartialEnumFileInfo("CpuidFeature", dirs.GetRustFilename("enums.rs"), new[] { RustConstants.AttributeCopyEqOrdHash, RustConstants.AttributeNonExhaustive, RustConstants.FeatureInstrInfo, RustConstants.AttributeAllowNonCamelCaseTypes }));
 			toPartialFileInfo.Add(TypeIds.CpuidFeatureInternal, new PartialEnumFileInfo("CpuidFeatureInternal", dirs.GetRustFilename("info", "enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.FeatureInstrInfo, RustConstants.AttributeAllowNonCamelCaseTypes }));
-			toPartialFileInfo.Add(TypeIds.DecoderError, new PartialEnumFileInfo("DecoderError", dirs.GetRustFilename("decoder", "mod.rs"), new[] { RustConstants.AttributeCopyEqOrdHash, RustConstants.AttributeNonExhaustive }));
-			toPartialFileInfo.Add(TypeIds.DecoderOptions, new PartialEnumFileInfo("DecoderOptions", dirs.GetRustFilename("decoder", "mod.rs")));
+			toPartialFileInfo.Add(TypeIds.DecoderError, new PartialEnumFileInfo("DecoderError", dirs.GetRustFilename("decoder.rs"), new[] { RustConstants.AttributeCopyEqOrdHash, RustConstants.AttributeNonExhaustive }));
+			toPartialFileInfo.Add(TypeIds.DecoderOptions, new PartialEnumFileInfo("DecoderOptions", dirs.GetRustFilename("decoder.rs")));
 			toPartialFileInfo.Add(TypeIds.DecoderTestOptions, new PartialEnumFileInfo("DecoderTestOptions", dirs.GetRustFilename("decoder", "tests", "enums.rs")));
 			toPartialFileInfo.Add(TypeIds.SerializedDataKind, new PartialEnumFileInfo("SerializedDataKind", dirs.GetRustFilename("decoder", "table_de", "enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.AttributeAllowNonCamelCaseTypes }));
 			toPartialFileInfo.Add(TypeIds.OpCodeHandlerKind, new PartialEnumFileInfo("OpCodeHandlerKind", dirs.GetRustFilename("decoder", "table_de", "enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.AttributeAllowNonCamelCaseTypes }));
 			toPartialFileInfo.Add(TypeIds.LegacyHandlerFlags, new PartialEnumFileInfo("LegacyHandlerFlags", dirs.GetRustFilename("decoder", "enums.rs")));
 			toPartialFileInfo.Add(TypeIds.EvexOpCodeHandlerKind, new PartialEnumFileInfo("EvexOpCodeHandlerKind", dirs.GetRustFilename("decoder", "table_de", "enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.AttributeAllowNonCamelCaseTypes, RustConstants.FeatureEvex }));
 			toPartialFileInfo.Add(TypeIds.VexOpCodeHandlerKind, new PartialEnumFileInfo("VexOpCodeHandlerKind", dirs.GetRustFilename("decoder", "table_de", "enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.AttributeAllowNonCamelCaseTypes, RustConstants.FeatureVexOrXop }));
-			toPartialFileInfo.Add(TypeIds.HandlerFlags, new PartialEnumFileInfo("HandlerFlags", dirs.GetRustFilename("decoder", "mod.rs")));
+			toPartialFileInfo.Add(TypeIds.HandlerFlags, new PartialEnumFileInfo("HandlerFlags", dirs.GetRustFilename("decoder.rs")));
 			toPartialFileInfo.Add(TypeIds.MemorySize, new PartialEnumFileInfo("MemorySize", dirs.GetRustFilename("memory_size.rs"), new[] { RustConstants.AttributeCopyEqOrdHash, RustConstants.AttributeNonExhaustive, RustConstants.AttributeAllowNonCamelCaseTypes }));
 			toPartialFileInfo.Add(TypeIds.PseudoOpsKind, new PartialEnumFileInfo("PseudoOpsKind", dirs.GetRustFilename("formatter", "enums_shared.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.AttributeAllowNonCamelCaseTypes }));
 			toPartialFileInfo.Add(TypeIds.Register, new PartialEnumFileInfo("Register", dirs.GetRustFilename("register.rs"), new[] { RustConstants.AttributeCopyEqOrdHash, RustConstants.AttributeNonExhaustive }));
@@ -111,8 +91,8 @@ namespace Generator.Enums.Rust {
 			toPartialFileInfo.Add(TypeIds.Instruction_CodeFlags, new PartialEnumFileInfo("CodeFlags", dirs.GetRustFilename("instruction.rs")));
 			toPartialFileInfo.Add(TypeIds.VectorLength, new PartialEnumFileInfo("VectorLength", dirs.GetRustFilename("enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.FeatureDecoderOrEncoder }));
 			toPartialFileInfo.Add(TypeIds.MandatoryPrefixByte, new PartialEnumFileInfo("MandatoryPrefixByte", dirs.GetRustFilename("enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.FeatureDecoderOrEncoder }));
-			toPartialFileInfo.Add(TypeIds.OpSize, new PartialEnumFileInfo("OpSize", dirs.GetRustFilename("decoder", "mod.rs"), RustConstants.AttributeCopyEq));
-			toPartialFileInfo.Add(TypeIds.StateFlags, new PartialEnumFileInfo("StateFlags", dirs.GetRustFilename("decoder", "mod.rs")));
+			toPartialFileInfo.Add(TypeIds.OpSize, new PartialEnumFileInfo("OpSize", dirs.GetRustFilename("decoder.rs"), RustConstants.AttributeCopyEq));
+			toPartialFileInfo.Add(TypeIds.StateFlags, new PartialEnumFileInfo("StateFlags", dirs.GetRustFilename("decoder.rs")));
 			toPartialFileInfo.Add(TypeIds.EncodingKind, new PartialEnumFileInfo("EncodingKind", dirs.GetRustFilename("enums.rs"), new[] { RustConstants.AttributeCopyEqOrdHash, RustConstants.AttributeNonExhaustive, RustConstants.FeatureDecoderOrEncoderOrInstrInfo }));
 			toPartialFileInfo.Add(TypeIds.FlowControl, new PartialEnumFileInfo("FlowControl", dirs.GetRustFilename("enums.rs"), new[] { RustConstants.AttributeCopyEqOrdHash, RustConstants.FeatureInstrInfo }));
 			toPartialFileInfo.Add(TypeIds.OpCodeOperandKind, new PartialEnumFileInfo("OpCodeOperandKind", dirs.GetRustFilename("enums.rs"), new[] { RustConstants.AttributeCopyEqOrdHash, RustConstants.AttributeNonExhaustive, RustConstants.FeatureOpCodeInfo, RustConstants.AttributeAllowNonCamelCaseTypes }));
@@ -204,9 +184,11 @@ namespace Generator.Enums.Rust {
 				writer.WriteLine(RustConstants.AttributeAllowDeadCode);
 			var pub = enumType.IsPublic ? "pub " : "pub(crate) ";
 			writer.WriteLine($"{pub}enum {enumTypeName} {{");
+			// Identical enum values aren't allowed so just remove them
+			var enumValues = enumType.Values.Where(a => !a.DeprecatedInfo.IsDeprecatedAndRenamed).ToArray();
 			using (writer.Indent()) {
 				uint expectedValue = 0;
-				foreach (var value in enumType.Values) {
+				foreach (var value in enumValues) {
 					docWriter.WriteSummary(writer, value.Documentation, enumType.RawName);
 					deprecatedWriter.WriteDeprecated(writer, value);
 					if (expectedValue != value.Value || enumType.IsPublic)
@@ -223,10 +205,10 @@ namespace Generator.Enums.Rust {
 			if (feature is not null)
 				writer.WriteLine(feature);
 			writer.WriteLine(RustConstants.AttributeNoRustFmt);
-			writer.WriteLine($"static {arrayName}: [&str; {enumType.Values.Length}] = [");
+			writer.WriteLine($"static {arrayName}: [&str; {enumValues.Length}] = [");
 			using (writer.Indent()) {
-				for (int i = 0; i < enumType.Values.Length; i++)
-					writer.WriteLine($"\"{enumType.Values[i].Name(idConverter)}\",");
+				foreach (var value in enumValues)
+					writer.WriteLine($"\"{value.Name(idConverter)}\",");
 			}
 			writer.WriteLine("];");
 
@@ -238,11 +220,9 @@ namespace Generator.Enums.Rust {
 			writer.WriteLine($"impl fmt::Debug for {enumTypeName} {{");
 			using (writer.Indent()) {
 				writer.WriteLine(RustConstants.AttributeInline);
-				writer.WriteLine($"fn fmt<'a>(&self, f: &mut fmt::Formatter<'a>) -> fmt::Result {{");
-				using (writer.Indent()) {
-					writer.WriteLine($"write!(f, \"{{}}\", {arrayName}[*self as usize])?;");
-					writer.WriteLine("Ok(())");
-				}
+				writer.WriteLine($"fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {{");
+				using (writer.Indent())
+					writer.WriteLine($"write!(f, \"{{}}\", {arrayName}[*self as usize])");
 				writer.WriteLine("}");
 			}
 			writer.WriteLine("}");
@@ -255,16 +235,127 @@ namespace Generator.Enums.Rust {
 				writer.WriteLine(RustConstants.AttributeInline);
 				writer.WriteLine("fn default() -> Self {");
 				using (writer.Indent()) {
-					var defaultValue = enumType.Values[0];
+					var defaultValue = enumValues[0];
 					// The first one should always have value 0 (eg. "None" field), and if the first one doesn't
 					// have value 0, there must be no other enum fields == 0.
-					if (defaultValue.Value != 0 && enumType.Values.Any(a => a.Value == 0))
+					if (defaultValue.Value != 0 && enumValues.Any(a => a.Value == 0))
 						throw new InvalidOperationException();
 					writer.WriteLine($"{enumTypeName}::{defaultValue.Name(idConverter)}");
 				}
 				writer.WriteLine("}");
 			}
 			writer.WriteLine("}");
+
+			if (enumType.IsPublic) {
+				var enumIterType = $"{enumTypeName}Iterator";
+				var icedConstValue = "IcedConstants::" + idConverter.Constant(IcedConstants.GetEnumCountName(enumType.TypeId));
+				var enumUnderlyingType = GetUnderlyingTypeStr(enumType);
+
+				// Associated method: values()
+
+				if (feature is not null)
+					writer.WriteLine(feature);
+				writer.WriteLine(RustConstants.AttributeNoRustFmt);
+				writer.WriteLine($"impl {enumTypeName} {{");
+				using (writer.Indent()) {
+					writer.WriteLine($"/// Iterates over all `{enumTypeName}` enum values");
+					writer.WriteLine("#[inline]");
+					writer.WriteLine($"pub fn values() -> impl Iterator<Item = {enumTypeName}> + ExactSizeIterator + FusedIterator {{");
+					using (writer.Indent()) {
+						if (enumType.Values.Length == 1) {
+							writer.WriteLine($"static VALUES: [{enumTypeName}; 1] = [{enumTypeName}::{enumType.Values[0].Name(idConverter)}];");
+							writer.WriteLine($"VALUES.iter().copied()");
+						}
+						else {
+							writer.WriteLine("// SAFETY: all values 0-max are valid enum values");
+							writer.WriteLine($"(0..{icedConstValue}).map(|x| unsafe {{ core::mem::transmute::<{enumUnderlyingType}, {enumTypeName}>(x as {enumUnderlyingType}) }})");
+						}
+					}
+					writer.WriteLine("}");
+				}
+				writer.WriteLine("}");
+				writer.WriteLine("#[test]");
+				if (feature is not null)
+					writer.WriteLine(feature);
+				writer.WriteLine(RustConstants.AttributeNoRustFmt);
+				writer.WriteLine($"fn test_{enumTypeName.ToLowerInvariant()}_values() {{");
+				using (writer.Indent()) {
+					writer.WriteLine($"let mut iter = {enumTypeName}::values();");
+					writer.WriteLine($"assert_eq!(iter.size_hint(), ({icedConstValue}, Some({icedConstValue})));");
+					writer.WriteLine($"assert_eq!(iter.len(), {icedConstValue});");
+					writer.WriteLine("assert!(iter.next().is_some());");
+					writer.WriteLine($"assert_eq!(iter.size_hint(), ({icedConstValue} - 1, Some({icedConstValue} - 1)));");
+					writer.WriteLine($"assert_eq!(iter.len(), {icedConstValue} - 1);");
+					writer.WriteLine();
+					writer.WriteLine($"let values: Vec<{enumTypeName}> = {enumTypeName}::values().collect();");
+					writer.WriteLine($"assert_eq!(values.len(), {icedConstValue});");
+					writer.WriteLine("for (i, value) in values.into_iter().enumerate() {");
+					using (writer.Indent())
+						writer.WriteLine("assert_eq!(i, value as usize);");
+					writer.WriteLine("}");
+				}
+				writer.WriteLine("}");
+
+				// impl trait TryFrom
+
+				var tryFromTypes = new string[] {
+					"usize",
+					//"u32",
+				};
+				foreach (var tryFromType in tryFromTypes) {
+					var castToFromType = tryFromType == "usize" ? string.Empty : $" as {tryFromType}";
+					if (feature is not null)
+						writer.WriteLine(feature);
+					writer.WriteLine(RustConstants.AttributeNoRustFmt);
+					writer.WriteLine($"impl TryFrom<{tryFromType}> for {enumTypeName} {{");
+					using (writer.Indent()) {
+						writer.WriteLine("type Error = IcedError;");
+						writer.WriteLine("#[inline]");
+						writer.WriteLine($"fn try_from(value: {tryFromType}) -> Result<Self, Self::Error> {{");
+						using (writer.Indent()) {
+							writer.WriteLine($"if value < {icedConstValue}{castToFromType} {{");
+							using (writer.Indent()) {
+								if (enumType.Values.Length == 1)
+									writer.WriteLine($"Ok({enumTypeName}::{enumType.Values[0].Name(idConverter)})");
+								else {
+									writer.WriteLine("// SAFETY: all values 0-max are valid enum values");
+									writer.WriteLine($"Ok(unsafe {{ mem::transmute(value as {enumUnderlyingType}) }})");
+								}
+							}
+							writer.WriteLine("} else {");
+							using (writer.Indent())
+								writer.WriteLine($"Err(IcedError::new(\"Invalid {enumTypeName} value\"))");
+							writer.WriteLine("}");
+						}
+						writer.WriteLine("}");
+					}
+					writer.WriteLine("}");
+					if (feature is not null)
+						writer.WriteLine(feature);
+					writer.WriteLine("#[test]");
+					writer.WriteLine(RustConstants.AttributeNoRustFmt);
+					writer.WriteLine($"fn test_{enumTypeName.ToLowerInvariant()}_try_from_{tryFromType}() {{");
+					using (writer.Indent()) {
+						writer.WriteLine($"for value in {enumTypeName}::values() {{");
+						using (writer.Indent()) {
+							writer.WriteLine($"let converted = <{enumTypeName} as TryFrom<{tryFromType}>>::try_from(value as {tryFromType}).unwrap();");
+							writer.WriteLine("assert_eq!(converted, value);");
+						}
+						writer.WriteLine("}");
+						writer.WriteLine($"assert!(<{enumTypeName} as TryFrom<{tryFromType}>>::try_from({icedConstValue}{castToFromType}).is_err());");
+						writer.WriteLine($"assert!(<{enumTypeName} as TryFrom<{tryFromType}>>::try_from(core::{tryFromType}::MAX).is_err());");
+					}
+					writer.WriteLine("}");
+				}
+			}
+		}
+
+		static string GetUnderlyingTypeStr(EnumType enumType) {
+			if (enumType.Values.Length <= byte.MaxValue)
+				return "u8";
+			if (enumType.Values.Length <= ushort.MaxValue)
+				return "u16";
+			return "u32";
 		}
 	}
 }

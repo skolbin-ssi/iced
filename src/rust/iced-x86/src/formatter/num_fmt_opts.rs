@@ -1,27 +1,7 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::*;
+use crate::formatter::*;
 use core::{cmp, u32};
 
 /// Gets initialized with the default options and can be overridden by a [`FormatterOptionsProvider`]
@@ -39,7 +19,7 @@ pub struct NumberFormattingOptions<'a> {
 	pub digit_group_size: u8,
 	/// Number base
 	pub number_base: NumberBase,
-	/// Use upper case hex digits
+	/// Use uppercase hex digits
 	pub uppercase_hex: bool,
 	/// Small hex numbers (-9 .. 9) are shown in decimal
 	pub small_hex_numbers_in_decimal: bool,
@@ -60,7 +40,7 @@ impl<'a> NumberFormattingOptions<'a> {
 	///
 	/// * `options`: Formatter options to use
 	#[inline]
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	pub fn with_immediate(options: &'a FormatterOptions) -> Self {
 		NumberFormattingOptions::new(options, options.leading_zeroes(), options.signed_immediate_operands(), false)
 	}
@@ -71,7 +51,7 @@ impl<'a> NumberFormattingOptions<'a> {
 	///
 	/// * `options`: Formatter options to use
 	#[inline]
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	pub fn with_displacement(options: &'a FormatterOptions) -> Self {
 		NumberFormattingOptions::new(options, options.leading_zeroes(), options.signed_memory_displacements(), options.displacement_leading_zeroes())
 	}
@@ -82,7 +62,7 @@ impl<'a> NumberFormattingOptions<'a> {
 	///
 	/// * `options`: Formatter options to use
 	#[inline]
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	pub fn with_branch(options: &'a FormatterOptions) -> Self {
 		NumberFormattingOptions::new(options, options.branch_leading_zeroes(), false, false)
 	}
@@ -96,8 +76,8 @@ impl<'a> NumberFormattingOptions<'a> {
 	/// * `signed_number`: Signed numbers if `true`, and unsigned numbers if `false`
 	/// * `displacement_leading_zeroes`: Add leading zeroes to displacements
 	#[inline]
-	#[cfg_attr(has_must_use, must_use)]
-	#[cfg_attr(feature = "cargo-clippy", allow(clippy::missing_inline_in_public_items))]
+	#[must_use]
+	#[allow(clippy::missing_inline_in_public_items)]
 	pub fn new(options: &'a FormatterOptions, leading_zeroes: bool, signed_number: bool, displacement_leading_zeroes: bool) -> Self {
 		let (digit_group_size, prefix, suffix) = match options.number_base() {
 			NumberBase::Hexadecimal => (options.hex_digit_group_size(), options.hex_prefix(), options.hex_suffix()),

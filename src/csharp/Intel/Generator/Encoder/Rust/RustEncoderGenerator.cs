@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 using System;
 using System.Collections.Generic;
@@ -101,7 +81,7 @@ namespace Generator.Encoder.Rust {
 			using (var writer = new FileWriter(TargetLanguage.Rust, FileUtils.OpenWrite(filename))) {
 				writer.WriteFileHeader();
 
-				writer.WriteLine("use super::super::OpCodeOperandKind;");
+				writer.WriteLine("use crate::OpCodeOperandKind;");
 				Generate(writer, "LEGACY_OP_KINDS", null, legacy);
 				Generate(writer, "VEX_OP_KINDS", RustConstants.FeatureVex, vex);
 				Generate(writer, "XOP_OP_KINDS", RustConstants.FeatureXop, xop);
@@ -140,8 +120,8 @@ namespace Generator.Encoder.Rust {
 			var filename = generatorContext.Types.Dirs.GetRustFilename("encoder", "ops_tables.rs");
 			using (var writer = new FileWriter(TargetLanguage.Rust, FileUtils.OpenWrite(filename))) {
 				writer.WriteFileHeader();
-				writer.WriteLine("use super::super::*;");
-				writer.WriteLine("use super::ops::*;");
+				writer.WriteLine("use crate::encoder::ops::*;");
+				writer.WriteLine("use crate::*;");
 				writer.WriteLine();
 
 				foreach (var kv in dict.OrderBy(a => a.Value.Name, StringComparer.Ordinal)) {
@@ -309,7 +289,7 @@ namespace Generator.Encoder.Rust {
 				if (feature is not null)
 					writer.WriteLine(feature);
 				writer.WriteLine(RustConstants.AttributeNoRustFmt);
-				writer.WriteLine($"pub(super) static {name}: [&(Op + Sync); {all.Length}] = [");
+				writer.WriteLine($"pub(super) static {name}: [&(dyn Op + Sync); {all.Length}] = [");
 				using (writer.Indent()) {
 					foreach (var value in all) {
 						var info = dict[(value.opHandlerKind, value.args)];
@@ -403,7 +383,7 @@ namespace Generator.Encoder.Rust {
 		}
 
 		protected override void Generate((EnumValue value, uint size)[] immSizes) {
-			var filename = generatorContext.Types.Dirs.GetRustFilename("encoder", "mod.rs");
+			var filename = generatorContext.Types.Dirs.GetRustFilename("encoder.rs");
 			new FileUpdater(TargetLanguage.Rust, "ImmSizes", filename).Generate(writer => {
 				writer.WriteLine(RustConstants.AttributeNoRustFmt);
 				writer.WriteLine($"static IMM_SIZES: [u32; {immSizes.Length}] = [");

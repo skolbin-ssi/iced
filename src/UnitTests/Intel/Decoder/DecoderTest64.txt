@@ -1,25 +1,5 @@
-#
-# Copyright (C) 2018-2019 de4dot@gmail.com
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2018-present iced project and contributors
 
 # jmpe
 66 F2 0FB8 CE, INVALID, INVALID, 0, code=INVALID decopt=Jmpe
@@ -2427,14 +2407,14 @@ F3 47 90, Pause, Pause, 0, enc=F390
 64 67 A0 12345678, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m;fs;;;1;0x78563412;4;UInt8 fs: co=0;0;0;0;3;4
 65 67 A0 12345678, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m;gs;;;1;0x78563412;4;UInt8 gs: co=0;0;0;0;3;4
 66 67 4F A0 12345678, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m;ds;;;1;0x78563412;4;UInt8 co=0;0;0;0;4;4 enc=67A012345678
-A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m64;ds;0xF0DEBC9A78563412;UInt8 co=0;0;0;0;1;8
-26 A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m64;es;0xF0DEBC9A78563412;UInt8 es: co=0;0;0;0;2;8
-2E A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m64;cs;0xF0DEBC9A78563412;UInt8 cs: co=0;0;0;0;2;8
-36 A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m64;ss;0xF0DEBC9A78563412;UInt8 ss: co=0;0;0;0;2;8
-3E A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m64;ds;0xF0DEBC9A78563412;UInt8 ds: co=0;0;0;0;2;8
-64 A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m64;fs;0xF0DEBC9A78563412;UInt8 fs: co=0;0;0;0;2;8
-65 A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m64;gs;0xF0DEBC9A78563412;UInt8 gs: co=0;0;0;0;2;8
-66 4F A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m64;ds;0xF0DEBC9A78563412;UInt8 co=0;0;0;0;3;8 enc=A0123456789ABCDEF0
+A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m;ds;;;1;0xF0DEBC9A78563412;8;UInt8 co=0;0;0;0;1;8
+26 A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m;es;;;1;0xF0DEBC9A78563412;8;UInt8 es: co=0;0;0;0;2;8
+2E A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m;cs;;;1;0xF0DEBC9A78563412;8;UInt8 cs: co=0;0;0;0;2;8
+36 A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m;ss;;;1;0xF0DEBC9A78563412;8;UInt8 ss: co=0;0;0;0;2;8
+3E A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m;ds;;;1;0xF0DEBC9A78563412;8;UInt8 ds: co=0;0;0;0;2;8
+64 A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m;fs;;;1;0xF0DEBC9A78563412;8;UInt8 fs: co=0;0;0;0;2;8
+65 A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m;gs;;;1;0xF0DEBC9A78563412;8;UInt8 gs: co=0;0;0;0;2;8
+66 4F A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m;ds;;;1;0xF0DEBC9A78563412;8;UInt8 co=0;0;0;0;3;8 enc=A0123456789ABCDEF0
 
 66 67 A1 12345678, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m;ds;;;1;0x78563412;4;UInt16 co=0;0;0;0;3;4
 26 66 67 A1 12345678, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m;es;;;1;0x78563412;4;UInt16 es: co=0;0;0;0;4;4
@@ -2444,14 +2424,14 @@ A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m64;ds;0xF0DEBC9A785634
 64 66 67 A1 12345678, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m;fs;;;1;0x78563412;4;UInt16 fs: co=0;0;0;0;4;4
 65 66 67 A1 12345678, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m;gs;;;1;0x78563412;4;UInt16 gs: co=0;0;0;0;4;4
 67 66 47 A1 12345678, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m;ds;;;1;0x78563412;4;UInt16 co=0;0;0;0;4;4 enc=6667A112345678
-66 A1 123456789ABCDEF0, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m64;ds;0xF0DEBC9A78563412;UInt16 co=0;0;0;0;2;8
-26 66 A1 123456789ABCDEF0, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m64;es;0xF0DEBC9A78563412;UInt16 es: co=0;0;0;0;3;8
-2E 66 A1 123456789ABCDEF0, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m64;cs;0xF0DEBC9A78563412;UInt16 cs: co=0;0;0;0;3;8
-36 66 A1 123456789ABCDEF0, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m64;ss;0xF0DEBC9A78563412;UInt16 ss: co=0;0;0;0;3;8
-3E 66 A1 123456789ABCDEF0, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m64;ds;0xF0DEBC9A78563412;UInt16 ds: co=0;0;0;0;3;8
-64 66 A1 123456789ABCDEF0, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m64;fs;0xF0DEBC9A78563412;UInt16 fs: co=0;0;0;0;3;8
-65 66 A1 123456789ABCDEF0, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m64;gs;0xF0DEBC9A78563412;UInt16 gs: co=0;0;0;0;3;8
-66 47 A1 123456789ABCDEF0, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m64;ds;0xF0DEBC9A78563412;UInt16 co=0;0;0;0;3;8 enc=66A1123456789ABCDEF0
+66 A1 123456789ABCDEF0, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m;ds;;;1;0xF0DEBC9A78563412;8;UInt16 co=0;0;0;0;2;8
+26 66 A1 123456789ABCDEF0, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m;es;;;1;0xF0DEBC9A78563412;8;UInt16 es: co=0;0;0;0;3;8
+2E 66 A1 123456789ABCDEF0, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m;cs;;;1;0xF0DEBC9A78563412;8;UInt16 cs: co=0;0;0;0;3;8
+36 66 A1 123456789ABCDEF0, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m;ss;;;1;0xF0DEBC9A78563412;8;UInt16 ss: co=0;0;0;0;3;8
+3E 66 A1 123456789ABCDEF0, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m;ds;;;1;0xF0DEBC9A78563412;8;UInt16 ds: co=0;0;0;0;3;8
+64 66 A1 123456789ABCDEF0, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m;fs;;;1;0xF0DEBC9A78563412;8;UInt16 fs: co=0;0;0;0;3;8
+65 66 A1 123456789ABCDEF0, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m;gs;;;1;0xF0DEBC9A78563412;8;UInt16 gs: co=0;0;0;0;3;8
+66 47 A1 123456789ABCDEF0, Mov_AX_moffs16, Mov, 2, op0=r;ax op1=m;ds;;;1;0xF0DEBC9A78563412;8;UInt16 co=0;0;0;0;3;8 enc=66A1123456789ABCDEF0
 
 67 A1 12345678, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m;ds;;;1;0x78563412;4;UInt32 co=0;0;0;0;2;4
 26 67 A1 12345678, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m;es;;;1;0x78563412;4;UInt32 es: co=0;0;0;0;3;4
@@ -2461,14 +2441,14 @@ A0 123456789ABCDEF0, Mov_AL_moffs8, Mov, 2, op0=r;al op1=m64;ds;0xF0DEBC9A785634
 64 67 A1 12345678, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m;fs;;;1;0x78563412;4;UInt32 fs: co=0;0;0;0;3;4
 65 67 A1 12345678, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m;gs;;;1;0x78563412;4;UInt32 gs: co=0;0;0;0;3;4
 67 47 A1 12345678, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m;ds;;;1;0x78563412;4;UInt32 co=0;0;0;0;3;4 enc=67A112345678
-A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m64;ds;0xF0DEBC9A78563412;UInt32 co=0;0;0;0;1;8
-26 A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m64;es;0xF0DEBC9A78563412;UInt32 es: co=0;0;0;0;2;8
-2E A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m64;cs;0xF0DEBC9A78563412;UInt32 cs: co=0;0;0;0;2;8
-36 A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m64;ss;0xF0DEBC9A78563412;UInt32 ss: co=0;0;0;0;2;8
-3E A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m64;ds;0xF0DEBC9A78563412;UInt32 ds: co=0;0;0;0;2;8
-64 A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m64;fs;0xF0DEBC9A78563412;UInt32 fs: co=0;0;0;0;2;8
-65 A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m64;gs;0xF0DEBC9A78563412;UInt32 gs: co=0;0;0;0;2;8
-47 A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m64;ds;0xF0DEBC9A78563412;UInt32 co=0;0;0;0;2;8 enc=A1123456789ABCDEF0
+A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m;ds;;;1;0xF0DEBC9A78563412;8;UInt32 co=0;0;0;0;1;8
+26 A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m;es;;;1;0xF0DEBC9A78563412;8;UInt32 es: co=0;0;0;0;2;8
+2E A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m;cs;;;1;0xF0DEBC9A78563412;8;UInt32 cs: co=0;0;0;0;2;8
+36 A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m;ss;;;1;0xF0DEBC9A78563412;8;UInt32 ss: co=0;0;0;0;2;8
+3E A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m;ds;;;1;0xF0DEBC9A78563412;8;UInt32 ds: co=0;0;0;0;2;8
+64 A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m;fs;;;1;0xF0DEBC9A78563412;8;UInt32 fs: co=0;0;0;0;2;8
+65 A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m;gs;;;1;0xF0DEBC9A78563412;8;UInt32 gs: co=0;0;0;0;2;8
+47 A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m;ds;;;1;0xF0DEBC9A78563412;8;UInt32 co=0;0;0;0;2;8 enc=A1123456789ABCDEF0
 
 67 48 A1 12345678, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m;ds;;;1;0x78563412;4;UInt64 co=0;0;0;0;3;4
 26 67 48 A1 12345678, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m;es;;;1;0x78563412;4;UInt64 es: co=0;0;0;0;4;4
@@ -2478,14 +2458,14 @@ A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m64;ds;0xF0DEBC9A785
 64 67 48 A1 12345678, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m;fs;;;1;0x78563412;4;UInt64 fs: co=0;0;0;0;4;4
 65 67 48 A1 12345678, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m;gs;;;1;0x78563412;4;UInt64 gs: co=0;0;0;0;4;4
 66 67 4F A1 12345678, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m;ds;;;1;0x78563412;4;UInt64 co=0;0;0;0;4;4 enc=6748A112345678
-48 A1 123456789ABCDEF0, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m64;ds;0xF0DEBC9A78563412;UInt64 co=0;0;0;0;2;8
-26 48 A1 123456789ABCDEF0, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m64;es;0xF0DEBC9A78563412;UInt64 es: co=0;0;0;0;3;8
-2E 48 A1 123456789ABCDEF0, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m64;cs;0xF0DEBC9A78563412;UInt64 cs: co=0;0;0;0;3;8
-36 48 A1 123456789ABCDEF0, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m64;ss;0xF0DEBC9A78563412;UInt64 ss: co=0;0;0;0;3;8
-3E 48 A1 123456789ABCDEF0, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m64;ds;0xF0DEBC9A78563412;UInt64 ds: co=0;0;0;0;3;8
-64 48 A1 123456789ABCDEF0, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m64;fs;0xF0DEBC9A78563412;UInt64 fs: co=0;0;0;0;3;8
-65 48 A1 123456789ABCDEF0, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m64;gs;0xF0DEBC9A78563412;UInt64 gs: co=0;0;0;0;3;8
-66 4F A1 123456789ABCDEF0, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m64;ds;0xF0DEBC9A78563412;UInt64 co=0;0;0;0;3;8 enc=48A1123456789ABCDEF0
+48 A1 123456789ABCDEF0, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m;ds;;;1;0xF0DEBC9A78563412;8;UInt64 co=0;0;0;0;2;8
+26 48 A1 123456789ABCDEF0, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m;es;;;1;0xF0DEBC9A78563412;8;UInt64 es: co=0;0;0;0;3;8
+2E 48 A1 123456789ABCDEF0, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m;cs;;;1;0xF0DEBC9A78563412;8;UInt64 cs: co=0;0;0;0;3;8
+36 48 A1 123456789ABCDEF0, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m;ss;;;1;0xF0DEBC9A78563412;8;UInt64 ss: co=0;0;0;0;3;8
+3E 48 A1 123456789ABCDEF0, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m;ds;;;1;0xF0DEBC9A78563412;8;UInt64 ds: co=0;0;0;0;3;8
+64 48 A1 123456789ABCDEF0, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m;fs;;;1;0xF0DEBC9A78563412;8;UInt64 fs: co=0;0;0;0;3;8
+65 48 A1 123456789ABCDEF0, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m;gs;;;1;0xF0DEBC9A78563412;8;UInt64 gs: co=0;0;0;0;3;8
+66 4F A1 123456789ABCDEF0, Mov_RAX_moffs64, Mov, 2, op0=r;rax op1=m;ds;;;1;0xF0DEBC9A78563412;8;UInt64 co=0;0;0;0;3;8 enc=48A1123456789ABCDEF0
 
 67 A2 12345678, Mov_moffs8_AL, Mov, 2, op0=m;ds;;;1;0x78563412;4;UInt8 op1=r;al co=0;0;0;0;2;4
 26 67 A2 12345678, Mov_moffs8_AL, Mov, 2, op0=m;es;;;1;0x78563412;4;UInt8 op1=r;al es: co=0;0;0;0;3;4
@@ -2495,14 +2475,14 @@ A1 123456789ABCDEF0, Mov_EAX_moffs32, Mov, 2, op0=r;eax op1=m64;ds;0xF0DEBC9A785
 64 67 A2 12345678, Mov_moffs8_AL, Mov, 2, op0=m;fs;;;1;0x78563412;4;UInt8 op1=r;al fs: co=0;0;0;0;3;4
 65 67 A2 12345678, Mov_moffs8_AL, Mov, 2, op0=m;gs;;;1;0x78563412;4;UInt8 op1=r;al gs: co=0;0;0;0;3;4
 66 67 4F A2 12345678, Mov_moffs8_AL, Mov, 2, op0=m;ds;;;1;0x78563412;4;UInt8 op1=r;al co=0;0;0;0;4;4 enc=67A212345678
-A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m64;ds;0xF0DEBC9A78563412;UInt8 op1=r;al co=0;0;0;0;1;8
-26 A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m64;es;0xF0DEBC9A78563412;UInt8 op1=r;al es: co=0;0;0;0;2;8
-2E A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m64;cs;0xF0DEBC9A78563412;UInt8 op1=r;al cs: co=0;0;0;0;2;8
-36 A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m64;ss;0xF0DEBC9A78563412;UInt8 op1=r;al ss: co=0;0;0;0;2;8
-3E A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m64;ds;0xF0DEBC9A78563412;UInt8 op1=r;al ds: co=0;0;0;0;2;8
-64 A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m64;fs;0xF0DEBC9A78563412;UInt8 op1=r;al fs: co=0;0;0;0;2;8
-65 A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m64;gs;0xF0DEBC9A78563412;UInt8 op1=r;al gs: co=0;0;0;0;2;8
-66 4F A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m64;ds;0xF0DEBC9A78563412;UInt8 op1=r;al co=0;0;0;0;3;8 enc=A2123456789ABCDEF0
+A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m;ds;;;1;0xF0DEBC9A78563412;8;UInt8 op1=r;al co=0;0;0;0;1;8
+26 A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m;es;;;1;0xF0DEBC9A78563412;8;UInt8 op1=r;al es: co=0;0;0;0;2;8
+2E A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m;cs;;;1;0xF0DEBC9A78563412;8;UInt8 op1=r;al cs: co=0;0;0;0;2;8
+36 A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m;ss;;;1;0xF0DEBC9A78563412;8;UInt8 op1=r;al ss: co=0;0;0;0;2;8
+3E A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m;ds;;;1;0xF0DEBC9A78563412;8;UInt8 op1=r;al ds: co=0;0;0;0;2;8
+64 A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m;fs;;;1;0xF0DEBC9A78563412;8;UInt8 op1=r;al fs: co=0;0;0;0;2;8
+65 A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m;gs;;;1;0xF0DEBC9A78563412;8;UInt8 op1=r;al gs: co=0;0;0;0;2;8
+66 4F A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m;ds;;;1;0xF0DEBC9A78563412;8;UInt8 op1=r;al co=0;0;0;0;3;8 enc=A2123456789ABCDEF0
 
 66 67 A3 12345678, Mov_moffs16_AX, Mov, 2, op0=m;ds;;;1;0x78563412;4;UInt16 op1=r;ax co=0;0;0;0;3;4
 26 66 67 A3 12345678, Mov_moffs16_AX, Mov, 2, op0=m;es;;;1;0x78563412;4;UInt16 op1=r;ax es: co=0;0;0;0;4;4
@@ -2512,14 +2492,14 @@ A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m64;ds;0xF0DEBC9A78563412;UInt8 
 64 66 67 A3 12345678, Mov_moffs16_AX, Mov, 2, op0=m;fs;;;1;0x78563412;4;UInt16 op1=r;ax fs: co=0;0;0;0;4;4
 65 66 67 A3 12345678, Mov_moffs16_AX, Mov, 2, op0=m;gs;;;1;0x78563412;4;UInt16 op1=r;ax gs: co=0;0;0;0;4;4
 67 66 47 A3 12345678, Mov_moffs16_AX, Mov, 2, op0=m;ds;;;1;0x78563412;4;UInt16 op1=r;ax co=0;0;0;0;4;4 enc=6667A312345678
-66 A3 123456789ABCDEF0, Mov_moffs16_AX, Mov, 2, op0=m64;ds;0xF0DEBC9A78563412;UInt16 op1=r;ax co=0;0;0;0;2;8
-26 66 A3 123456789ABCDEF0, Mov_moffs16_AX, Mov, 2, op0=m64;es;0xF0DEBC9A78563412;UInt16 op1=r;ax es: co=0;0;0;0;3;8
-2E 66 A3 123456789ABCDEF0, Mov_moffs16_AX, Mov, 2, op0=m64;cs;0xF0DEBC9A78563412;UInt16 op1=r;ax cs: co=0;0;0;0;3;8
-36 66 A3 123456789ABCDEF0, Mov_moffs16_AX, Mov, 2, op0=m64;ss;0xF0DEBC9A78563412;UInt16 op1=r;ax ss: co=0;0;0;0;3;8
-3E 66 A3 123456789ABCDEF0, Mov_moffs16_AX, Mov, 2, op0=m64;ds;0xF0DEBC9A78563412;UInt16 op1=r;ax ds: co=0;0;0;0;3;8
-64 66 A3 123456789ABCDEF0, Mov_moffs16_AX, Mov, 2, op0=m64;fs;0xF0DEBC9A78563412;UInt16 op1=r;ax fs: co=0;0;0;0;3;8
-65 66 A3 123456789ABCDEF0, Mov_moffs16_AX, Mov, 2, op0=m64;gs;0xF0DEBC9A78563412;UInt16 op1=r;ax gs: co=0;0;0;0;3;8
-66 47 A3 123456789ABCDEF0, Mov_moffs16_AX, Mov, 2, op0=m64;ds;0xF0DEBC9A78563412;UInt16 op1=r;ax co=0;0;0;0;3;8 enc=66A3123456789ABCDEF0
+66 A3 123456789ABCDEF0, Mov_moffs16_AX, Mov, 2, op0=m;ds;;;1;0xF0DEBC9A78563412;8;UInt16 op1=r;ax co=0;0;0;0;2;8
+26 66 A3 123456789ABCDEF0, Mov_moffs16_AX, Mov, 2, op0=m;es;;;1;0xF0DEBC9A78563412;8;UInt16 op1=r;ax es: co=0;0;0;0;3;8
+2E 66 A3 123456789ABCDEF0, Mov_moffs16_AX, Mov, 2, op0=m;cs;;;1;0xF0DEBC9A78563412;8;UInt16 op1=r;ax cs: co=0;0;0;0;3;8
+36 66 A3 123456789ABCDEF0, Mov_moffs16_AX, Mov, 2, op0=m;ss;;;1;0xF0DEBC9A78563412;8;UInt16 op1=r;ax ss: co=0;0;0;0;3;8
+3E 66 A3 123456789ABCDEF0, Mov_moffs16_AX, Mov, 2, op0=m;ds;;;1;0xF0DEBC9A78563412;8;UInt16 op1=r;ax ds: co=0;0;0;0;3;8
+64 66 A3 123456789ABCDEF0, Mov_moffs16_AX, Mov, 2, op0=m;fs;;;1;0xF0DEBC9A78563412;8;UInt16 op1=r;ax fs: co=0;0;0;0;3;8
+65 66 A3 123456789ABCDEF0, Mov_moffs16_AX, Mov, 2, op0=m;gs;;;1;0xF0DEBC9A78563412;8;UInt16 op1=r;ax gs: co=0;0;0;0;3;8
+66 47 A3 123456789ABCDEF0, Mov_moffs16_AX, Mov, 2, op0=m;ds;;;1;0xF0DEBC9A78563412;8;UInt16 op1=r;ax co=0;0;0;0;3;8 enc=66A3123456789ABCDEF0
 
 67 A3 12345678, Mov_moffs32_EAX, Mov, 2, op0=m;ds;;;1;0x78563412;4;UInt32 op1=r;eax co=0;0;0;0;2;4
 26 67 A3 12345678, Mov_moffs32_EAX, Mov, 2, op0=m;es;;;1;0x78563412;4;UInt32 op1=r;eax es: co=0;0;0;0;3;4
@@ -2529,14 +2509,14 @@ A2 123456789ABCDEF0, Mov_moffs8_AL, Mov, 2, op0=m64;ds;0xF0DEBC9A78563412;UInt8 
 64 67 A3 12345678, Mov_moffs32_EAX, Mov, 2, op0=m;fs;;;1;0x78563412;4;UInt32 op1=r;eax fs: co=0;0;0;0;3;4
 65 67 A3 12345678, Mov_moffs32_EAX, Mov, 2, op0=m;gs;;;1;0x78563412;4;UInt32 op1=r;eax gs: co=0;0;0;0;3;4
 67 47 A3 12345678, Mov_moffs32_EAX, Mov, 2, op0=m;ds;;;1;0x78563412;4;UInt32 op1=r;eax co=0;0;0;0;3;4 enc=67A312345678
-A3 123456789ABCDEF0, Mov_moffs32_EAX, Mov, 2, op0=m64;ds;0xF0DEBC9A78563412;UInt32 op1=r;eax co=0;0;0;0;1;8
-26 A3 123456789ABCDEF0, Mov_moffs32_EAX, Mov, 2, op0=m64;es;0xF0DEBC9A78563412;UInt32 op1=r;eax es: co=0;0;0;0;2;8
-2E A3 123456789ABCDEF0, Mov_moffs32_EAX, Mov, 2, op0=m64;cs;0xF0DEBC9A78563412;UInt32 op1=r;eax cs: co=0;0;0;0;2;8
-36 A3 123456789ABCDEF0, Mov_moffs32_EAX, Mov, 2, op0=m64;ss;0xF0DEBC9A78563412;UInt32 op1=r;eax ss: co=0;0;0;0;2;8
-3E A3 123456789ABCDEF0, Mov_moffs32_EAX, Mov, 2, op0=m64;ds;0xF0DEBC9A78563412;UInt32 op1=r;eax ds: co=0;0;0;0;2;8
-64 A3 123456789ABCDEF0, Mov_moffs32_EAX, Mov, 2, op0=m64;fs;0xF0DEBC9A78563412;UInt32 op1=r;eax fs: co=0;0;0;0;2;8
-65 A3 123456789ABCDEF0, Mov_moffs32_EAX, Mov, 2, op0=m64;gs;0xF0DEBC9A78563412;UInt32 op1=r;eax gs: co=0;0;0;0;2;8
-47 A3 123456789ABCDEF0, Mov_moffs32_EAX, Mov, 2, op0=m64;ds;0xF0DEBC9A78563412;UInt32 op1=r;eax co=0;0;0;0;2;8 enc=A3123456789ABCDEF0
+A3 123456789ABCDEF0, Mov_moffs32_EAX, Mov, 2, op0=m;ds;;;1;0xF0DEBC9A78563412;8;UInt32 op1=r;eax co=0;0;0;0;1;8
+26 A3 123456789ABCDEF0, Mov_moffs32_EAX, Mov, 2, op0=m;es;;;1;0xF0DEBC9A78563412;8;UInt32 op1=r;eax es: co=0;0;0;0;2;8
+2E A3 123456789ABCDEF0, Mov_moffs32_EAX, Mov, 2, op0=m;cs;;;1;0xF0DEBC9A78563412;8;UInt32 op1=r;eax cs: co=0;0;0;0;2;8
+36 A3 123456789ABCDEF0, Mov_moffs32_EAX, Mov, 2, op0=m;ss;;;1;0xF0DEBC9A78563412;8;UInt32 op1=r;eax ss: co=0;0;0;0;2;8
+3E A3 123456789ABCDEF0, Mov_moffs32_EAX, Mov, 2, op0=m;ds;;;1;0xF0DEBC9A78563412;8;UInt32 op1=r;eax ds: co=0;0;0;0;2;8
+64 A3 123456789ABCDEF0, Mov_moffs32_EAX, Mov, 2, op0=m;fs;;;1;0xF0DEBC9A78563412;8;UInt32 op1=r;eax fs: co=0;0;0;0;2;8
+65 A3 123456789ABCDEF0, Mov_moffs32_EAX, Mov, 2, op0=m;gs;;;1;0xF0DEBC9A78563412;8;UInt32 op1=r;eax gs: co=0;0;0;0;2;8
+47 A3 123456789ABCDEF0, Mov_moffs32_EAX, Mov, 2, op0=m;ds;;;1;0xF0DEBC9A78563412;8;UInt32 op1=r;eax co=0;0;0;0;2;8 enc=A3123456789ABCDEF0
 
 67 48 A3 12345678, Mov_moffs64_RAX, Mov, 2, op0=m;ds;;;1;0x78563412;4;UInt64 op1=r;rax co=0;0;0;0;3;4
 26 67 48 A3 12345678, Mov_moffs64_RAX, Mov, 2, op0=m;es;;;1;0x78563412;4;UInt64 op1=r;rax es: co=0;0;0;0;4;4
@@ -2546,14 +2526,14 @@ A3 123456789ABCDEF0, Mov_moffs32_EAX, Mov, 2, op0=m64;ds;0xF0DEBC9A78563412;UInt
 64 67 48 A3 12345678, Mov_moffs64_RAX, Mov, 2, op0=m;fs;;;1;0x78563412;4;UInt64 op1=r;rax fs: co=0;0;0;0;4;4
 65 67 48 A3 12345678, Mov_moffs64_RAX, Mov, 2, op0=m;gs;;;1;0x78563412;4;UInt64 op1=r;rax gs: co=0;0;0;0;4;4
 66 67 4F A3 12345678, Mov_moffs64_RAX, Mov, 2, op0=m;ds;;;1;0x78563412;4;UInt64 op1=r;rax co=0;0;0;0;4;4 enc=6748A312345678
-48 A3 123456789ABCDEF0, Mov_moffs64_RAX, Mov, 2, op0=m64;ds;0xF0DEBC9A78563412;UInt64 op1=r;rax co=0;0;0;0;2;8
-26 48 A3 123456789ABCDEF0, Mov_moffs64_RAX, Mov, 2, op0=m64;es;0xF0DEBC9A78563412;UInt64 op1=r;rax es: co=0;0;0;0;3;8
-2E 48 A3 123456789ABCDEF0, Mov_moffs64_RAX, Mov, 2, op0=m64;cs;0xF0DEBC9A78563412;UInt64 op1=r;rax cs: co=0;0;0;0;3;8
-36 48 A3 123456789ABCDEF0, Mov_moffs64_RAX, Mov, 2, op0=m64;ss;0xF0DEBC9A78563412;UInt64 op1=r;rax ss: co=0;0;0;0;3;8
-3E 48 A3 123456789ABCDEF0, Mov_moffs64_RAX, Mov, 2, op0=m64;ds;0xF0DEBC9A78563412;UInt64 op1=r;rax ds: co=0;0;0;0;3;8
-64 48 A3 123456789ABCDEF0, Mov_moffs64_RAX, Mov, 2, op0=m64;fs;0xF0DEBC9A78563412;UInt64 op1=r;rax fs: co=0;0;0;0;3;8
-65 48 A3 123456789ABCDEF0, Mov_moffs64_RAX, Mov, 2, op0=m64;gs;0xF0DEBC9A78563412;UInt64 op1=r;rax gs: co=0;0;0;0;3;8
-66 4F A3 123456789ABCDEF0, Mov_moffs64_RAX, Mov, 2, op0=m64;ds;0xF0DEBC9A78563412;UInt64 op1=r;rax co=0;0;0;0;3;8 enc=48A3123456789ABCDEF0
+48 A3 123456789ABCDEF0, Mov_moffs64_RAX, Mov, 2, op0=m;ds;;;1;0xF0DEBC9A78563412;8;UInt64 op1=r;rax co=0;0;0;0;2;8
+26 48 A3 123456789ABCDEF0, Mov_moffs64_RAX, Mov, 2, op0=m;es;;;1;0xF0DEBC9A78563412;8;UInt64 op1=r;rax es: co=0;0;0;0;3;8
+2E 48 A3 123456789ABCDEF0, Mov_moffs64_RAX, Mov, 2, op0=m;cs;;;1;0xF0DEBC9A78563412;8;UInt64 op1=r;rax cs: co=0;0;0;0;3;8
+36 48 A3 123456789ABCDEF0, Mov_moffs64_RAX, Mov, 2, op0=m;ss;;;1;0xF0DEBC9A78563412;8;UInt64 op1=r;rax ss: co=0;0;0;0;3;8
+3E 48 A3 123456789ABCDEF0, Mov_moffs64_RAX, Mov, 2, op0=m;ds;;;1;0xF0DEBC9A78563412;8;UInt64 op1=r;rax ds: co=0;0;0;0;3;8
+64 48 A3 123456789ABCDEF0, Mov_moffs64_RAX, Mov, 2, op0=m;fs;;;1;0xF0DEBC9A78563412;8;UInt64 op1=r;rax fs: co=0;0;0;0;3;8
+65 48 A3 123456789ABCDEF0, Mov_moffs64_RAX, Mov, 2, op0=m;gs;;;1;0xF0DEBC9A78563412;8;UInt64 op1=r;rax gs: co=0;0;0;0;3;8
+66 4F A3 123456789ABCDEF0, Mov_moffs64_RAX, Mov, 2, op0=m;ds;;;1;0xF0DEBC9A78563412;8;UInt64 op1=r;rax co=0;0;0;0;3;8 enc=48A3123456789ABCDEF0
 
 67 A4, Movsb_m8_m8, Movsb, 2, op0=esedi;UInt8 op1=segesi;ds;UInt8
 67 F3 A4, Movsb_m8_m8, Movsb, 2, op0=esedi;UInt8 op1=segesi;ds;UInt8 rep
@@ -6602,8 +6582,8 @@ F2 48 0F1C 04 48, Reservednop_rm64_r64_0F1C, Reservednop, 2, op0=m;ds;rax;rcx;2;
 0F1A 20, INVALID, INVALID, 0, code=Bndldx_bnd_mib decopt=MPX decopt=NoInvalidCheck
 0F1A 0D 34125AA5, INVALID, INVALID, 0, code=Bndldx_bnd_mib decopt=MPX
 67 0F1A 0D 34125AA5, INVALID, INVALID, 0, code=Bndldx_bnd_mib decopt=MPX
-0F1A 0D 34125AA5, Bndldx_bnd_mib, Bndldx, 2, op0=r;bnd1 op1=m;ds;rip;;1;0xA55A1234;8;Unknown co=0;0;0;0;3;4 decopt=MPX decopt=NoInvalidCheck
-67 0F1A 0D 34125AA5, Bndldx_bnd_mib, Bndldx, 2, op0=r;bnd1 op1=m;ds;rip;;1;0xA55A1234;8;Unknown co=0;0;0;0;4;4 decopt=MPX decopt=NoInvalidCheck enc=0F1A0D35125AA5
+0F1A 0D 34125AA5, Bndldx_bnd_mib, Bndldx, 2, op0=r;bnd1 op1=m;ds;rip;;1;0x7FFFFFFFA55A122B;8;Unknown co=0;0;0;0;3;4 decopt=MPX decopt=NoInvalidCheck
+67 0F1A 0D 34125AA5, Bndldx_bnd_mib, Bndldx, 2, op0=r;bnd1 op1=m;ds;rip;;1;0x7FFFFFFFA55A122C;8;Unknown co=0;0;0;0;4;4 decopt=MPX decopt=NoInvalidCheck enc=0F1A0D35125AA5
 
 66 0F1A 08, Bndmov_bnd_bndm128, Bndmov, 2, op0=r;bnd1 op1=m;ds;rax;;1;0;0;Bnd64 decopt=MPX
 66 48 0F1A 08, Bndmov_bnd_bndm128, Bndmov, 2, op0=r;bnd1 op1=m;ds;rax;;1;0;0;Bnd64 decopt=MPX enc=660F1A08
@@ -6628,8 +6608,8 @@ F2 48 0F1C 04 48, Reservednop_rm64_r64_0F1C, Reservednop, 2, op0=m;ds;rax;rcx;2;
 66 0F1A F8, INVALID, INVALID, 0, code=Bndmov_bnd_bndm128 decopt=MPX
 66 0F1A C4, INVALID, INVALID, 0, code=Bndmov_bnd_bndm128 decopt=MPX decopt=NoInvalidCheck
 66 0F1A E0, INVALID, INVALID, 0, code=Bndmov_bnd_bndm128 decopt=MPX decopt=NoInvalidCheck
-66 0F1A 0D 34125AA5, Bndmov_bnd_bndm128, Bndmov, 2, op0=r;bnd1 op1=m;ds;rip;;1;0xA55A1234;8;Bnd64 co=0;0;0;0;4;4 decopt=MPX
-67 66 0F1A 0D 34125AA5, Bndmov_bnd_bndm128, Bndmov, 2, op0=r;bnd1 op1=m;ds;rip;;1;0xA55A1234;8;Bnd64 co=0;0;0;0;5;4 decopt=MPX enc=660F1A0D35125AA5
+66 0F1A 0D 34125AA5, Bndmov_bnd_bndm128, Bndmov, 2, op0=r;bnd1 op1=m;ds;rip;;1;0x7FFFFFFFA55A122C;8;Bnd64 co=0;0;0;0;4;4 decopt=MPX
+67 66 0F1A 0D 34125AA5, Bndmov_bnd_bndm128, Bndmov, 2, op0=r;bnd1 op1=m;ds;rip;;1;0x7FFFFFFFA55A122D;8;Bnd64 co=0;0;0;0;5;4 decopt=MPX enc=660F1A0D35125AA5
 
 F3 0F1A 08, Bndcl_bnd_rm64, Bndcl, 2, op0=r;bnd1 op1=m;ds;rax;;1;0;0;UInt64 decopt=MPX
 F3 48 0F1A 08, Bndcl_bnd_rm64, Bndcl, 2, op0=r;bnd1 op1=m;ds;rax;;1;0;0;UInt64 decopt=MPX enc=F30F1A08
@@ -6646,8 +6626,8 @@ F3 0F1A 28, INVALID, INVALID, 0, code=Bndcl_bnd_rm64 decopt=MPX
 F3 0F1A 30, INVALID, INVALID, 0, code=Bndcl_bnd_rm64 decopt=MPX
 F3 0F1A 38, INVALID, INVALID, 0, code=Bndcl_bnd_rm64 decopt=MPX
 F3 0F1A 28, INVALID, INVALID, 0, code=Bndcl_bnd_rm64 decopt=MPX decopt=NoInvalidCheck
-F3 0F1A 0D 34125AA5, Bndcl_bnd_rm64, Bndcl, 2, op0=r;bnd1 op1=m;ds;rip;;1;0xA55A1234;8;UInt64 co=0;0;0;0;4;4 decopt=MPX
-67 F3 0F1A 0D 34125AA5, Bndcl_bnd_rm64, Bndcl, 2, op0=r;bnd1 op1=m;ds;rip;;1;0xA55A1234;8;UInt64 co=0;0;0;0;5;4 decopt=MPX enc=F30F1A0D35125AA5
+F3 0F1A 0D 34125AA5, Bndcl_bnd_rm64, Bndcl, 2, op0=r;bnd1 op1=m;ds;rip;;1;0x7FFFFFFFA55A122C;8;UInt64 co=0;0;0;0;4;4 decopt=MPX
+67 F3 0F1A 0D 34125AA5, Bndcl_bnd_rm64, Bndcl, 2, op0=r;bnd1 op1=m;ds;rip;;1;0x7FFFFFFFA55A122D;8;UInt64 co=0;0;0;0;5;4 decopt=MPX enc=F30F1A0D35125AA5
 
 F2 0F1A 08, Bndcu_bnd_rm64, Bndcu, 2, op0=r;bnd1 op1=m;ds;rax;;1;0;0;UInt64 decopt=MPX
 F2 48 0F1A 08, Bndcu_bnd_rm64, Bndcu, 2, op0=r;bnd1 op1=m;ds;rax;;1;0;0;UInt64 decopt=MPX enc=F20F1A08
@@ -6664,8 +6644,8 @@ F2 0F1A 28, INVALID, INVALID, 0, code=Bndcu_bnd_rm64 decopt=MPX
 F2 0F1A 30, INVALID, INVALID, 0, code=Bndcu_bnd_rm64 decopt=MPX
 F2 0F1A 38, INVALID, INVALID, 0, code=Bndcu_bnd_rm64 decopt=MPX
 F2 0F1A 30, INVALID, INVALID, 0, code=Bndcu_bnd_rm64 decopt=MPX decopt=NoInvalidCheck
-F2 0F1A 0D 34125AA5, Bndcu_bnd_rm64, Bndcu, 2, op0=r;bnd1 op1=m;ds;rip;;1;0xA55A1234;8;UInt64 co=0;0;0;0;4;4 decopt=MPX
-67 F2 0F1A 0D 34125AA5, Bndcu_bnd_rm64, Bndcu, 2, op0=r;bnd1 op1=m;ds;rip;;1;0xA55A1234;8;UInt64 co=0;0;0;0;5;4 decopt=MPX enc=F20F1A0D35125AA5
+F2 0F1A 0D 34125AA5, Bndcu_bnd_rm64, Bndcu, 2, op0=r;bnd1 op1=m;ds;rip;;1;0x7FFFFFFFA55A122C;8;UInt64 co=0;0;0;0;4;4 decopt=MPX
+67 F2 0F1A 0D 34125AA5, Bndcu_bnd_rm64, Bndcu, 2, op0=r;bnd1 op1=m;ds;rip;;1;0x7FFFFFFFA55A122D;8;UInt64 co=0;0;0;0;5;4 decopt=MPX enc=F20F1A0D35125AA5
 
 0F1B 08, Bndstx_mib_bnd, Bndstx, 2, op0=m;ds;rax;;1;0;0;Unknown op1=r;bnd1 decopt=MPX
 48 0F1B 08, Bndstx_mib_bnd, Bndstx, 2, op0=m;ds;rax;;1;0;0;Unknown op1=r;bnd1 decopt=MPX enc=0F1B08
@@ -6680,8 +6660,8 @@ F2 0F1A 0D 34125AA5, Bndcu_bnd_rm64, Bndcu, 2, op0=r;bnd1 op1=m;ds;rip;;1;0xA55A
 0F1B 38, INVALID, INVALID, 0, code=Bndstx_mib_bnd decopt=MPX decopt=NoInvalidCheck
 0F1B 0D 34125AA5, INVALID, INVALID, 0, code=Bndstx_mib_bnd decopt=MPX
 67 0F1B 0D 34125AA5, INVALID, INVALID, 0, code=Bndstx_mib_bnd decopt=MPX
-0F1B 0D 34125AA5, Bndstx_mib_bnd, Bndstx, 2, op0=m;ds;rip;;1;0xA55A1234;8;Unknown op1=r;bnd1 co=0;0;0;0;3;4 decopt=MPX decopt=NoInvalidCheck
-67 0F1B 0D 34125AA5, Bndstx_mib_bnd, Bndstx, 2, op0=m;ds;rip;;1;0xA55A1234;8;Unknown op1=r;bnd1 co=0;0;0;0;4;4 decopt=MPX decopt=NoInvalidCheck enc=0F1B0D35125AA5
+0F1B 0D 34125AA5, Bndstx_mib_bnd, Bndstx, 2, op0=m;ds;rip;;1;0x7FFFFFFFA55A122B;8;Unknown op1=r;bnd1 co=0;0;0;0;3;4 decopt=MPX decopt=NoInvalidCheck
+67 0F1B 0D 34125AA5, Bndstx_mib_bnd, Bndstx, 2, op0=m;ds;rip;;1;0x7FFFFFFFA55A122C;8;Unknown op1=r;bnd1 co=0;0;0;0;4;4 decopt=MPX decopt=NoInvalidCheck enc=0F1B0D35125AA5
 
 66 0F1B 08, Bndmov_bndm128_bnd, Bndmov, 2, op0=m;ds;rax;;1;0;0;Bnd64 op1=r;bnd1 decopt=MPX
 66 48 0F1B 08, Bndmov_bndm128_bnd, Bndmov, 2, op0=m;ds;rax;;1;0;0;Bnd64 op1=r;bnd1 decopt=MPX enc=660F1B08
@@ -6706,8 +6686,8 @@ F2 0F1A 0D 34125AA5, Bndcu_bnd_rm64, Bndcu, 2, op0=r;bnd1 op1=m;ds;rip;;1;0xA55A
 66 0F1B F8, INVALID, INVALID, 0, code=Bndmov_bndm128_bnd decopt=MPX
 66 0F1B C5, INVALID, INVALID, 0, code=Bndmov_bndm128_bnd decopt=MPX decopt=NoInvalidCheck
 66 0F1B F8, INVALID, INVALID, 0, code=Bndmov_bndm128_bnd decopt=MPX decopt=NoInvalidCheck
-66 0F1B 0D 34125AA5, Bndmov_bndm128_bnd, Bndmov, 2, op0=m;ds;rip;;1;0xA55A1234;8;Bnd64 op1=r;bnd1 co=0;0;0;0;4;4 decopt=MPX
-67 66 0F1B 0D 34125AA5, Bndmov_bndm128_bnd, Bndmov, 2, op0=m;ds;rip;;1;0xA55A1234;8;Bnd64 op1=r;bnd1 co=0;0;0;0;5;4 decopt=MPX enc=660F1B0D35125AA5
+66 0F1B 0D 34125AA5, Bndmov_bndm128_bnd, Bndmov, 2, op0=m;ds;rip;;1;0x7FFFFFFFA55A122C;8;Bnd64 op1=r;bnd1 co=0;0;0;0;4;4 decopt=MPX
+67 66 0F1B 0D 34125AA5, Bndmov_bndm128_bnd, Bndmov, 2, op0=m;ds;rip;;1;0x7FFFFFFFA55A122D;8;Bnd64 op1=r;bnd1 co=0;0;0;0;5;4 decopt=MPX enc=660F1B0D35125AA5
 
 F3 0F1B 08, Bndmk_bnd_m64, Bndmk, 2, op0=r;bnd1 op1=m;ds;rax;;1;0;0;UInt64 decopt=MPX
 F3 48 0F1B 08, Bndmk_bnd_m64, Bndmk, 2, op0=r;bnd1 op1=m;ds;rax;;1;0;0;UInt64 decopt=MPX enc=F30F1B08
@@ -6722,8 +6702,8 @@ F3 0F1B 38, INVALID, INVALID, 0, code=Bndmk_bnd_m64 decopt=MPX
 F3 0F1B 30, INVALID, INVALID, 0, code=Bndmk_bnd_m64 decopt=MPX decopt=NoInvalidCheck
 F3 0F1B 0D 34125AA5, INVALID, INVALID, 0, code=Bndmk_bnd_m64 decopt=MPX
 67 F3 0F1B 0D 34125AA5, INVALID, INVALID, 0, code=Bndmk_bnd_m64 decopt=MPX
-F3 0F1B 0D 34125AA5, Bndmk_bnd_m64, Bndmk, 2, op0=r;bnd1 op1=m;ds;rip;;1;0xA55A1234;8;UInt64 co=0;0;0;0;4;4 decopt=MPX decopt=NoInvalidCheck
-67 F3 0F1B 0D 34125AA5, Bndmk_bnd_m64, Bndmk, 2, op0=r;bnd1 op1=m;ds;rip;;1;0xA55A1234;8;UInt64 co=0;0;0;0;5;4 decopt=MPX decopt=NoInvalidCheck enc=F30F1B0D35125AA5
+F3 0F1B 0D 34125AA5, Bndmk_bnd_m64, Bndmk, 2, op0=r;bnd1 op1=m;ds;rip;;1;0x7FFFFFFFA55A122C;8;UInt64 co=0;0;0;0;4;4 decopt=MPX decopt=NoInvalidCheck
+67 F3 0F1B 0D 34125AA5, Bndmk_bnd_m64, Bndmk, 2, op0=r;bnd1 op1=m;ds;rip;;1;0x7FFFFFFFA55A122D;8;UInt64 co=0;0;0;0;5;4 decopt=MPX decopt=NoInvalidCheck enc=F30F1B0D35125AA5
 
 F2 0F1B 08, Bndcn_bnd_rm64, Bndcn, 2, op0=r;bnd1 op1=m;ds;rax;;1;0;0;UInt64 decopt=MPX
 F2 48 0F1B 08, Bndcn_bnd_rm64, Bndcn, 2, op0=r;bnd1 op1=m;ds;rax;;1;0;0;UInt64 decopt=MPX enc=F20F1B08
@@ -6740,8 +6720,8 @@ F2 0F1B 28, INVALID, INVALID, 0, code=Bndcn_bnd_rm64 decopt=MPX
 F2 0F1B 30, INVALID, INVALID, 0, code=Bndcn_bnd_rm64 decopt=MPX
 F2 0F1B 38, INVALID, INVALID, 0, code=Bndcn_bnd_rm64 decopt=MPX
 F2 0F1B 38, INVALID, INVALID, 0, code=Bndcn_bnd_rm64 decopt=MPX decopt=NoInvalidCheck
-F2 0F1B 0D 34125AA5, Bndcn_bnd_rm64, Bndcn, 2, op0=r;bnd1 op1=m;ds;rip;;1;0xA55A1234;8;UInt64 co=0;0;0;0;4;4 decopt=MPX
-67 F2 0F1B 0D 34125AA5, Bndcn_bnd_rm64, Bndcn, 2, op0=r;bnd1 op1=m;ds;rip;;1;0xA55A1234;8;UInt64 co=0;0;0;0;5;4 decopt=MPX enc=F20F1B0D35125AA5
+F2 0F1B 0D 34125AA5, Bndcn_bnd_rm64, Bndcn, 2, op0=r;bnd1 op1=m;ds;rip;;1;0x7FFFFFFFA55A122C;8;UInt64 co=0;0;0;0;4;4 decopt=MPX
+67 F2 0F1B 0D 34125AA5, Bndcn_bnd_rm64, Bndcn, 2, op0=r;bnd1 op1=m;ds;rip;;1;0x7FFFFFFFA55A122D;8;UInt64 co=0;0;0;0;5;4 decopt=MPX enc=F20F1B0D35125AA5
 
 0F1C 00, Cldemote_m8, Cldemote, 1, op0=m;ds;rax;;1;0;0;UInt8
 44 0F1C 00, Cldemote_m8, Cldemote, 1, op0=m;ds;rax;;1;0;0;UInt8 enc=0F1C00
@@ -6810,22 +6790,14 @@ F3 4F 0F1E FB, Endbr32, Endbr32, 0, enc=F30F1EFB
 4F 0F20 C1, Mov_r64_cr, Mov, 2, op0=r;r9 op1=r;cr8 enc=450F20C1
 66 4F 0F20 C1, Mov_r64_cr, Mov, 2, op0=r;r9 op1=r;cr8 enc=450F20C1
 # LOCK MOV CRn
-F0 0F20 C1, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr8 enc=440F20C1
-F0 0F20 C9, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr9 decopt=NoInvalidCheck enc=440F20C9
-F0 0F20 D1, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr10 decopt=NoInvalidCheck enc=440F20D1
-F0 0F20 D9, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr11 decopt=NoInvalidCheck enc=440F20D9
-F0 0F20 E1, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr12 decopt=NoInvalidCheck enc=440F20E1
-F0 0F20 E9, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr13 decopt=NoInvalidCheck enc=440F20E9
-F0 0F20 F1, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr14 decopt=NoInvalidCheck enc=440F20F1
-F0 0F20 F9, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr15 decopt=NoInvalidCheck enc=440F20F9
-F0 0F20 C1, INVALID, INVALID, 0, code=Mov_r64_cr decopt=NoLockMovCR
-F0 0F20 C9, INVALID, INVALID, 0, code=Mov_r64_cr decopt=NoLockMovCR
-F0 0F20 D1, INVALID, INVALID, 0, code=Mov_r64_cr decopt=NoLockMovCR
-F0 0F20 D9, INVALID, INVALID, 0, code=Mov_r64_cr decopt=NoLockMovCR
-F0 0F20 E1, INVALID, INVALID, 0, code=Mov_r64_cr decopt=NoLockMovCR
-F0 0F20 E9, INVALID, INVALID, 0, code=Mov_r64_cr decopt=NoLockMovCR
-F0 0F20 F1, INVALID, INVALID, 0, code=Mov_r64_cr decopt=NoLockMovCR
-F0 0F20 F9, INVALID, INVALID, 0, code=Mov_r64_cr decopt=NoLockMovCR
+F0 0F20 C1, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr8 decopt=AMD enc=440F20C1
+F0 0F20 C9, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr9 decopt=AMD;NoInvalidCheck enc=440F20C9
+F0 0F20 D1, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr10 decopt=AMD;NoInvalidCheck enc=440F20D1
+F0 0F20 D9, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr11 decopt=AMD;NoInvalidCheck enc=440F20D9
+F0 0F20 E1, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr12 decopt=AMD;NoInvalidCheck enc=440F20E1
+F0 0F20 E9, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr13 decopt=AMD;NoInvalidCheck enc=440F20E9
+F0 0F20 F1, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr14 decopt=AMD;NoInvalidCheck enc=440F20F1
+F0 0F20 F9, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr15 decopt=AMD;NoInvalidCheck enc=440F20F9
 F0 0F20 C9, INVALID, INVALID, 0, code=Mov_r64_cr
 F0 0F20 D1, INVALID, INVALID, 0, code=Mov_r64_cr
 F0 0F20 D9, INVALID, INVALID, 0, code=Mov_r64_cr
@@ -6833,14 +6805,14 @@ F0 0F20 E1, INVALID, INVALID, 0, code=Mov_r64_cr
 F0 0F20 E9, INVALID, INVALID, 0, code=Mov_r64_cr
 F0 0F20 F1, INVALID, INVALID, 0, code=Mov_r64_cr
 F0 0F20 F9, INVALID, INVALID, 0, code=Mov_r64_cr
-F0 0F20 C1, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr0 decopt=NoInvalidCheck decopt=NoLockMovCR lock
-F0 0F20 C9, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr1 decopt=NoInvalidCheck decopt=NoLockMovCR lock
-F0 0F20 D1, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr2 decopt=NoInvalidCheck decopt=NoLockMovCR lock
-F0 0F20 D9, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr3 decopt=NoInvalidCheck decopt=NoLockMovCR lock
-F0 0F20 E1, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr4 decopt=NoInvalidCheck decopt=NoLockMovCR lock
-F0 0F20 E9, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr5 decopt=NoInvalidCheck decopt=NoLockMovCR lock
-F0 0F20 F1, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr6 decopt=NoInvalidCheck decopt=NoLockMovCR lock
-F0 0F20 F9, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr7 decopt=NoInvalidCheck decopt=NoLockMovCR lock
+F0 0F20 C1, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr0 decopt=NoInvalidCheck lock
+F0 0F20 C9, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr1 decopt=NoInvalidCheck lock
+F0 0F20 D1, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr2 decopt=NoInvalidCheck lock
+F0 0F20 D9, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr3 decopt=NoInvalidCheck lock
+F0 0F20 E1, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr4 decopt=NoInvalidCheck lock
+F0 0F20 E9, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr5 decopt=NoInvalidCheck lock
+F0 0F20 F1, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr6 decopt=NoInvalidCheck lock
+F0 0F20 F9, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr7 decopt=NoInvalidCheck lock
 
 0F21 81, Mov_r64_dr, Mov, 2, op0=r;rcx op1=r;dr0 enc=0F21C1
 0F21 41, Mov_r64_dr, Mov, 2, op0=r;rcx op1=r;dr0 enc=0F21C1
@@ -6911,22 +6883,14 @@ F0 0F20 F9, Mov_r64_cr, Mov, 2, op0=r;rcx op1=r;cr7 decopt=NoInvalidCheck decopt
 4F 0F22 C1, Mov_cr_r64, Mov, 2, op0=r;cr8 op1=r;r9 enc=450F22C1
 66 4F 0F22 C1, Mov_cr_r64, Mov, 2, op0=r;cr8 op1=r;r9 enc=450F22C1
 # LOCK MOV CRn
-F0 0F22 C1, Mov_cr_r64, Mov, 2, op0=r;cr8 op1=r;rcx enc=440F22C1
-F0 0F22 C9, Mov_cr_r64, Mov, 2, op0=r;cr9 op1=r;rcx decopt=NoInvalidCheck enc=440F22C9
-F0 0F22 D1, Mov_cr_r64, Mov, 2, op0=r;cr10 op1=r;rcx decopt=NoInvalidCheck enc=440F22D1
-F0 0F22 D9, Mov_cr_r64, Mov, 2, op0=r;cr11 op1=r;rcx decopt=NoInvalidCheck enc=440F22D9
-F0 0F22 E1, Mov_cr_r64, Mov, 2, op0=r;cr12 op1=r;rcx decopt=NoInvalidCheck enc=440F22E1
-F0 0F22 E9, Mov_cr_r64, Mov, 2, op0=r;cr13 op1=r;rcx decopt=NoInvalidCheck enc=440F22E9
-F0 0F22 F1, Mov_cr_r64, Mov, 2, op0=r;cr14 op1=r;rcx decopt=NoInvalidCheck enc=440F22F1
-F0 0F22 F9, Mov_cr_r64, Mov, 2, op0=r;cr15 op1=r;rcx decopt=NoInvalidCheck enc=440F22F9
-F0 0F22 C1, INVALID, INVALID, 0, code=Mov_cr_r64 decopt=NoLockMovCR
-F0 0F22 C9, INVALID, INVALID, 0, code=Mov_cr_r64 decopt=NoLockMovCR
-F0 0F22 D1, INVALID, INVALID, 0, code=Mov_cr_r64 decopt=NoLockMovCR
-F0 0F22 D9, INVALID, INVALID, 0, code=Mov_cr_r64 decopt=NoLockMovCR
-F0 0F22 E1, INVALID, INVALID, 0, code=Mov_cr_r64 decopt=NoLockMovCR
-F0 0F22 E9, INVALID, INVALID, 0, code=Mov_cr_r64 decopt=NoLockMovCR
-F0 0F22 F1, INVALID, INVALID, 0, code=Mov_cr_r64 decopt=NoLockMovCR
-F0 0F22 F9, INVALID, INVALID, 0, code=Mov_cr_r64 decopt=NoLockMovCR
+F0 0F22 C1, Mov_cr_r64, Mov, 2, op0=r;cr8 op1=r;rcx decopt=AMD enc=440F22C1
+F0 0F22 C9, Mov_cr_r64, Mov, 2, op0=r;cr9 op1=r;rcx decopt=AMD;NoInvalidCheck enc=440F22C9
+F0 0F22 D1, Mov_cr_r64, Mov, 2, op0=r;cr10 op1=r;rcx decopt=AMD;NoInvalidCheck enc=440F22D1
+F0 0F22 D9, Mov_cr_r64, Mov, 2, op0=r;cr11 op1=r;rcx decopt=AMD;NoInvalidCheck enc=440F22D9
+F0 0F22 E1, Mov_cr_r64, Mov, 2, op0=r;cr12 op1=r;rcx decopt=AMD;NoInvalidCheck enc=440F22E1
+F0 0F22 E9, Mov_cr_r64, Mov, 2, op0=r;cr13 op1=r;rcx decopt=AMD;NoInvalidCheck enc=440F22E9
+F0 0F22 F1, Mov_cr_r64, Mov, 2, op0=r;cr14 op1=r;rcx decopt=AMD;NoInvalidCheck enc=440F22F1
+F0 0F22 F9, Mov_cr_r64, Mov, 2, op0=r;cr15 op1=r;rcx decopt=AMD;NoInvalidCheck enc=440F22F9
 F0 0F22 C9, INVALID, INVALID, 0, code=Mov_cr_r64
 F0 0F22 D1, INVALID, INVALID, 0, code=Mov_cr_r64
 F0 0F22 D9, INVALID, INVALID, 0, code=Mov_cr_r64
@@ -6934,14 +6898,14 @@ F0 0F22 E1, INVALID, INVALID, 0, code=Mov_cr_r64
 F0 0F22 E9, INVALID, INVALID, 0, code=Mov_cr_r64
 F0 0F22 F1, INVALID, INVALID, 0, code=Mov_cr_r64
 F0 0F22 F9, INVALID, INVALID, 0, code=Mov_cr_r64
-F0 0F22 C1, Mov_cr_r64, Mov, 2, op0=r;cr0 op1=r;rcx decopt=NoInvalidCheck decopt=NoLockMovCR lock
-F0 0F22 C9, Mov_cr_r64, Mov, 2, op0=r;cr1 op1=r;rcx decopt=NoInvalidCheck decopt=NoLockMovCR lock
-F0 0F22 D1, Mov_cr_r64, Mov, 2, op0=r;cr2 op1=r;rcx decopt=NoInvalidCheck decopt=NoLockMovCR lock
-F0 0F22 D9, Mov_cr_r64, Mov, 2, op0=r;cr3 op1=r;rcx decopt=NoInvalidCheck decopt=NoLockMovCR lock
-F0 0F22 E1, Mov_cr_r64, Mov, 2, op0=r;cr4 op1=r;rcx decopt=NoInvalidCheck decopt=NoLockMovCR lock
-F0 0F22 E9, Mov_cr_r64, Mov, 2, op0=r;cr5 op1=r;rcx decopt=NoInvalidCheck decopt=NoLockMovCR lock
-F0 0F22 F1, Mov_cr_r64, Mov, 2, op0=r;cr6 op1=r;rcx decopt=NoInvalidCheck decopt=NoLockMovCR lock
-F0 0F22 F9, Mov_cr_r64, Mov, 2, op0=r;cr7 op1=r;rcx decopt=NoInvalidCheck decopt=NoLockMovCR lock
+F0 0F22 C1, Mov_cr_r64, Mov, 2, op0=r;cr0 op1=r;rcx decopt=NoInvalidCheck lock
+F0 0F22 C9, Mov_cr_r64, Mov, 2, op0=r;cr1 op1=r;rcx decopt=NoInvalidCheck lock
+F0 0F22 D1, Mov_cr_r64, Mov, 2, op0=r;cr2 op1=r;rcx decopt=NoInvalidCheck lock
+F0 0F22 D9, Mov_cr_r64, Mov, 2, op0=r;cr3 op1=r;rcx decopt=NoInvalidCheck lock
+F0 0F22 E1, Mov_cr_r64, Mov, 2, op0=r;cr4 op1=r;rcx decopt=NoInvalidCheck lock
+F0 0F22 E9, Mov_cr_r64, Mov, 2, op0=r;cr5 op1=r;rcx decopt=NoInvalidCheck lock
+F0 0F22 F1, Mov_cr_r64, Mov, 2, op0=r;cr6 op1=r;rcx decopt=NoInvalidCheck lock
+F0 0F22 F9, Mov_cr_r64, Mov, 2, op0=r;cr7 op1=r;rcx decopt=NoInvalidCheck lock
 
 0F23 81, Mov_dr_r64, Mov, 2, op0=r;dr0 op1=r;rcx enc=0F23C1
 0F23 41, Mov_dr_r64, Mov, 2, op0=r;dr0 op1=r;rcx enc=0F23C1
@@ -32119,19 +32083,19 @@ C4A3FB F0 10 A5, VEX_Rorx_r64_rm64_imm8, Rorx, 3, op0=r;rdx op1=m;ds;rax;;1;0;0;
 8F4AC8 12 CB 34125AA5, XOP_Lwpval_r64_rm32_imm32, Lwpval, 3, op0=r;rsi op1=r;r11d op2=i32;0xA55A1234 co=5;4;0;0;0;0 enc=8FCAC812CB34125AA5
 8FAAC8 12 08 34125AA5, XOP_Lwpval_r64_rm32_imm32, Lwpval, 3, op0=r;rsi op1=m;ds;rax;;1;0;0;UInt32 op2=i32;0xA55A1234 co=5;4;0;0;0;0 enc=8FEAC8120834125AA5
 
-0F0F 88 34125AA5 0C, D3NOW_Pi2fw_mm_mmm64, Pi2fw, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Int16 co=0;0;0;0;3;4
+0F0F 88 34125AA5 0C, D3NOW_Pi2fw_mm_mmm64, Pi2fw, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Int16 co=0;0;0;0;3;4
 0F0F CD 0C, D3NOW_Pi2fw_mm_mmm64, Pi2fw, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD 0C, D3NOW_Pi2fw_mm_mmm64, Pi2fw, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCD0C
 
-0F0F 88 34125AA5 0D, D3NOW_Pi2fd_mm_mmm64, Pi2fd, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Int32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 0D, D3NOW_Pi2fd_mm_mmm64, Pi2fd, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Int32 co=0;0;0;0;3;4
 0F0F CD 0D, D3NOW_Pi2fd_mm_mmm64, Pi2fd, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD 0D, D3NOW_Pi2fd_mm_mmm64, Pi2fd, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCD0D
 
-0F0F 88 34125AA5 1C, D3NOW_Pf2iw_mm_mmm64, Pf2iw, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 1C, D3NOW_Pf2iw_mm_mmm64, Pf2iw, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD 1C, D3NOW_Pf2iw_mm_mmm64, Pf2iw, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD 1C, D3NOW_Pf2iw_mm_mmm64, Pf2iw, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCD1C
 
-0F0F 88 34125AA5 1D, D3NOW_Pf2id_mm_mmm64, Pf2id, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 1D, D3NOW_Pf2id_mm_mmm64, Pf2id, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD 1D, D3NOW_Pf2id_mm_mmm64, Pf2id, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD 1D, D3NOW_Pf2id_mm_mmm64, Pf2id, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCD1D
 
@@ -32147,83 +32111,83 @@ C4A3FB F0 10 A5, VEX_Rorx_r64_rm64_imm8, Rorx, 3, op0=r;rdx op1=m;ds;rax;;1;0;0;
 0F0F 88 34125AA5 87, INVALID, INVALID, 0, code=INVALID decopt=Cyrix
 0F0F CD 87, INVALID, INVALID, 0, code=INVALID decopt=Cyrix
 
-0F0F 88 34125AA5 8A, D3NOW_Pfnacc_mm_mmm64, Pfnacc, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 8A, D3NOW_Pfnacc_mm_mmm64, Pfnacc, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD 8A, D3NOW_Pfnacc_mm_mmm64, Pfnacc, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD 8A, D3NOW_Pfnacc_mm_mmm64, Pfnacc, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCD8A
 
-0F0F 88 34125AA5 8E, D3NOW_Pfpnacc_mm_mmm64, Pfpnacc, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 8E, D3NOW_Pfpnacc_mm_mmm64, Pfpnacc, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD 8E, D3NOW_Pfpnacc_mm_mmm64, Pfpnacc, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD 8E, D3NOW_Pfpnacc_mm_mmm64, Pfpnacc, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCD8E
 
-0F0F 88 34125AA5 90, D3NOW_Pfcmpge_mm_mmm64, Pfcmpge, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 90, D3NOW_Pfcmpge_mm_mmm64, Pfcmpge, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD 90, D3NOW_Pfcmpge_mm_mmm64, Pfcmpge, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD 90, D3NOW_Pfcmpge_mm_mmm64, Pfcmpge, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCD90
 
-0F0F 88 34125AA5 94, D3NOW_Pfmin_mm_mmm64, Pfmin, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 94, D3NOW_Pfmin_mm_mmm64, Pfmin, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD 94, D3NOW_Pfmin_mm_mmm64, Pfmin, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD 94, D3NOW_Pfmin_mm_mmm64, Pfmin, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCD94
 
-0F0F 88 34125AA5 96, D3NOW_Pfrcp_mm_mmm64, Pfrcp, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 96, D3NOW_Pfrcp_mm_mmm64, Pfrcp, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD 96, D3NOW_Pfrcp_mm_mmm64, Pfrcp, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD 96, D3NOW_Pfrcp_mm_mmm64, Pfrcp, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCD96
 
-0F0F 88 34125AA5 97, D3NOW_Pfrsqrt_mm_mmm64, Pfrsqrt, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 97, D3NOW_Pfrsqrt_mm_mmm64, Pfrsqrt, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD 97, D3NOW_Pfrsqrt_mm_mmm64, Pfrsqrt, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD 97, D3NOW_Pfrsqrt_mm_mmm64, Pfrsqrt, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCD97
 
-0F0F 88 34125AA5 9A, D3NOW_Pfsub_mm_mmm64, Pfsub, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 9A, D3NOW_Pfsub_mm_mmm64, Pfsub, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD 9A, D3NOW_Pfsub_mm_mmm64, Pfsub, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD 9A, D3NOW_Pfsub_mm_mmm64, Pfsub, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCD9A
 
-0F0F 88 34125AA5 9E, D3NOW_Pfadd_mm_mmm64, Pfadd, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 9E, D3NOW_Pfadd_mm_mmm64, Pfadd, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD 9E, D3NOW_Pfadd_mm_mmm64, Pfadd, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD 9E, D3NOW_Pfadd_mm_mmm64, Pfadd, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCD9E
 
-0F0F 88 34125AA5 A0, D3NOW_Pfcmpgt_mm_mmm64, Pfcmpgt, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 A0, D3NOW_Pfcmpgt_mm_mmm64, Pfcmpgt, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD A0, D3NOW_Pfcmpgt_mm_mmm64, Pfcmpgt, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD A0, D3NOW_Pfcmpgt_mm_mmm64, Pfcmpgt, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCDA0
 
-0F0F 88 34125AA5 A4, D3NOW_Pfmax_mm_mmm64, Pfmax, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 A4, D3NOW_Pfmax_mm_mmm64, Pfmax, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD A4, D3NOW_Pfmax_mm_mmm64, Pfmax, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD A4, D3NOW_Pfmax_mm_mmm64, Pfmax, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCDA4
 
-0F0F 88 34125AA5 A6, D3NOW_Pfrcpit1_mm_mmm64, Pfrcpit1, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 A6, D3NOW_Pfrcpit1_mm_mmm64, Pfrcpit1, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD A6, D3NOW_Pfrcpit1_mm_mmm64, Pfrcpit1, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD A6, D3NOW_Pfrcpit1_mm_mmm64, Pfrcpit1, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCDA6
 
-0F0F 88 34125AA5 A7, D3NOW_Pfrsqit1_mm_mmm64, Pfrsqit1, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 A7, D3NOW_Pfrsqit1_mm_mmm64, Pfrsqit1, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD A7, D3NOW_Pfrsqit1_mm_mmm64, Pfrsqit1, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD A7, D3NOW_Pfrsqit1_mm_mmm64, Pfrsqit1, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCDA7
 
-0F0F 88 34125AA5 AA, D3NOW_Pfsubr_mm_mmm64, Pfsubr, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 AA, D3NOW_Pfsubr_mm_mmm64, Pfsubr, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD AA, D3NOW_Pfsubr_mm_mmm64, Pfsubr, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD AA, D3NOW_Pfsubr_mm_mmm64, Pfsubr, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCDAA
 
-0F0F 88 34125AA5 AE, D3NOW_Pfacc_mm_mmm64, Pfacc, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 AE, D3NOW_Pfacc_mm_mmm64, Pfacc, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD AE, D3NOW_Pfacc_mm_mmm64, Pfacc, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD AE, D3NOW_Pfacc_mm_mmm64, Pfacc, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCDAE
 
-0F0F 88 34125AA5 B0, D3NOW_Pfcmpeq_mm_mmm64, Pfcmpeq, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 B0, D3NOW_Pfcmpeq_mm_mmm64, Pfcmpeq, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD B0, D3NOW_Pfcmpeq_mm_mmm64, Pfcmpeq, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD B0, D3NOW_Pfcmpeq_mm_mmm64, Pfcmpeq, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCDB0
 
-0F0F 88 34125AA5 B4, D3NOW_Pfmul_mm_mmm64, Pfmul, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 B4, D3NOW_Pfmul_mm_mmm64, Pfmul, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD B4, D3NOW_Pfmul_mm_mmm64, Pfmul, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD B4, D3NOW_Pfmul_mm_mmm64, Pfmul, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCDB4
 
-0F0F 88 34125AA5 B6, D3NOW_Pfrcpit2_mm_mmm64, Pfrcpit2, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 B6, D3NOW_Pfrcpit2_mm_mmm64, Pfrcpit2, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Float32 co=0;0;0;0;3;4
 0F0F CD B6, D3NOW_Pfrcpit2_mm_mmm64, Pfrcpit2, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD B6, D3NOW_Pfrcpit2_mm_mmm64, Pfrcpit2, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCDB6
 
-0F0F 88 34125AA5 B7, D3NOW_Pmulhrw_mm_mmm64, Pmulhrw, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_Int16 co=0;0;0;0;3;4
+0F0F 88 34125AA5 B7, D3NOW_Pmulhrw_mm_mmm64, Pmulhrw, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_Int16 co=0;0;0;0;3;4
 0F0F CD B7, D3NOW_Pmulhrw_mm_mmm64, Pmulhrw, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD B7, D3NOW_Pmulhrw_mm_mmm64, Pmulhrw, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCDB7
 
-0F0F 88 34125AA5 BB, D3NOW_Pswapd_mm_mmm64, Pswapd, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_UInt32 co=0;0;0;0;3;4
+0F0F 88 34125AA5 BB, D3NOW_Pswapd_mm_mmm64, Pswapd, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_UInt32 co=0;0;0;0;3;4
 0F0F CD BB, D3NOW_Pswapd_mm_mmm64, Pswapd, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD BB, D3NOW_Pswapd_mm_mmm64, Pswapd, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCDBB
 
-0F0F 88 34125AA5 BF, D3NOW_Pavgusb_mm_mmm64, Pavgusb, 2, op0=r;mm1 op1=m;ds;rax;;1;0xA55A1234;8;Packed64_UInt8 co=0;0;0;0;3;4
+0F0F 88 34125AA5 BF, D3NOW_Pavgusb_mm_mmm64, Pavgusb, 2, op0=r;mm1 op1=m;ds;rax;;1;0xFFFFFFFFA55A1234;8;Packed64_UInt8 co=0;0;0;0;3;4
 0F0F CD BF, D3NOW_Pavgusb_mm_mmm64, Pavgusb, 2, op0=r;mm1 op1=r;mm5
 4F 0F0F CD BF, D3NOW_Pavgusb_mm_mmm64, Pavgusb, 2, op0=r;mm1 op1=r;mm5 enc=0F0FCDBF
 
@@ -32563,3 +32527,28 @@ F3 F2 0FA7 F0, INVALID, INVALID, 0, code=Ccs_encrypt_64
 0FA7 F0, INVALID, INVALID, 0, code=Ccs_encrypt_64 decopt=Xbts no_opt_disable_test
 0FA7 F0, INVALID, INVALID, 0, code=Ccs_encrypt_64 decopt=Cmpxchg486A no_opt_disable_test
 F3 4F 0FA7 F0, Ccs_encrypt_64, Ccs_encrypt, 0, rep enc=F30FA7F0
+
+66 F2 0F00 F1, Lkgs_rm16, Lkgs, 1, op0=r;cx
+F2 66 0F00 F1, Lkgs_rm16, Lkgs, 1, op0=r;cx enc=66F20F00F1
+66 F2 41 0F00 F1, Lkgs_rm16, Lkgs, 1, op0=r;r9w
+66 F2 0F00 30, Lkgs_rm16, Lkgs, 1, op0=m;ds;rax;;1;0;0;UInt16
+F2 66 46 0F00 F1, Lkgs_rm16, Lkgs, 1, op0=r;cx enc=66F20F00F1
+66 F2 0F00 F1, Lkgs_rm16, Lkgs, 1, op0=r;cx decopt=Jmpe no_opt_disable_test
+
+F2 0F00 F1, Lkgs_r32m16, Lkgs, 1, op0=r;ecx
+F2 41 0F00 F1, Lkgs_r32m16, Lkgs, 1, op0=r;r9d
+F2 0F00 30, Lkgs_r32m16, Lkgs, 1, op0=m;ds;rax;;1;0;0;UInt16
+F2 46 0F00 F1, Lkgs_r32m16, Lkgs, 1, op0=r;ecx enc=F20F00F1
+F2 0F00 F1, Lkgs_r32m16, Lkgs, 1, op0=r;ecx decopt=Jmpe no_opt_disable_test
+
+F2 48 0F00 F1, Lkgs_r64m16, Lkgs, 1, op0=r;rcx
+F2 49 0F00 F1, Lkgs_r64m16, Lkgs, 1, op0=r;r9
+F2 48 0F00 30, Lkgs_r64m16, Lkgs, 1, op0=m;ds;rax;;1;0;0;UInt16
+F2 4E 0F00 F1, Lkgs_r64m16, Lkgs, 1, op0=r;rcx enc=F2480F00F1
+F2 48 0F00 F1, Lkgs_r64m16, Lkgs, 1, op0=r;rcx decopt=Jmpe no_opt_disable_test
+
+F3 0F 01 CA, Eretu, Eretu, 0,
+F3 4F 0F 01 CA, Eretu, Eretu, 0, enc=F30F01CA
+
+F2 0F 01 CA, Erets, Erets, 0,
+F2 4F 0F 01 CA, Erets, Erets, 0, enc=F20F01CA

@@ -1,29 +1,9 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::constant_offsets::ConstantOffsets;
-use super::ex_utils::to_js_error;
-use super::instruction::Instruction;
+use crate::constant_offsets::ConstantOffsets;
+use crate::ex_utils::to_js_error;
+use crate::instruction::Instruction;
 use wasm_bindgen::prelude::*;
 
 /// Encodes instructions decoded by the decoder or instructions created by other code.
@@ -187,13 +167,19 @@ impl Encoder {
 	}
 
 	fn encode_core(&mut self, instruction: &Instruction, rip: u64) -> Result<u32, JsValue> {
-		match self.0.encode(&instruction.0, rip) {
-			Ok(size) => Ok(size as u32),
-			#[cfg(any(feature = "gas", feature = "intel", feature = "masm", feature = "nasm"))]
-			Err(error) => Err(js_sys::Error::new(&format!("{} ({})", error, instruction.0)).into()),
-			#[cfg(not(any(feature = "gas", feature = "intel", feature = "masm", feature = "nasm")))]
-			Err(error) => Err(js_sys::Error::new(&format!("{}", error)).into()),
-		}
+		self.0.encode(&instruction.0, rip).map_or_else(
+			|error| {
+				#[cfg(any(feature = "gas", feature = "intel", feature = "masm", feature = "nasm"))]
+				{
+					Err(js_sys::Error::new(&format!("{} ({})", error, instruction.0)).into())
+				}
+				#[cfg(not(any(feature = "gas", feature = "intel", feature = "masm", feature = "nasm")))]
+				{
+					Err(js_sys::Error::new(&format!("{}", error)).into())
+				}
+			},
+			|size| Ok(size as u32),
+		)
 	}
 
 	/// Writes a byte to the output buffer

@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 #if DECODER
 using System;
@@ -57,6 +37,7 @@ namespace Iced.Intel {
 		AllowLock = 0x00002000,
 		NoMoreBytes = 0x00004000,
 		Has66 = 0x00008000,
+		IpRel = 0x00010000,
 	}
 	// GENERATOR-END: StateFlags
 
@@ -168,8 +149,9 @@ namespace Iced.Intel {
 #endif
 		}
 
-		Decoder(CodeReader reader, DecoderOptions options, int bitness) {
+		Decoder(CodeReader reader, ulong ip, DecoderOptions options, int bitness) {
 			this.reader = reader ?? throw new ArgumentNullException(nameof(reader));
+			instructionPointer = ip;
 			this.options = options;
 			invalidCheckMask = (options & DecoderOptions.NoInvalidCheck) == 0 ? uint.MaxValue : 0;
 			memRegs16 = s_memRegs16;
@@ -227,13 +209,35 @@ namespace Iced.Intel {
 		/// </summary>
 		/// <param name="bitness">16, 32 or 64</param>
 		/// <param name="reader">Code reader</param>
+		/// <param name="ip"><c>RIP</c> value</param>
+		/// <param name="options">Decoder options</param>
+		/// <returns></returns>
+		public static Decoder Create(int bitness, CodeReader reader, ulong ip, DecoderOptions options = DecoderOptions.None) =>
+			bitness switch {
+				16 or 32 or 64 => new Decoder(reader, ip, options, bitness),
+				_ => throw new ArgumentOutOfRangeException(nameof(bitness)),
+			};
+
+		/// <summary>
+		/// Creates a decoder
+		/// </summary>
+		/// <param name="bitness">16, 32 or 64</param>
+		/// <param name="data">Data to decode</param>
+		/// <param name="ip"><c>RIP</c> value</param>
+		/// <param name="options">Decoder options</param>
+		/// <returns></returns>
+		public static Decoder Create(int bitness, byte[] data, ulong ip, DecoderOptions options = DecoderOptions.None) =>
+			Create(bitness, new ByteArrayCodeReader(data), ip, options);
+
+		/// <summary>
+		/// Creates a decoder
+		/// </summary>
+		/// <param name="bitness">16, 32 or 64</param>
+		/// <param name="reader">Code reader</param>
 		/// <param name="options">Decoder options</param>
 		/// <returns></returns>
 		public static Decoder Create(int bitness, CodeReader reader, DecoderOptions options = DecoderOptions.None) =>
-			bitness switch {
-				16 or 32 or 64 => new Decoder(reader, options, bitness),
-				_ => throw new ArgumentOutOfRangeException(nameof(bitness)),
-			};
+			Create(bitness, reader, 0, options);
 
 		/// <summary>
 		/// Creates a decoder
@@ -243,7 +247,7 @@ namespace Iced.Intel {
 		/// <param name="options">Decoder options</param>
 		/// <returns></returns>
 		public static Decoder Create(int bitness, byte[] data, DecoderOptions options = DecoderOptions.None) =>
-			Decoder.Create(bitness, new ByteArrayCodeReader(data), options);
+			Create(bitness, new ByteArrayCodeReader(data), 0, options);
 
 		internal uint ReadByte() {
 			uint instrLen = state.instructionLength;
@@ -264,14 +268,6 @@ namespace Iced.Intel {
 		internal uint ReadUInt16() => ReadByte() | (ReadByte() << 8);
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		internal uint ReadUInt32() => ReadByte() | (ReadByte() << 8) | (ReadByte() << 16) | (ReadByte() << 24);
-
-		/// <summary>
-		/// This property can be tested after calling <see cref="Decode()"/> and <see cref="Decode(out Instruction)"/>
-		/// to check if the decoded instruction is invalid because there's no more bytes left or because of bad input data.
-		/// </summary>
-		[System.Obsolete("Use " + nameof(LastError) + " instead", true)]
-		[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-		public bool InvalidNoMoreBytes => (state.flags & StateFlags.NoMoreBytes) != 0;
 
 		/// <summary>
 		/// Gets the last decoder error. Unless you need to know the reason it failed,
@@ -445,6 +441,12 @@ namespace Iced.Intel {
 			ip += instrLen;
 			instructionPointer = ip;
 			instruction.NextIP = ip;
+			if ((state.flags & StateFlags.IpRel) != 0) {
+				if (state.addressSize == OpSize.Size64)
+					instruction.MemoryDisplacement64 += ip;
+				else
+					instruction.InternalMemoryDisplacement64_lo = (uint)ip + instruction.MemoryDisplacement32;
+			}
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -452,16 +454,10 @@ namespace Iced.Intel {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		internal ulong GetCurrentInstructionPointer64() => instructionPointer + state.instructionLength;
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		internal void ClearMandatoryPrefix(ref Instruction instruction) {
 			Debug.Assert(state.Encoding == EncodingKind.Legacy);
-			switch (state.mandatoryPrefix) {
-			case MandatoryPrefixByte.PF3:
-				instruction.InternalClearHasRepePrefix();
-				break;
-			case MandatoryPrefixByte.PF2:
-				instruction.InternalClearHasRepnePrefix();
-				break;
-			}
+			instruction.InternalClearHasRepeRepnePrefix();
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -773,7 +769,7 @@ namespace Iced.Intel {
 					SetInvalidInstruction();
 			}
 			else {
-				//TODO: Support deprecated MVEX instructions: https://github.com/0xd4d/iced/issues/2
+				//TODO: Support deprecated MVEX instructions: https://github.com/icedland/iced/issues/2
 				SetInvalidInstruction();
 			}
 #endif
@@ -892,7 +888,7 @@ namespace Iced.Intel {
 				if (state.rm == 6) {
 					instruction.InternalSetMemoryDisplSize(2);
 					displIndex = state.instructionLength;
-					instruction.MemoryDisplacement = ReadUInt16();
+					instruction.InternalMemoryDisplacement64_lo = ReadUInt16();
 					baseReg = Register.None;
 					Debug.Assert(indexReg == Register.None);
 				}
@@ -902,16 +898,16 @@ namespace Iced.Intel {
 				instruction.InternalSetMemoryDisplSize(1);
 				displIndex = state.instructionLength;
 				if (tupleType == TupleType.N1)
-					instruction.MemoryDisplacement = (ushort)(sbyte)ReadByte();
+					instruction.InternalMemoryDisplacement64_lo = (ushort)(sbyte)ReadByte();
 				else
-					instruction.MemoryDisplacement = (ushort)(GetDisp8N(tupleType) * (uint)(sbyte)ReadByte());
+					instruction.InternalMemoryDisplacement64_lo = (ushort)(GetDisp8N(tupleType) * (uint)(sbyte)ReadByte());
 				break;
 
 			default:
 				Debug.Assert(state.mod == 2);
 				instruction.InternalSetMemoryDisplSize(2);
 				displIndex = state.instructionLength;
-				instruction.MemoryDisplacement = ReadUInt16();
+				instruction.InternalMemoryDisplacement64_lo = ReadUInt16();
 				break;
 			}
 
@@ -933,13 +929,17 @@ namespace Iced.Intel {
 					break;
 				}
 				else if (state.rm == 5) {
-					if (state.addressSize == OpSize.Size64)
-						instruction.InternalSetMemoryDisplSize(4);
-					else
-						instruction.InternalSetMemoryDisplSize(3);
 					displIndex = state.instructionLength;
-					instruction.MemoryDisplacement = ReadUInt32();
+					if (state.addressSize == OpSize.Size64) {
+						instruction.MemoryDisplacement64 = (ulong)(int)ReadUInt32();
+						instruction.InternalSetMemoryDisplSize(4);
+					}
+					else {
+						instruction.InternalMemoryDisplacement64_lo = ReadUInt32();
+						instruction.InternalSetMemoryDisplSize(3);
+					}
 					if (is64Mode) {
+						state.flags |= StateFlags.IpRel;
 						if (state.addressSize == OpSize.Size64)
 							instruction.InternalMemoryBase = Register.RIP;
 						else
@@ -968,10 +968,18 @@ namespace Iced.Intel {
 					Debug.Assert(0 <= state.rm && state.rm <= 7 && state.rm != 4);
 					instruction.InternalSetMemoryDisplSize(1);
 					displIndex = state.instructionLength;
-					if (tupleType == TupleType.N1)
-						instruction.MemoryDisplacement = (uint)(sbyte)ReadByte();
-					else
-						instruction.MemoryDisplacement = GetDisp8N(tupleType) * (uint)(sbyte)ReadByte();
+					if (state.addressSize == OpSize.Size64) {
+						if (tupleType == TupleType.N1)
+							instruction.MemoryDisplacement64 = (ulong)(sbyte)ReadByte();
+						else
+							instruction.MemoryDisplacement64 = (ulong)GetDisp8N(tupleType) * (ulong)(sbyte)ReadByte();
+					}
+					else {
+						if (tupleType == TupleType.N1)
+							instruction.InternalMemoryDisplacement64_lo = (uint)(sbyte)ReadByte();
+						else
+							instruction.InternalMemoryDisplacement64_lo = GetDisp8N(tupleType) * (uint)(sbyte)ReadByte();
+					}
 					instruction.InternalMemoryBase = (int)(state.extraBaseRegisterBase + state.rm) + baseReg;
 					return false;
 				}
@@ -987,12 +995,15 @@ namespace Iced.Intel {
 				}
 				else {
 					Debug.Assert(0 <= state.rm && state.rm <= 7 && state.rm != 4);
-					if (state.addressSize == OpSize.Size64)
-						instruction.InternalSetMemoryDisplSize(4);
-					else
-						instruction.InternalSetMemoryDisplSize(3);
 					displIndex = state.instructionLength;
-					instruction.MemoryDisplacement = ReadUInt32();
+					if (state.addressSize == OpSize.Size64) {
+						instruction.MemoryDisplacement64 = (ulong)(int)ReadUInt32();
+						instruction.InternalSetMemoryDisplSize(4);
+					}
+					else {
+						instruction.InternalMemoryDisplacement64_lo = ReadUInt32();
+						instruction.InternalSetMemoryDisplSize(3);
+					}
 					instruction.InternalMemoryBase = (int)(state.extraBaseRegisterBase + state.rm) + baseReg;
 					return false;
 				}
@@ -1010,17 +1021,23 @@ namespace Iced.Intel {
 				instruction.InternalMemoryIndex = (int)(index + state.extraIndexRegisterBaseVSIB) + indexReg;
 
 			if (@base == 5 && state.mod == 0) {
-				if (state.addressSize == OpSize.Size64)
-					instruction.InternalSetMemoryDisplSize(4);
-				else
-					instruction.InternalSetMemoryDisplSize(3);
 				displIndex = state.instructionLength;
-				instruction.MemoryDisplacement = ReadUInt32();
+				if (state.addressSize == OpSize.Size64) {
+					instruction.MemoryDisplacement64 = (ulong)(int)ReadUInt32();
+					instruction.InternalSetMemoryDisplSize(4);
+				}
+				else {
+					instruction.InternalMemoryDisplacement64_lo = ReadUInt32();
+					instruction.InternalSetMemoryDisplSize(3);
+				}
 			}
 			else {
 				instruction.InternalMemoryBase = (int)(@base + state.extraBaseRegisterBase) + baseReg;
 				instruction.InternalSetMemoryDisplSize(displSizeScale);
-				instruction.MemoryDisplacement = displ;
+				if (state.addressSize == OpSize.Size64)
+					instruction.MemoryDisplacement64 = (ulong)(int)displ;
+				else
+					instruction.InternalMemoryDisplacement64_lo = displ;
 			}
 			return true;
 		}

@@ -1,32 +1,10 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::super::test_utils::from_str_conv::*;
-use super::super::DecoderOptions;
-use super::va_test_case::*;
-#[cfg(not(feature = "std"))]
+use crate::test::va_test_case::*;
+use crate::test_utils::from_str_conv::*;
+use crate::DecoderOptions;
 use alloc::string::String;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::iter::IntoIterator;
 use core::u32;
@@ -69,30 +47,25 @@ impl Iterator for IntoIter {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		loop {
-			match self.lines.next() {
-				None => return None,
-				Some(info) => {
-					let result = match info {
-						Ok(line) => {
-							self.line_number += 1;
-							if line.is_empty() || line.starts_with('#') {
-								continue;
-							}
-							IntoIter::read_next_test_case(line)
-						}
-						Err(err) => Err(err.to_string()),
-					};
-					match result {
-						Ok(tc) => {
-							if let Some(tc) = tc {
-								return Some(tc);
-							} else {
-								continue;
-							}
-						}
-						Err(err) => panic!("Error parsing virtual address test case file '{}', line {}: {}", self.filename, self.line_number, err),
+			let result = match self.lines.next()? {
+				Ok(line) => {
+					self.line_number += 1;
+					if line.is_empty() || line.starts_with('#') {
+						continue;
+					}
+					IntoIter::read_next_test_case(line)
+				}
+				Err(err) => Err(err.to_string()),
+			};
+			match result {
+				Ok(tc) => {
+					if let Some(tc) = tc {
+						return Some(tc);
+					} else {
+						continue;
 					}
 				}
+				Err(err) => panic!("Error parsing virtual address test case file '{}', line {}: {}", self.filename, self.line_number, err),
 			}
 		}
 	}
@@ -119,13 +92,13 @@ impl IntoIter {
 		let decoder_options = if dec_opt_str.is_empty() { DecoderOptions::NONE } else { to_decoder_options(dec_opt_str)? };
 
 		let mut register_values: Vec<VARegisterValue> = Vec::new();
-		for tmp in elems[8].split_whitespace() {
-			if tmp.is_empty() {
+		for elem in elems[8].split_whitespace() {
+			if elem.is_empty() {
 				continue;
 			}
-			let kv: Vec<_> = tmp.split('=').collect();
+			let kv: Vec<_> = elem.split('=').collect();
 			if kv.len() != 2 {
-				return Err(format!("Expected key=value: {}", tmp));
+				return Err(format!("Expected key=value: {}", elem));
 			}
 			let key = kv[0];
 			let value_str = kv[1];

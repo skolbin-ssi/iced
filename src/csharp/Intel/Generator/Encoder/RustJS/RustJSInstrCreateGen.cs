@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 using System;
 using System.Collections.Generic;
@@ -276,22 +256,6 @@ namespace Generator.Encoder.RustJS {
 			WriteDocs(ctx, () => WriteAddrSizeOrBitnessThrows(ctx));
 			const string rustName = Rust.RustInstrCreateGenNames.with_xbegin;
 			WriteMethod(ctx, rustName, "createXbegin", canFail);
-			WriteCall(ctx, rustName, canFail);
-			ctx.Writer.WriteLine("}");
-		}
-
-		protected override void GenCreateMemory64(FileWriter writer, CreateMethod method) =>
-			GenerateMethod(writer, method, GenCreateMemory64);
-
-		void GenCreateMemory64(GenMethodContext ctx) {
-			const bool canFail = false;
-			var (rustName, jsName) = ctx.OrigMethod.Args[1].Type switch {
-				MethodArgType.UInt64 => (Rust.RustInstrCreateGenNames.with_mem64_reg, "createMem64Reg"),
-				MethodArgType.Register => (Rust.RustInstrCreateGenNames.with_reg_mem64, "createRegMem64"),
-				_ => throw new InvalidOperationException(),
-			};
-			WriteDocs(ctx);
-			WriteMethod(ctx, rustName, jsName, canFail);
 			WriteCall(ctx, rustName, canFail);
 			ctx.Writer.WriteLine("}");
 		}

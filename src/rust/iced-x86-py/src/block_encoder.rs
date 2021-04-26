@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 use crate::instruction::Instruction;
 use crate::utils::to_value_error;
@@ -49,8 +29,7 @@ use pyo3::types::PyBytes;
 ///     from iced_x86 import *
 ///
 ///     data = b"\x86\x64\x32\x16\xF0\xF2\x83\x00\x5A\x62\xC1\xFE\xCB\x6F\xD3"
-///     decoder = Decoder(64, data)
-///     decoder.ip = 0x1234_5678
+///     decoder = Decoder(64, data, ip=0x1234_5678)
 ///
 ///     instrs = [instr for instr in decoder]
 ///
@@ -123,9 +102,7 @@ impl BlockEncoder {
 	#[text_signature = "($self, rip, /)"]
 	fn encode<'py>(&mut self, py: Python<'py>, rip: u64) -> PyResult<&'py PyBytes> {
 		let block = iced_x86::InstructionBlock::new(&self.instructions, rip);
-		match iced_x86::BlockEncoder::encode(self.bitness, block, self.options) {
-			Ok(result) => Ok(PyBytes::new(py, &result.code_buffer)),
-			Err(error) => Err(to_value_error(error)),
-		}
+		iced_x86::BlockEncoder::encode(self.bitness, block, self.options)
+			.map_or_else(|e| Err(to_value_error(e)), |result| Ok(PyBytes::new(py, &result.code_buffer)))
 	}
 }

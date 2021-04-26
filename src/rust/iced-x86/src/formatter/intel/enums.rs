@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 use core::fmt;
 
@@ -70,7 +50,7 @@ pub(crate) enum CtorKind {
 	ST1_2,
 	ST1_3,
 }
-#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+#[rustfmt::skip]
 static GEN_DEBUG_CTOR_KIND: [&str; 40] = [
 	"Previous",
 	"Normal_1",
@@ -115,13 +95,12 @@ static GEN_DEBUG_CTOR_KIND: [&str; 40] = [
 ];
 impl fmt::Debug for CtorKind {
 	#[inline]
-	fn fmt<'a>(&self, f: &mut fmt::Formatter<'a>) -> fmt::Result {
-		write!(f, "{}", GEN_DEBUG_CTOR_KIND[*self as usize])?;
-		Ok(())
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", GEN_DEBUG_CTOR_KIND[*self as usize])
 	}
 }
 impl Default for CtorKind {
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	fn default() -> Self {
 		CtorKind::Previous
@@ -140,7 +119,7 @@ pub(crate) enum SizeOverride {
 	Size32,
 	Size64,
 }
-#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+#[rustfmt::skip]
 static GEN_DEBUG_SIZE_OVERRIDE: [&str; 4] = [
 	"None",
 	"Size16",
@@ -149,13 +128,12 @@ static GEN_DEBUG_SIZE_OVERRIDE: [&str; 4] = [
 ];
 impl fmt::Debug for SizeOverride {
 	#[inline]
-	fn fmt<'a>(&self, f: &mut fmt::Formatter<'a>) -> fmt::Result {
-		write!(f, "{}", GEN_DEBUG_SIZE_OVERRIDE[*self as usize])?;
-		Ok(())
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", GEN_DEBUG_SIZE_OVERRIDE[*self as usize])
 	}
 }
 impl Default for SizeOverride {
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	fn default() -> Self {
 		SizeOverride::None
@@ -172,20 +150,19 @@ pub(crate) enum BranchSizeInfo {
 	None,
 	Short,
 }
-#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+#[rustfmt::skip]
 static GEN_DEBUG_BRANCH_SIZE_INFO: [&str; 2] = [
 	"None",
 	"Short",
 ];
 impl fmt::Debug for BranchSizeInfo {
 	#[inline]
-	fn fmt<'a>(&self, f: &mut fmt::Formatter<'a>) -> fmt::Result {
-		write!(f, "{}", GEN_DEBUG_BRANCH_SIZE_INFO[*self as usize])?;
-		Ok(())
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", GEN_DEBUG_BRANCH_SIZE_INFO[*self as usize])
 	}
 }
 impl Default for BranchSizeInfo {
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	fn default() -> Self {
 		BranchSizeInfo::None
@@ -262,7 +239,7 @@ pub(crate) enum InstrOpKind {
 	DeclareDword,
 	DeclareQword,
 }
-#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+#[rustfmt::skip]
 static GEN_DEBUG_INSTR_OP_KIND: [&str; 30] = [
 	"Register",
 	"NearBranch16",
@@ -297,13 +274,12 @@ static GEN_DEBUG_INSTR_OP_KIND: [&str; 30] = [
 ];
 impl fmt::Debug for InstrOpKind {
 	#[inline]
-	fn fmt<'a>(&self, f: &mut fmt::Formatter<'a>) -> fmt::Result {
-		write!(f, "{}", GEN_DEBUG_INSTR_OP_KIND[*self as usize])?;
-		Ok(())
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", GEN_DEBUG_INSTR_OP_KIND[*self as usize])
 	}
 }
 impl Default for InstrOpKind {
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	fn default() -> Self {
 		InstrOpKind::Register

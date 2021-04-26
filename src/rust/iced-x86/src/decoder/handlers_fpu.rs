@@ -1,28 +1,14 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
+use crate::decoder::handlers::*;
+use crate::decoder::*;
+use crate::instruction_internal;
 
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::handlers::*;
-use super::*;
+// SAFETY:
+//	code: let this = unsafe { &*(self_ptr as *const Self) };
+// The first arg (`self_ptr`) to decode() is always the handler itself, cast to a `*const OpCodeHandler`.
+// All handlers are `#[repr(C)]` structs so the OpCodeHandler fields are always at the same offsets.
 
 #[allow(non_camel_case_types)]
 #[repr(C)]
@@ -37,16 +23,16 @@ impl OpCodeHandler_ST_STi {
 		Self { decode: OpCodeHandler_ST_STi::decode, has_modrm: true, code }
 	}
 
-	fn decode(self_ptr: *const OpCodeHandler, decoder: &mut Decoder, instruction: &mut Instruction) {
+	fn decode(self_ptr: *const OpCodeHandler, decoder: &mut Decoder<'_>, instruction: &mut Instruction) {
 		let this = unsafe { &*(self_ptr as *const Self) };
-		debug_assert_eq!(EncodingKind::Legacy, decoder.state.encoding());
-		super::instruction_internal::internal_set_code_u32(instruction, this.code);
-		const_assert_eq!(0, OpKind::Register as u32);
-		//super::instruction_internal::internal_set_op0_kind(instruction, OpKind::Register);
-		super::instruction_internal::internal_set_op0_register_u32(instruction, Register::ST0 as u32);
-		const_assert_eq!(0, OpKind::Register as u32);
-		//super::instruction_internal::internal_set_op1_kind(instruction, OpKind::Register);
-		super::instruction_internal::internal_set_op1_register_u32(instruction, Register::ST0 as u32 + decoder.state.rm);
+		debug_assert_eq!(decoder.state.encoding(), EncodingKind::Legacy);
+		instruction_internal::internal_set_code_u32(instruction, this.code);
+		const_assert_eq!(OpKind::Register as u32, 0);
+		//instruction_internal::internal_set_op0_kind(instruction, OpKind::Register);
+		instruction_internal::internal_set_op0_register_u32(instruction, Register::ST0 as u32);
+		const_assert_eq!(OpKind::Register as u32, 0);
+		//instruction_internal::internal_set_op1_kind(instruction, OpKind::Register);
+		instruction_internal::internal_set_op1_register_u32(instruction, Register::ST0 as u32 + decoder.state.rm);
 	}
 }
 
@@ -63,16 +49,16 @@ impl OpCodeHandler_STi_ST {
 		Self { decode: OpCodeHandler_STi_ST::decode, has_modrm: true, code }
 	}
 
-	fn decode(self_ptr: *const OpCodeHandler, decoder: &mut Decoder, instruction: &mut Instruction) {
+	fn decode(self_ptr: *const OpCodeHandler, decoder: &mut Decoder<'_>, instruction: &mut Instruction) {
 		let this = unsafe { &*(self_ptr as *const Self) };
-		debug_assert_eq!(EncodingKind::Legacy, decoder.state.encoding());
-		super::instruction_internal::internal_set_code_u32(instruction, this.code);
-		const_assert_eq!(0, OpKind::Register as u32);
-		//super::instruction_internal::internal_set_op0_kind(instruction, OpKind::Register);
-		super::instruction_internal::internal_set_op0_register_u32(instruction, Register::ST0 as u32 + decoder.state.rm);
-		const_assert_eq!(0, OpKind::Register as u32);
-		//super::instruction_internal::internal_set_op1_kind(instruction, OpKind::Register);
-		super::instruction_internal::internal_set_op1_register_u32(instruction, Register::ST0 as u32);
+		debug_assert_eq!(decoder.state.encoding(), EncodingKind::Legacy);
+		instruction_internal::internal_set_code_u32(instruction, this.code);
+		const_assert_eq!(OpKind::Register as u32, 0);
+		//instruction_internal::internal_set_op0_kind(instruction, OpKind::Register);
+		instruction_internal::internal_set_op0_register_u32(instruction, Register::ST0 as u32 + decoder.state.rm);
+		const_assert_eq!(OpKind::Register as u32, 0);
+		//instruction_internal::internal_set_op1_kind(instruction, OpKind::Register);
+		instruction_internal::internal_set_op1_register_u32(instruction, Register::ST0 as u32);
 	}
 }
 
@@ -89,13 +75,13 @@ impl OpCodeHandler_STi {
 		Self { decode: OpCodeHandler_STi::decode, has_modrm: true, code }
 	}
 
-	fn decode(self_ptr: *const OpCodeHandler, decoder: &mut Decoder, instruction: &mut Instruction) {
+	fn decode(self_ptr: *const OpCodeHandler, decoder: &mut Decoder<'_>, instruction: &mut Instruction) {
 		let this = unsafe { &*(self_ptr as *const Self) };
-		debug_assert_eq!(EncodingKind::Legacy, decoder.state.encoding());
-		super::instruction_internal::internal_set_code_u32(instruction, this.code);
-		const_assert_eq!(0, OpKind::Register as u32);
-		//super::instruction_internal::internal_set_op0_kind(instruction, OpKind::Register);
-		super::instruction_internal::internal_set_op0_register_u32(instruction, Register::ST0 as u32 + decoder.state.rm);
+		debug_assert_eq!(decoder.state.encoding(), EncodingKind::Legacy);
+		instruction_internal::internal_set_code_u32(instruction, this.code);
+		const_assert_eq!(OpKind::Register as u32, 0);
+		//instruction_internal::internal_set_op0_kind(instruction, OpKind::Register);
+		instruction_internal::internal_set_op0_register_u32(instruction, Register::ST0 as u32 + decoder.state.rm);
 	}
 }
 
@@ -117,16 +103,16 @@ impl OpCodeHandler_Mf {
 		Self { decode: OpCodeHandler_Mf::decode, has_modrm: true, code16, code32 }
 	}
 
-	fn decode(self_ptr: *const OpCodeHandler, decoder: &mut Decoder, instruction: &mut Instruction) {
+	fn decode(self_ptr: *const OpCodeHandler, decoder: &mut Decoder<'_>, instruction: &mut Instruction) {
 		let this = unsafe { &*(self_ptr as *const Self) };
-		debug_assert_eq!(EncodingKind::Legacy, decoder.state.encoding());
+		debug_assert_eq!(decoder.state.encoding(), EncodingKind::Legacy);
 		if decoder.state.operand_size != OpSize::Size16 {
-			super::instruction_internal::internal_set_code_u32(instruction, this.code32);
+			instruction_internal::internal_set_code_u32(instruction, this.code32);
 		} else {
-			super::instruction_internal::internal_set_code_u32(instruction, this.code16);
+			instruction_internal::internal_set_code_u32(instruction, this.code16);
 		}
-		debug_assert_ne!(3, decoder.state.mod_);
-		super::instruction_internal::internal_set_op0_kind(instruction, OpKind::Memory);
+		debug_assert_ne!(decoder.state.mod_, 3);
+		instruction_internal::internal_set_op0_kind(instruction, OpKind::Memory);
 		decoder.read_op_mem(instruction);
 	}
 }

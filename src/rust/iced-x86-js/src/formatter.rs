@@ -1,38 +1,19 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::cc::{
+use crate::cc::{
 	cc_a_to_iced, cc_ae_to_iced, cc_b_to_iced, cc_be_to_iced, cc_e_to_iced, cc_g_to_iced, cc_ge_to_iced, cc_l_to_iced, cc_le_to_iced, cc_ne_to_iced,
 	cc_np_to_iced, cc_p_to_iced, iced_to_cc_a, iced_to_cc_ae, iced_to_cc_b, iced_to_cc_be, iced_to_cc_e, iced_to_cc_g, iced_to_cc_ge, iced_to_cc_l,
 	iced_to_cc_le, iced_to_cc_ne, iced_to_cc_np, iced_to_cc_p, CC_a, CC_ae, CC_b, CC_be, CC_e, CC_g, CC_ge, CC_l, CC_le, CC_ne, CC_np, CC_p,
 };
-use super::format_mnemonic_options::FormatMnemonicOptions;
-use super::instruction::Instruction;
-use super::memory_size_options::{iced_to_memory_size_options, memory_size_options_to_iced, MemorySizeOptions};
+use crate::format_mnemonic_options::FormatMnemonicOptions;
+use crate::instruction::Instruction;
+use crate::memory_size_options::{iced_to_memory_size_options, memory_size_options_to_iced, MemorySizeOptions};
 #[cfg(feature = "instr_info")]
-use super::op_access::{iced_to_op_access, OpAccess};
+use crate::op_access::{iced_to_op_access, OpAccess};
 #[cfg(feature = "instr_api")]
-use super::register::{register_to_iced, Register};
+use crate::register::{register_to_iced, Register};
+use static_assertions::const_assert_eq;
 use wasm_bindgen::prelude::*;
 
 // GENERATOR-BEGIN: FormatterSyntax
@@ -145,7 +126,7 @@ impl Formatter {
 	#[wasm_bindgen(js_name = "formatMnemonicOptions")]
 	pub fn format_mnemonic_options(&mut self, instruction: &Instruction, options: u32 /*flags: FormatMnemonicOptions*/) -> String {
 		// It's not part of the method sig so make sure it's still compiled by referencing it here
-		const_assert_eq!(0, FormatMnemonicOptions::None as u32);
+		const_assert_eq!(FormatMnemonicOptions::None as u32, 0);
 		let mut output = String::new();
 		self.formatter.format_mnemonic_options(&instruction.0, &mut output, options);
 		output
@@ -180,10 +161,9 @@ impl Formatter {
 	#[cfg(feature = "instr_info")]
 	#[wasm_bindgen(js_name = "opAccess")]
 	pub fn op_access(&mut self, instruction: &Instruction, operand: u32) -> Result<Option<OpAccess>, JsValue> {
-		match self.formatter.op_access(&instruction.0, operand) {
-			Ok(value) => Ok(value.map(iced_to_op_access)),
-			Err(error) => Err(js_sys::Error::new(&format!("{}", error)).into()),
-		}
+		self.formatter
+			.op_access(&instruction.0, operand)
+			.map_or_else(|error| Err(js_sys::Error::new(&format!("{}", error)).into()), |value| Ok(value.map(iced_to_op_access)))
 	}
 
 	/// Converts a formatter operand index to an instruction operand index. Returns `undefined` if it's an operand added by the formatter
@@ -200,10 +180,7 @@ impl Formatter {
 	/// [`operandCount`]: #method.operand_count
 	#[wasm_bindgen(js_name = "getInstructionOperand")]
 	pub fn get_instruction_operand(&mut self, instruction: &Instruction, operand: u32) -> Result<Option<u32>, JsValue> {
-		match self.formatter.get_instruction_operand(&instruction.0, operand) {
-			Ok(value) => Ok(value),
-			Err(error) => Err(js_sys::Error::new(&format!("{}", error)).into()),
-		}
+		self.formatter.get_instruction_operand(&instruction.0, operand).map_or_else(|error| Err(js_sys::Error::new(&format!("{}", error)).into()), Ok)
 	}
 
 	/// Converts an instruction operand index to a formatter operand index. Returns `undefined` if the instruction operand isn't used by the formatter
@@ -220,10 +197,9 @@ impl Formatter {
 	pub fn get_formatter_operand(
 		&mut self, instruction: &Instruction, #[allow(non_snake_case)] instructionOperand: u32,
 	) -> Result<Option<u32>, JsValue> {
-		match self.formatter.get_formatter_operand(&instruction.0, instructionOperand) {
-			Ok(value) => Ok(value),
-			Err(error) => Err(js_sys::Error::new(&format!("{}", error)).into()),
-		}
+		self.formatter
+			.get_formatter_operand(&instruction.0, instructionOperand)
+			.map_or_else(|error| Err(js_sys::Error::new(&format!("{}", error)).into()), Ok)
 	}
 
 	/// Formats an operand. This is a formatter operand and not necessarily a real instruction operand.
@@ -242,10 +218,9 @@ impl Formatter {
 	#[wasm_bindgen(js_name = "formatOperand")]
 	pub fn format_operand(&mut self, instruction: &Instruction, operand: u32) -> Result<String, JsValue> {
 		let mut output = String::new();
-		match self.formatter.format_operand(&instruction.0, &mut output, operand) {
-			Ok(()) => Ok(output),
-			Err(error) => Err(js_sys::Error::new(&format!("{}", error)).into()),
-		}
+		self.formatter
+			.format_operand(&instruction.0, &mut output, operand)
+			.map_or_else(|error| Err(js_sys::Error::new(&format!("{}", error)).into()), |_| Ok(output))
 	}
 
 	/// Formats an operand separator
@@ -400,7 +375,7 @@ impl Formatter {
 
 	// NOTE: These tables must render correctly by `cargo doc` and inside of IDEs, eg. VSCode.
 
-	/// Prefixes are upper cased
+	/// Prefixes are uppercased
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -412,7 +387,7 @@ impl Formatter {
 		self.formatter.options().uppercase_prefixes()
 	}
 
-	/// Prefixes are upper cased
+	/// Prefixes are uppercased
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -428,7 +403,7 @@ impl Formatter {
 		self.formatter.options_mut().set_uppercase_prefixes(value);
 	}
 
-	/// Mnemonics are upper cased
+	/// Mnemonics are uppercased
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -440,7 +415,7 @@ impl Formatter {
 		self.formatter.options().uppercase_mnemonics()
 	}
 
-	/// Mnemonics are upper cased
+	/// Mnemonics are uppercased
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -456,7 +431,7 @@ impl Formatter {
 		self.formatter.options_mut().set_uppercase_mnemonics(value);
 	}
 
-	/// Registers are upper cased
+	/// Registers are uppercased
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -468,7 +443,7 @@ impl Formatter {
 		self.formatter.options().uppercase_registers()
 	}
 
-	/// Registers are upper cased
+	/// Registers are uppercased
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -484,7 +459,7 @@ impl Formatter {
 		self.formatter.options_mut().set_uppercase_registers(value);
 	}
 
-	/// Keywords are upper cased (eg. `BYTE PTR`, `SHORT`)
+	/// Keywords are uppercased (eg. `BYTE PTR`, `SHORT`)
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -496,7 +471,7 @@ impl Formatter {
 		self.formatter.options().uppercase_keywords()
 	}
 
-	/// Keywords are upper cased (eg. `BYTE PTR`, `SHORT`)
+	/// Keywords are uppercased (eg. `BYTE PTR`, `SHORT`)
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -512,7 +487,7 @@ impl Formatter {
 		self.formatter.options_mut().set_uppercase_keywords(value);
 	}
 
-	/// Upper case decorators, eg. `{z}`, `{sae}`, `{rd-sae}` (but not op mask registers: `{k1}`)
+	/// Uppercase decorators, eg. `{z}`, `{sae}`, `{rd-sae}` (but not opmask registers: `{k1}`)
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -524,7 +499,7 @@ impl Formatter {
 		self.formatter.options().uppercase_decorators()
 	}
 
-	/// Upper case decorators, eg. `{z}`, `{sae}`, `{rd-sae}` (but not op mask registers: `{k1}`)
+	/// Uppercase decorators, eg. `{z}`, `{sae}`, `{rd-sae}` (but not opmask registers: `{k1}`)
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -540,7 +515,7 @@ impl Formatter {
 		self.formatter.options_mut().set_uppercase_decorators(value);
 	}
 
-	/// Everything is upper cased, except numbers and their prefixes/suffixes
+	/// Everything is uppercased, except numbers and their prefixes/suffixes
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -552,7 +527,7 @@ impl Formatter {
 		self.formatter.options().uppercase_all()
 	}
 
-	/// Everything is upper cased, except numbers and their prefixes/suffixes
+	/// Everything is uppercased, except numbers and their prefixes/suffixes
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -1220,7 +1195,7 @@ impl Formatter {
 		self.formatter.options_mut().set_leading_zeroes(value);
 	}
 
-	/// Use upper case hex digits
+	/// Use uppercase hex digits
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -1232,7 +1207,7 @@ impl Formatter {
 		self.formatter.options().uppercase_hex()
 	}
 
-	/// Use upper case hex digits
+	/// Use uppercase hex digits
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------

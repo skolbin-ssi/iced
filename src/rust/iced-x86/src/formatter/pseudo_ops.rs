@@ -1,32 +1,13 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
+// Keep this file in sync with pseudo_ops_fast.rs
 
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::enums_shared::PseudoOpsKind;
-use super::FormatterString;
-#[cfg(not(feature = "std"))]
+use crate::formatter::enums_shared::PseudoOpsKind;
+use crate::formatter::FormatterString;
 use alloc::string::String;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+use lazy_static::lazy_static;
 
 pub(super) fn get_pseudo_ops(kind: PseudoOpsKind) -> &'static Vec<FormatterString> {
 	let pseudo_ops = &*PSEUDO_OPS;
@@ -77,7 +58,7 @@ lazy_static! {
 	static ref PSEUDO_OPS: PseudoOps = {
 		const CAP: usize = 14;
 		let mut sb = String::with_capacity(CAP);
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+		#[rustfmt::skip]
 		let cc: [&'static str; 32] = [
 			"eq",
 			"lt",
@@ -121,7 +102,7 @@ lazy_static! {
 		let cmpsd = create(&mut sb, &cc, 8, "cmp", "sd");
 		let vcmpsd = create(&mut sb, &cc, 32, "vcmp", "sd");
 
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+		#[rustfmt::skip]
 		let xopcc: [&'static str; 8] = [
 			"lt",
 			"le",
@@ -141,14 +122,14 @@ lazy_static! {
 		let vpcomud = create(&mut sb, &xopcc, 8, "vpcom", "ud");
 		let vpcomuq = create(&mut sb, &xopcc, 8, "vpcom", "uq");
 
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+		#[rustfmt::skip]
 		let pclmulqdq = vec![
 			FormatterString::new_str("pclmullqlqdq"),
 			FormatterString::new_str("pclmulhqlqdq"),
 			FormatterString::new_str("pclmullqhqdq"),
 			FormatterString::new_str("pclmulhqhqdq"),
 		];
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+		#[rustfmt::skip]
 		let vpclmulqdq = vec![
 			FormatterString::new_str("vpclmullqlqdq"),
 			FormatterString::new_str("vpclmulhqlqdq"),
@@ -156,7 +137,7 @@ lazy_static! {
 			FormatterString::new_str("vpclmulhqhqdq"),
 		];
 
-		assert!(sb.capacity() == CAP);
+		debug_assert_eq!(sb.capacity(), CAP);
 		PseudoOps {
 			cmpps,
 			vcmpps,

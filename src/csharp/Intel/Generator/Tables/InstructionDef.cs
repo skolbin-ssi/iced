@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 using System;
 using Generator.InstructionInfo;
@@ -75,7 +55,7 @@ namespace Generator.Tables {
 		/// </summary>
 		IgnoresSegment			= 0x00000200,
 		/// <summary>
-		/// The op mask register is read and written (instead of just read). This also implies that it can't be <c>K0</c>.
+		/// The opmask register is read and written (instead of just read). This also implies that it can't be <c>K0</c>.
 		/// </summary>
 		OpMaskReadWrite			= 0x00000400,
 		/// <summary>
@@ -135,7 +115,7 @@ namespace Generator.Tables {
 		/// </summary>
 		SuppressAllExceptions	= 0x01000000,
 		/// <summary>
-		/// Op mask register is supported
+		/// Opmask register is supported
 		/// </summary>
 		OpMaskRegister			= 0x02000000,
 		/// <summary>
@@ -143,7 +123,7 @@ namespace Generator.Tables {
 		/// </summary>
 		ZeroingMasking			= 0x04000000,
 		/// <summary>
-		/// Op mask can't be <c>K0</c>
+		/// Opmask can't be <c>K0</c>
 		/// </summary>
 		RequireOpMaskRegister	= 0x08000000,
 		/// <summary>
@@ -366,7 +346,7 @@ namespace Generator.Tables {
 		/// </summary>
 		ImpliedZeroingMasking	= 0x00008000,//TODO: Add to OpCodeInfo
 		/// <summary>
-		/// The op mask register is an element selector and not a write mask
+		/// The opmask register is an element selector and not a write mask
 		/// </summary>
 		OpMaskIsElementSelector	= 0x00010000,//TODO: Add to OpCodeInfo
 		/// <summary>
@@ -417,7 +397,7 @@ namespace Generator.Tables {
 		/// </summary>
 		None,
 		/// <summary>
-		/// Used if the op mask is `{k1}` even if the first operand is also a `k` reg, eg. `xxx k2 {k1}, xmm3`
+		/// Used if the opmask is `{k1}` even if the first operand is also a `k` reg, eg. `xxx k2 {k1}, xmm3`
 		/// or
 		/// Don't print the GPR suffix (a, b, etc), eg. `xxx r32, r32` instead of `xxx r32a, r32b`
 		/// </summary>

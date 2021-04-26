@@ -1,27 +1,7 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::*;
+use crate::block_enc::tests::*;
 use core::u32;
 
 const BITNESS: u32 = 16;
@@ -30,7 +10,7 @@ const NEW_RIP: u64 = 0xF000;
 
 #[test]
 fn br8_fwd() {
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let original_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0xE2, 0x22,// loop 8026h
@@ -51,7 +31,7 @@ fn br8_fwd() {
 		/*0024*/ 0xB0, 0x08,// mov al,8
 		/*0026*/ 0x90,// nop
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let new_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0xE2, 0x22,// loop 0F026h
@@ -72,7 +52,7 @@ fn br8_fwd() {
 		/*0024*/ 0xB0, 0x08,// mov al,8
 		/*0026*/ 0x90,// nop
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let expected_instruction_offsets = [
 		0x0000,
 		0x0002,
@@ -110,7 +90,7 @@ fn br8_fwd() {
 
 #[test]
 fn br8_bwd() {
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let original_data = [
 		/*0000*/ 0x90,// nop
 		/*0001*/ 0xB0, 0x00,// mov al,0
@@ -131,7 +111,7 @@ fn br8_bwd() {
 		/*0023*/ 0xE3, 0xDB,// jcxz 8000h
 		/*0025*/ 0xB0, 0x08,// mov al,8
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let new_data = [
 		/*0000*/ 0x90,// nop
 		/*0001*/ 0xB0, 0x00,// mov al,0
@@ -152,7 +132,7 @@ fn br8_bwd() {
 		/*0023*/ 0xE3, 0xDB,// jcxz 0F000h
 		/*0025*/ 0xB0, 0x08,// mov al,8
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let expected_instruction_offsets = [
 		0x0000,
 		0x0001,
@@ -190,7 +170,7 @@ fn br8_bwd() {
 
 #[test]
 fn br8_fwd_os() {
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let original_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0x66, 0xE2, 0x29,// loopd 0000802Eh
@@ -211,7 +191,7 @@ fn br8_fwd_os() {
 		/*002C*/ 0xB0, 0x08,// mov al,8
 		/*002E*/ 0x90,// nop
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let new_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0x66, 0xE2, 0x29,// loopd 0000802Dh
@@ -232,7 +212,7 @@ fn br8_fwd_os() {
 		/*002C*/ 0xB0, 0x08,// mov al,8
 		/*002E*/ 0x90,// nop
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let expected_instruction_offsets = [
 		0x0000,
 		0x0002,
@@ -270,7 +250,7 @@ fn br8_fwd_os() {
 
 #[test]
 fn br8_short_other_short() {
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let original_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0xE2, 0x22,// loop 8026h
@@ -290,7 +270,7 @@ fn br8_short_other_short() {
 		/*0022*/ 0xE3, 0x02,// jcxz 8026h
 		/*0024*/ 0xB0, 0x08,// mov al,8
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let new_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0xE2, 0x23,// loop 8026h
@@ -310,7 +290,7 @@ fn br8_short_other_short() {
 		/*0022*/ 0xE3, 0x03,// jcxz 8026h
 		/*0024*/ 0xB0, 0x08,// mov al,8
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let expected_instruction_offsets = [
 		0x0000,
 		0x0002,
@@ -347,7 +327,7 @@ fn br8_short_other_short() {
 
 #[test]
 fn br8_short_other_near() {
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let original_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0xE2, 0x22,// loop 8026h
@@ -367,7 +347,7 @@ fn br8_short_other_near() {
 		/*0022*/ 0xE3, 0x09,// jcxz 802Dh
 		/*0024*/ 0xB0, 0x08,// mov al,8
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let new_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0xE2, 0x02,// loop 9006h
@@ -403,7 +383,7 @@ fn br8_short_other_near() {
 		/*0049*/ 0xE9, 0xE1, 0xEF,// jmp near ptr 802Dh
 		/*004C*/ 0xB0, 0x08,// mov al,8
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let expected_instruction_offsets = [
 		0x0000,
 		u32::MAX,
@@ -440,19 +420,19 @@ fn br8_short_other_near() {
 
 #[test]
 fn br8_same_br() {
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let original_data = [
 		/*0000*/ 0xE2, 0xFE,// loop 8000h
 		/*0002*/ 0xE2, 0xFC,// loop 8000h
 		/*0004*/ 0xE2, 0xFA,// loop 8000h
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let new_data = [
 		/*0000*/ 0xE2, 0xFE,// loop 8000h
 		/*0002*/ 0xE2, 0xFC,// loop 8000h
 		/*0004*/ 0xE2, 0xFA,// loop 8000h
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let expected_instruction_offsets = [
 		0x0000,
 		0x0002,

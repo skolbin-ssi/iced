@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 #if INSTR_INFO
 using System;
@@ -145,33 +125,45 @@ namespace Iced.Intel {
 		/// <summary>
 		/// <see langword="true"/> if it's a privileged instruction (all CPL=0 instructions (except <c>VMCALL</c>) and IOPL instructions <c>IN</c>, <c>INS</c>, <c>OUT</c>, <c>OUTS</c>, <c>CLI</c>, <c>STI</c>)
 		/// </summary>
+		[System.Obsolete("Use " + nameof(Instruction) + "." + nameof(Instruction.IsPrivileged) + " instead", false)]
+		[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
 		public readonly bool IsPrivileged => (flags & (uint)Flags1.Privileged) != 0;
 
 		/// <summary>
 		/// <see langword="true"/> if this is an instruction that implicitly uses the stack pointer (<c>SP</c>/<c>ESP</c>/<c>RSP</c>), eg. <c>CALL</c>, <c>PUSH</c>, <c>POP</c>, <c>RET</c>, etc.
 		/// See also <see cref="Instruction.StackPointerIncrement"/>
 		/// </summary>
+		[System.Obsolete("Use " + nameof(Instruction) + "." + nameof(Instruction.IsStackInstruction) + " instead", false)]
+		[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
 		public readonly bool IsStackInstruction => (flags & (uint)Flags1.StackInstruction) != 0;
 
 		/// <summary>
 		/// <see langword="true"/> if it's an instruction that saves or restores too many registers (eg. <c>FXRSTOR</c>, <c>XSAVE</c>, etc).
 		/// <see cref="GetUsedRegisters"/> won't return all accessed registers.
 		/// </summary>
+		[System.Obsolete("Use " + nameof(Instruction) + "." + nameof(Instruction.IsSaveRestoreInstruction) + " instead", false)]
+		[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
 		public readonly bool IsSaveRestoreInstruction => (flags & (uint)Flags1.SaveRestore) != 0;
 
 		/// <summary>
 		/// Instruction encoding, eg. Legacy, 3DNow!, VEX, EVEX, XOP
 		/// </summary>
+		[System.Obsolete("Use " + nameof(Instruction) + "." + nameof(Instruction.Encoding) + " instead", false)]
+		[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
 		public readonly EncodingKind Encoding => (EncodingKind)encoding;
 
 		/// <summary>
 		/// Gets the CPU or CPUID feature flags
 		/// </summary>
+		[System.Obsolete("Use " + nameof(Instruction) + "." + nameof(Instruction.CpuidFeatures) + " instead", false)]
+		[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
 		public readonly CpuidFeature[] CpuidFeatures => CpuidFeatureInternalData.ToCpuidFeatures[cpuidFeatureInternal];
 
 		/// <summary>
 		/// Control flow info
 		/// </summary>
+		[System.Obsolete("Use " + nameof(Instruction) + "." + nameof(Instruction.FlowControl) + " instead", false)]
+		[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
 		public readonly FlowControl FlowControl => (FlowControl)flowControl;
 
 		/// <summary>
@@ -250,31 +242,43 @@ namespace Iced.Intel {
 		/// <summary>
 		/// All flags that are read by the CPU when executing the instruction. See also <see cref="RflagsModified"/>
 		/// </summary>
+		[System.Obsolete("Use " + nameof(Instruction) + "." + nameof(Instruction.RflagsRead) + " instead", false)]
+		[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
 		public readonly RflagsBits RflagsRead => (RflagsBits)RflagsInfoConstants.flagsRead[rflagsInfo];
 
 		/// <summary>
 		/// All flags that are written by the CPU, except those flags that are known to be undefined, always set or always cleared. See also <see cref="RflagsModified"/>
 		/// </summary>
+		[System.Obsolete("Use " + nameof(Instruction) + "." + nameof(Instruction.RflagsWritten) + " instead", false)]
+		[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
 		public readonly RflagsBits RflagsWritten => (RflagsBits)RflagsInfoConstants.flagsWritten[rflagsInfo];
 
 		/// <summary>
 		/// All flags that are always cleared by the CPU. See also <see cref="RflagsModified"/>
 		/// </summary>
+		[System.Obsolete("Use " + nameof(Instruction) + "." + nameof(Instruction.RflagsCleared) + " instead", false)]
+		[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
 		public readonly RflagsBits RflagsCleared => (RflagsBits)RflagsInfoConstants.flagsCleared[rflagsInfo];
 
 		/// <summary>
 		/// All flags that are always set by the CPU. See also <see cref="RflagsModified"/>
 		/// </summary>
+		[System.Obsolete("Use " + nameof(Instruction) + "." + nameof(Instruction.RflagsSet) + " instead", false)]
+		[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
 		public readonly RflagsBits RflagsSet => (RflagsBits)RflagsInfoConstants.flagsSet[rflagsInfo];
 
 		/// <summary>
 		/// All flags that are undefined after executing the instruction. See also <see cref="RflagsModified"/>
 		/// </summary>
+		[System.Obsolete("Use " + nameof(Instruction) + "." + nameof(Instruction.RflagsUndefined) + " instead", false)]
+		[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
 		public readonly RflagsBits RflagsUndefined => (RflagsBits)RflagsInfoConstants.flagsUndefined[rflagsInfo];
 
 		/// <summary>
 		/// All flags that are modified by the CPU. This is <see cref="RflagsWritten"/> + <see cref="RflagsCleared"/> + <see cref="RflagsSet"/> + <see cref="RflagsUndefined"/>
 		/// </summary>
+		[System.Obsolete("Use " + nameof(Instruction) + "." + nameof(Instruction.RflagsModified) + " instead", false)]
+		[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
 		public readonly RflagsBits RflagsModified => (RflagsBits)RflagsInfoConstants.flagsModified[rflagsInfo];
 	}
 }

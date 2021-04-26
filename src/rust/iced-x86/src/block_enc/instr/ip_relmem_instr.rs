@@ -1,29 +1,9 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::super::super::iced_error::IcedError;
-use super::super::*;
-use super::*;
+use crate::block_enc::instr::*;
+use crate::block_enc::*;
+use crate::iced_error::IcedError;
 use core::cell::RefCell;
 use core::{i32, u32};
 
@@ -54,10 +34,11 @@ impl IpRelMemOpInstr {
 
 		let mut instr_copy = *instruction;
 		instr_copy.set_memory_base(Register::RIP);
-		let rip_instruction_size = block_encoder.get_instruction_size(&instr_copy, instr_copy.ip());
+		instr_copy.set_memory_displacement64(0);
+		let rip_instruction_size = block_encoder.get_instruction_size(&instr_copy, instr_copy.ip_rel_memory_address());
 
 		instr_copy.set_memory_base(Register::EIP);
-		let eip_instruction_size = block_encoder.get_instruction_size(&instr_copy, instr_copy.ip());
+		let eip_instruction_size = block_encoder.get_instruction_size(&instr_copy, instr_copy.ip_rel_memory_address());
 
 		debug_assert!(eip_instruction_size >= rip_instruction_size);
 		Self {
@@ -138,25 +119,16 @@ impl Instr for IpRelMemOpInstr {
 	fn encode(&mut self, block: &mut Block) -> Result<(ConstantOffsets, bool), IcedError> {
 		match self.instr_kind {
 			InstrKind::Unchanged | InstrKind::Rip | InstrKind::Eip => {
-				let instr_size = if self.instr_kind == InstrKind::Rip {
+				if self.instr_kind == InstrKind::Rip {
 					self.instruction.set_memory_base(Register::RIP);
-					self.rip_instruction_size
 				} else if self.instr_kind == InstrKind::Eip {
 					self.instruction.set_memory_base(Register::EIP);
-					self.eip_instruction_size
 				} else {
 					debug_assert!(self.instr_kind == InstrKind::Unchanged);
-					if self.instruction.memory_base() == Register::EIP {
-						self.eip_instruction_size
-					} else {
-						self.rip_instruction_size
-					}
 				};
 
 				let target_address = self.target_instr.address(self);
-				let next_rip = self.ip.wrapping_add(instr_size as u64);
-				self.instruction.set_next_ip(next_rip);
-				self.instruction.set_memory_displacement((target_address as u32).wrapping_sub(next_rip as u32));
+				self.instruction.set_memory_displacement64(target_address);
 				match block.encoder.encode(&self.instruction, self.ip) {
 					Ok(_) => {
 						let expected_rip =

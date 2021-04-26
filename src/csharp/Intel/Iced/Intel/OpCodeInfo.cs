@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 #if ENCODER && OPCODE_INFO
 using System;
@@ -400,13 +380,6 @@ namespace Iced.Intel {
 		public bool RequireOpMaskRegister => (encFlags3 & EncFlags3.RequireOpMaskRegister) != 0;
 
 		/// <summary>
-		/// (EVEX) <see langword="true"/> if a non-zero opmask register must be used
-		/// </summary>
-		[System.Obsolete("Use " + nameof(RequireOpMaskRegister) + " instead", true)]
-		[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-		public bool RequireNonZeroOpMaskRegister => RequireOpMaskRegister;
-
-		/// <summary>
 		/// (EVEX) <see langword="true"/> if the instruction supports zeroing masking (if one of the opmask registers <c>K1</c>-<c>K7</c> is used and destination operand is not a memory operand)
 		/// </summary>
 		public bool CanUseZeroingMasking => (encFlags3 & EncFlags3.ZeroingMasking) != 0;
@@ -588,7 +561,7 @@ namespace Iced.Intel {
 		public bool IgnoresSegment => (opcFlags1 & OpCodeInfoFlags1.IgnoresSegment) != 0;
 
 		/// <summary>
-		/// <see langword="true"/> if the op mask register is read and written (instead of just read). This also implies that it can't be <c>K0</c>.
+		/// <see langword="true"/> if the opmask register is read and written (instead of just read). This also implies that it can't be <c>K0</c>.
 		/// </summary>
 		public bool IsOpMaskReadWrite => (opcFlags1 & OpCodeInfoFlags1.OpMaskReadWrite) != 0;
 

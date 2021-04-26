@@ -1,29 +1,8 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::enums::*;
-use super::enums_shared::MemorySizeOptions;
-#[cfg(not(feature = "std"))]
+use crate::formatter::enums::*;
+use crate::formatter::enums_shared::MemorySizeOptions;
 use alloc::string::String;
 use core::hash::{Hash, Hasher};
 
@@ -34,7 +13,7 @@ enum FormatterOptionString {
 }
 
 impl FormatterOptionString {
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn as_str(&self) -> &str {
 		match self {
@@ -45,7 +24,7 @@ impl FormatterOptionString {
 }
 
 impl Default for FormatterOptionString {
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	fn default() -> Self {
 		FormatterOptionString::Str("")
@@ -54,7 +33,7 @@ impl Default for FormatterOptionString {
 
 impl Eq for FormatterOptionString {}
 impl PartialEq<FormatterOptionString> for FormatterOptionString {
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	fn eq(&self, other: &FormatterOptionString) -> bool {
 		self.as_str().eq(other.as_str())
@@ -149,8 +128,8 @@ pub struct FormatterOptions {
 
 impl FormatterOptions {
 	/// Creates default formatter options
-	#[cfg_attr(has_must_use, must_use)]
-	#[cfg_attr(feature = "cargo-clippy", allow(clippy::missing_inline_in_public_items))]
+	#[must_use]
+	#[allow(clippy::missing_inline_in_public_items)]
 	pub fn new() -> Self {
 		Self {
 			hex_prefix: FormatterOptionString::default(),
@@ -198,7 +177,7 @@ impl FormatterOptions {
 
 	/// Creates default gas (AT&T) formatter options
 	#[cfg(feature = "gas")]
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn with_gas() -> Self {
 		let mut options = FormatterOptions::new();
@@ -210,7 +189,7 @@ impl FormatterOptions {
 
 	/// Creates default Intel (XED) formatter options
 	#[cfg(feature = "intel")]
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn with_intel() -> Self {
 		let mut options = FormatterOptions::new();
@@ -222,7 +201,7 @@ impl FormatterOptions {
 
 	/// Creates default masm formatter options
 	#[cfg(feature = "masm")]
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn with_masm() -> Self {
 		let mut options = FormatterOptions::new();
@@ -234,7 +213,7 @@ impl FormatterOptions {
 
 	/// Creates default nasm formatter options
 	#[cfg(feature = "nasm")]
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn with_nasm() -> Self {
 		let mut options = FormatterOptions::new();
@@ -246,19 +225,19 @@ impl FormatterOptions {
 
 	// NOTE: These tables must render correctly by `cargo doc` and inside of IDEs, eg. VSCode.
 
-	/// Prefixes are upper cased
+	/// Prefixes are uppercased
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `REP stosd`
 	/// ✔️ | `false` | `rep stosd`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn uppercase_prefixes(&self) -> bool {
 		(self.options1 & Flags1::UPPERCASE_PREFIXES) != 0
 	}
 
-	/// Prefixes are upper cased
+	/// Prefixes are uppercased
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -277,19 +256,19 @@ impl FormatterOptions {
 		}
 	}
 
-	/// Mnemonics are upper cased
+	/// Mnemonics are uppercased
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `MOV rcx,rax`
 	/// ✔️ | `false` | `mov rcx,rax`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn uppercase_mnemonics(&self) -> bool {
 		(self.options1 & Flags1::UPPERCASE_MNEMONICS) != 0
 	}
 
-	/// Mnemonics are upper cased
+	/// Mnemonics are uppercased
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -308,19 +287,19 @@ impl FormatterOptions {
 		}
 	}
 
-	/// Registers are upper cased
+	/// Registers are uppercased
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `mov RCX,[RAX+RDX*8]`
 	/// ✔️ | `false` | `mov rcx,[rax+rdx*8]`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn uppercase_registers(&self) -> bool {
 		(self.options1 & Flags1::UPPERCASE_REGISTERS) != 0
 	}
 
-	/// Registers are upper cased
+	/// Registers are uppercased
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -339,19 +318,19 @@ impl FormatterOptions {
 		}
 	}
 
-	/// Keywords are upper cased (eg. `BYTE PTR`, `SHORT`)
+	/// Keywords are uppercased (eg. `BYTE PTR`, `SHORT`)
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `mov BYTE PTR [rcx],12h`
 	/// ✔️ | `false` | `mov byte ptr [rcx],12h`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn uppercase_keywords(&self) -> bool {
 		(self.options1 & Flags1::UPPERCASE_KEYWORDS) != 0
 	}
 
-	/// Keywords are upper cased (eg. `BYTE PTR`, `SHORT`)
+	/// Keywords are uppercased (eg. `BYTE PTR`, `SHORT`)
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -370,19 +349,19 @@ impl FormatterOptions {
 		}
 	}
 
-	/// Upper case decorators, eg. `{z}`, `{sae}`, `{rd-sae}` (but not op mask registers: `{k1}`)
+	/// Uppercase decorators, eg. `{z}`, `{sae}`, `{rd-sae}` (but not opmask registers: `{k1}`)
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `vunpcklps xmm2{k5}{Z},xmm6,dword bcst [rax+4]`
 	/// ✔️ | `false` | `vunpcklps xmm2{k5}{z},xmm6,dword bcst [rax+4]`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn uppercase_decorators(&self) -> bool {
 		(self.options1 & Flags1::UPPERCASE_DECORATORS) != 0
 	}
 
-	/// Upper case decorators, eg. `{z}`, `{sae}`, `{rd-sae}` (but not op mask registers: `{k1}`)
+	/// Uppercase decorators, eg. `{z}`, `{sae}`, `{rd-sae}` (but not opmask registers: `{k1}`)
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -401,19 +380,19 @@ impl FormatterOptions {
 		}
 	}
 
-	/// Everything is upper cased, except numbers and their prefixes/suffixes
+	/// Everything is uppercased, except numbers and their prefixes/suffixes
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `MOV EAX,GS:[RCX*4+0ffh]`
 	/// ✔️ | `false` | `mov eax,gs:[rcx*4+0ffh]`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn uppercase_all(&self) -> bool {
 		(self.options1 & Flags1::UPPERCASE_ALL) != 0
 	}
 
-	/// Everything is upper cased, except numbers and their prefixes/suffixes
+	/// Everything is uppercased, except numbers and their prefixes/suffixes
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -439,7 +418,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// ✔️ | `0` | `mov•rcx,rbp`
 	/// &nbsp; | `8` | `mov•••••rcx,rbp`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn first_operand_char_index(&self) -> u32 {
 		self.first_operand_char_index
@@ -464,7 +443,7 @@ impl FormatterOptions {
 	/// Size of a tab character or 0 to use spaces
 	///
 	/// - Default: `0`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn tab_size(&self) -> u32 {
 		self.tab_size
@@ -488,7 +467,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `mov rax, rcx`
 	/// ✔️ | `false` | `mov rax,rcx`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn space_after_operand_separator(&self) -> bool {
 		(self.options1 & Flags1::SPACE_AFTER_OPERAND_SEPARATOR) != 0
@@ -519,7 +498,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `mov eax,[ rcx+rdx ]`
 	/// ✔️ | `false` | `mov eax,[rcx+rdx]`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn space_after_memory_bracket(&self) -> bool {
 		(self.options1 & Flags1::SPACE_AFTER_MEMORY_BRACKET) != 0
@@ -550,7 +529,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `mov eax,[rcx + rdx*8 - 80h]`
 	/// ✔️ | `false` | `mov eax,[rcx+rdx*8-80h]`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn space_between_memory_add_operators(&self) -> bool {
 		(self.options1 & Flags1::SPACE_BETWEEN_MEMORY_ADD_OPERATORS) != 0
@@ -581,7 +560,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `mov eax,[rcx+rdx * 8-80h]`
 	/// ✔️ | `false` | `mov eax,[rcx+rdx*8-80h]`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn space_between_memory_mul_operators(&self) -> bool {
 		(self.options1 & Flags1::SPACE_BETWEEN_MEMORY_MUL_OPERATORS) != 0
@@ -612,7 +591,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `mov eax,[8*rdx]`
 	/// ✔️ | `false` | `mov eax,[rdx*8]`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn scale_before_index(&self) -> bool {
 		(self.options1 & Flags1::SCALE_BEFORE_INDEX) != 0
@@ -643,7 +622,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `mov eax,[rbx+rcx*1]`
 	/// ✔️ | `false` | `mov eax,[rbx+rcx]`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn always_show_scale(&self) -> bool {
 		(self.options1 & Flags1::ALWAYS_SHOW_SCALE) != 0
@@ -675,7 +654,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `mov eax,ds:[ecx]`
 	/// ✔️ | `false` | `mov eax,[ecx]`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn always_show_segment_register(&self) -> bool {
 		(self.options1 & Flags1::ALWAYS_SHOW_SEGMENT_REGISTER) != 0
@@ -707,7 +686,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `mov eax,[rcx*2+0]`
 	/// ✔️ | `false` | `mov eax,[rcx*2]`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn show_zero_displacements(&self) -> bool {
 		(self.options1 & Flags1::SHOW_ZERO_DISPLACEMENTS) != 0
@@ -735,7 +714,7 @@ impl FormatterOptions {
 	/// Hex number prefix or an empty string, eg. `"0x"`
 	///
 	/// - Default: `""` (masm/nasm/intel), `"0x"` (gas)
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn hex_prefix(&self) -> &str {
 		self.hex_prefix.as_str()
@@ -768,7 +747,7 @@ impl FormatterOptions {
 	/// Hex number suffix or an empty string, eg. `"h"`
 	///
 	/// - Default: `"h"` (masm/nasm/intel), `""` (gas)
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn hex_suffix(&self) -> &str {
 		self.hex_suffix.as_str()
@@ -806,7 +785,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `0` | `0x12345678`
 	/// ✔️ | `4` | `0x1234_5678`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn hex_digit_group_size(&self) -> u32 {
 		self.hex_digit_group_size
@@ -832,7 +811,7 @@ impl FormatterOptions {
 	/// Decimal number prefix or an empty string
 	///
 	/// - Default: `""`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn decimal_prefix(&self) -> &str {
 		self.decimal_prefix.as_str()
@@ -865,7 +844,7 @@ impl FormatterOptions {
 	/// Decimal number suffix or an empty string
 	///
 	/// - Default: `""`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn decimal_suffix(&self) -> &str {
 		self.decimal_suffix.as_str()
@@ -903,7 +882,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `0` | `12345678`
 	/// ✔️ | `3` | `12_345_678`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn decimal_digit_group_size(&self) -> u32 {
 		self.decimal_digit_group_size
@@ -929,7 +908,7 @@ impl FormatterOptions {
 	/// Octal number prefix or an empty string
 	///
 	/// - Default: `""` (masm/nasm/intel), `"0"` (gas)
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn octal_prefix(&self) -> &str {
 		self.octal_prefix.as_str()
@@ -962,7 +941,7 @@ impl FormatterOptions {
 	/// Octal number suffix or an empty string
 	///
 	/// - Default: `"o"` (masm/nasm/intel), `""` (gas)
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn octal_suffix(&self) -> &str {
 		self.octal_suffix.as_str()
@@ -1000,7 +979,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `0` | `12345670`
 	/// ✔️ | `4` | `1234_5670`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn octal_digit_group_size(&self) -> u32 {
 		self.octal_digit_group_size
@@ -1026,7 +1005,7 @@ impl FormatterOptions {
 	/// Binary number prefix or an empty string
 	///
 	/// - Default: `""` (masm/nasm/intel), `"0b"` (gas)
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn binary_prefix(&self) -> &str {
 		self.binary_prefix.as_str()
@@ -1059,7 +1038,7 @@ impl FormatterOptions {
 	/// Binary number suffix or an empty string
 	///
 	/// - Default: `"b"` (masm/nasm/intel), `""` (gas)
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn binary_suffix(&self) -> &str {
 		self.binary_suffix.as_str()
@@ -1097,7 +1076,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `0` | `11010111`
 	/// ✔️ | `4` | `1101_0111`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn binary_digit_group_size(&self) -> u32 {
 		self.binary_digit_group_size
@@ -1128,7 +1107,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// ✔️ | `""` | `0x12345678`
 	/// &nbsp; | `"_"` | `0x1234_5678`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn digit_separator(&self) -> &str {
 		self.digit_separator.as_str()
@@ -1179,7 +1158,7 @@ impl FormatterOptions {
 	///
 	/// [`branch_leading_zeroes`]: #method.branch_leading_zeroes
 	/// [`displacement_leading_zeroes`]: #method.displacement_leading_zeroes
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn leading_zeroes(&self) -> bool {
 		(self.options1 & Flags1::LEADING_ZEROES) != 0
@@ -1209,19 +1188,19 @@ impl FormatterOptions {
 		}
 	}
 
-	/// Use upper case hex digits
+	/// Use uppercase hex digits
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
 	/// ✔️ | `true` | `0xFF`
 	/// &nbsp; | `false` | `0xff`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn uppercase_hex(&self) -> bool {
 		(self.options1 & Flags1::UPPERCASE_HEX) != 0
 	}
 
-	/// Use upper case hex digits
+	/// Use uppercase hex digits
 	///
 	/// Default | Value | Example
 	/// --------|-------|--------
@@ -1246,7 +1225,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// ✔️ | `true` | `9`
 	/// &nbsp; | `false` | `0x9`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn small_hex_numbers_in_decimal(&self) -> bool {
 		(self.options1 & Flags1::SMALL_HEX_NUMBERS_IN_DECIMAL) != 0
@@ -1277,7 +1256,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// ✔️ | `true` | `0FFh`
 	/// &nbsp; | `false` | `FFh`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn add_leading_zero_to_hex_numbers(&self) -> bool {
 		(self.options1 & Flags1::ADD_LEADING_ZERO_TO_HEX_NUMBERS) != 0
@@ -1307,7 +1286,7 @@ impl FormatterOptions {
 	/// - Default: [`Hexadecimal`]
 	///
 	/// [`Hexadecimal`]: enum.NumberBase.html#variant.Hexadecimal
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn number_base(&self) -> NumberBase {
 		self.number_base
@@ -1333,7 +1312,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// ✔️ | `true` | `je 00000123h`
 	/// &nbsp; | `false` | `je 123h`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn branch_leading_zeroes(&self) -> bool {
 		(self.options1 & Flags1::BRANCH_LEADING_ZEROES) != 0
@@ -1364,7 +1343,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `mov eax,-1`
 	/// ✔️ | `false` | `mov eax,FFFFFFFF`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn signed_immediate_operands(&self) -> bool {
 		(self.options1 & Flags1::SIGNED_IMMEDIATE_OPERANDS) != 0
@@ -1395,7 +1374,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// ✔️ | `true` | `mov al,[eax-2000h]`
 	/// &nbsp; | `false` | `mov al,[eax+0FFFFE000h]`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn signed_memory_displacements(&self) -> bool {
 		(self.options1 & Flags1::SIGNED_MEMORY_DISPLACEMENTS) != 0
@@ -1426,7 +1405,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `mov al,[eax+00000012h]`
 	/// ✔️ | `false` | `mov al,[eax+12h]`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn displacement_leading_zeroes(&self) -> bool {
 		(self.options1 & Flags1::DISPLACEMENT_LEADING_ZEROES) != 0
@@ -1457,7 +1436,7 @@ impl FormatterOptions {
 	/// - Default: [`Default`]
 	///
 	/// [`Default`]: enum.MemorySizeOptions.html#variant.Default
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn memory_size_options(&self) -> MemorySizeOptions {
 		self.memory_size_options
@@ -1484,7 +1463,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `mov eax,[rip+12345678h]`
 	/// ✔️ | `false` | `mov eax,[1029384756AFBECDh]`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn rip_relative_addresses(&self) -> bool {
 		(self.options1 & Flags1::RIP_RELATIVE_ADDRESSES) != 0
@@ -1515,7 +1494,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// ✔️ | `true` | `je short 1234h`
 	/// &nbsp; | `false` | `je 1234h`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn show_branch_size(&self) -> bool {
 		(self.options1 & Flags1::SHOW_BRANCH_SIZE) != 0
@@ -1546,7 +1525,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// ✔️ | `true` | `vcmpnltsd xmm2,xmm6,xmm3`
 	/// &nbsp; | `false` | `vcmpsd xmm2,xmm6,xmm3,5`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn use_pseudo_ops(&self) -> bool {
 		(self.options1 & Flags1::USE_PSEUDO_OPS) != 0
@@ -1577,7 +1556,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `mov eax,[myfield (12345678)]`
 	/// ✔️ | `false` | `mov eax,[myfield]`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn show_symbol_address(&self) -> bool {
 		(self.options1 & Flags1::SHOW_SYMBOL_ADDRESS) != 0
@@ -1608,7 +1587,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `mov eax,ecx`
 	/// ✔️ | `false` | `mov %eax,%ecx`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn gas_naked_registers(&self) -> bool {
 		(self.options1 & Flags1::GAS_NAKED_REGISTERS) != 0
@@ -1639,7 +1618,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `movl %eax,%ecx`
 	/// ✔️ | `false` | `mov %eax,%ecx`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn gas_show_mnemonic_size_suffix(&self) -> bool {
 		(self.options1 & Flags1::GAS_SHOW_MNEMONIC_SIZE_SUFFIX) != 0
@@ -1670,7 +1649,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `(%eax, %ecx, 2)`
 	/// ✔️ | `false` | `(%eax,%ecx,2)`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn gas_space_after_memory_operand_comma(&self) -> bool {
 		(self.options1 & Flags1::GAS_SPACE_AFTER_MEMORY_OPERAND_COMMA) != 0
@@ -1701,7 +1680,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// ✔️ | `true` | `mov eax,ds:[12345678]`
 	/// &nbsp; | `false` | `mov eax,[12345678]`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn masm_add_ds_prefix32(&self) -> bool {
 		(self.options1 & Flags1::MASM_ADD_DS_PREFIX32) != 0
@@ -1732,7 +1711,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// ✔️ | `true` | `[ecx+symbol]` / `[symbol]`
 	/// &nbsp; | `false` | `symbol[ecx]` / `symbol`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn masm_symbol_displ_in_brackets(&self) -> bool {
 		(self.options1 & Flags1::MASM_SYMBOL_DISPL_IN_BRACKETS) != 0
@@ -1763,7 +1742,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// ✔️ | `true` | `[ecx+1234h]`
 	/// &nbsp; | `false` | `1234h[ecx]`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn masm_displ_in_brackets(&self) -> bool {
 		(self.options1 & Flags1::MASM_DISPL_IN_BRACKETS) != 0
@@ -1794,7 +1773,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `or rcx,byte -1`
 	/// ✔️ | `false` | `or rcx,-1`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn nasm_show_sign_extended_immediate_size(&self) -> bool {
 		(self.options2 & Flags2::NASM_SHOW_SIGN_EXTENDED_IMMEDIATE_SIZE) != 0
@@ -1825,7 +1804,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `fadd st(0),st(3)`
 	/// ✔️ | `false` | `fadd st,st(3)`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn prefer_st0(&self) -> bool {
 		(self.options2 & Flags2::PREFER_ST0) != 0
@@ -1856,7 +1835,7 @@ impl FormatterOptions {
 	/// --------|-------|--------
 	/// &nbsp; | `true` | `es rep add eax,ecx`
 	/// ✔️ | `false` | `add eax,ecx`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn show_useless_prefixes(&self) -> bool {
 		(self.options2 & Flags2::SHOW_USELESS_PREFIXES) != 0
@@ -1884,7 +1863,7 @@ impl FormatterOptions {
 	/// Mnemonic condition code selector (eg. `JB` / `JC` / `JNAE`)
 	///
 	/// Default: `JB`, `CMOVB`, `SETB`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn cc_b(&self) -> CC_b {
 		self.cc_b
@@ -1905,7 +1884,7 @@ impl FormatterOptions {
 	/// Mnemonic condition code selector (eg. `JAE` / `JNB` / `JNC`)
 	///
 	/// Default: `JAE`, `CMOVAE`, `SETAE`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn cc_ae(&self) -> CC_ae {
 		self.cc_ae
@@ -1926,7 +1905,7 @@ impl FormatterOptions {
 	/// Mnemonic condition code selector (eg. `JE` / `JZ`)
 	///
 	/// Default: `JE`, `CMOVE`, `SETE`, `LOOPE`, `REPE`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn cc_e(&self) -> CC_e {
 		self.cc_e
@@ -1947,7 +1926,7 @@ impl FormatterOptions {
 	/// Mnemonic condition code selector (eg. `JNE` / `JNZ`)
 	///
 	/// Default: `JNE`, `CMOVNE`, `SETNE`, `LOOPNE`, `REPNE`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn cc_ne(&self) -> CC_ne {
 		self.cc_ne
@@ -1968,7 +1947,7 @@ impl FormatterOptions {
 	/// Mnemonic condition code selector (eg. `JBE` / `JNA`)
 	///
 	/// Default: `JBE`, `CMOVBE`, `SETBE`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn cc_be(&self) -> CC_be {
 		self.cc_be
@@ -1989,7 +1968,7 @@ impl FormatterOptions {
 	/// Mnemonic condition code selector (eg. `JA` / `JNBE`)
 	///
 	/// Default: `JA`, `CMOVA`, `SETA`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn cc_a(&self) -> CC_a {
 		self.cc_a
@@ -2010,7 +1989,7 @@ impl FormatterOptions {
 	/// Mnemonic condition code selector (eg. `JP` / `JPE`)
 	///
 	/// Default: `JP`, `CMOVP`, `SETP`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn cc_p(&self) -> CC_p {
 		self.cc_p
@@ -2031,7 +2010,7 @@ impl FormatterOptions {
 	/// Mnemonic condition code selector (eg. `JNP` / `JPO`)
 	///
 	/// Default: `JNP`, `CMOVNP`, `SETNP`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn cc_np(&self) -> CC_np {
 		self.cc_np
@@ -2052,7 +2031,7 @@ impl FormatterOptions {
 	/// Mnemonic condition code selector (eg. `JL` / `JNGE`)
 	///
 	/// Default: `JL`, `CMOVL`, `SETL`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn cc_l(&self) -> CC_l {
 		self.cc_l
@@ -2073,7 +2052,7 @@ impl FormatterOptions {
 	/// Mnemonic condition code selector (eg. `JGE` / `JNL`)
 	///
 	/// Default: `JGE`, `CMOVGE`, `SETGE`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn cc_ge(&self) -> CC_ge {
 		self.cc_ge
@@ -2094,7 +2073,7 @@ impl FormatterOptions {
 	/// Mnemonic condition code selector (eg. `JLE` / `JNG`)
 	///
 	/// Default: `JLE`, `CMOVLE`, `SETLE`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn cc_le(&self) -> CC_le {
 		self.cc_le
@@ -2115,7 +2094,7 @@ impl FormatterOptions {
 	/// Mnemonic condition code selector (eg. `JG` / `JNLE`)
 	///
 	/// Default: `JG`, `CMOVG`, `SETG`
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn cc_g(&self) -> CC_g {
 		self.cc_g
@@ -2135,7 +2114,7 @@ impl FormatterOptions {
 }
 
 impl Default for FormatterOptions {
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	fn default() -> Self {
 		FormatterOptions::new()

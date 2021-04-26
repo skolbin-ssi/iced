@@ -1,27 +1,8 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Generator.Enums;
 
@@ -31,8 +12,54 @@ namespace Generator.Constants {
 		public const int MaxInstructionLength = 15;
 		public const int RegisterBits = 8;
 
-		public const string CodeEnumCountName = "CodeEnumCount";
 		public const string FirstBroadcastMemorySizeName = "FirstBroadcastMemorySize";
+
+		static Dictionary<TypeId, string> toEnumCountName = new Dictionary<TypeId, string>();
+		static bool toEnumCountNameInitd = false;
+		static Dictionary<TypeId, string> GetEnumCountNameDict() {
+			if (!toEnumCountNameInitd)
+				throw new InvalidOperationException("Not initialized");
+			return toEnumCountName;
+		}
+
+		internal static IEnumerable<KeyValuePair<TypeId, string>> GetEnumCountTypeIdsAndNames() => GetEnumCountNameDict();
+		internal static void InitializeEnumCountTypes(GenTypes genTypes) {
+			if (toEnumCountName.Count != 0 || toEnumCountNameInitd)
+				throw new InvalidOperationException();
+			foreach (var enumType in genTypes.AllEnumTypes) {
+				if (!enumType.IsPublic || enumType.IsFlags)
+					continue;
+				if (!VerifyPublicEnumValues(enumType))
+					throw new InvalidOperationException($"All values 0..max (exclusive) must be valid enum values");
+				var rawName = enumType.RawName;
+				string enumCountName;
+				if (rawName.Contains('_', StringComparison.Ordinal))
+					enumCountName = rawName + "_" + "EnumCount";
+				else
+					enumCountName = rawName + "EnumCount";
+				toEnumCountName.Add(enumType.TypeId, enumCountName);
+			}
+			toEnumCountNameInitd = true;
+		}
+
+		// Lots of places (especially Rust code) assume there are no holes
+		// in public non-flags enums, i.e., all values from 0 .. max are
+		// assumed to be valid enum values. Verify it.
+		static bool VerifyPublicEnumValues(EnumType enumType) {
+			var values = enumType.Values;
+			uint expectedValue = 0;
+			for (int i = 0; i < values.Length; i++) {
+				if (values[i].Value != expectedValue)
+					return false;
+				// Could be duplicate values if one is deprecated, skip them
+				while (i + 1 < values.Length && values[i + 1].Value == expectedValue)
+					i++;
+				expectedValue++;
+			}
+			return true;
+		}
+
+		public static string GetEnumCountName(TypeId id) => GetEnumCountNameDict()[id];
 	}
 
 	[TypeGen(TypeGenOrders.Last)]
@@ -42,6 +69,7 @@ namespace Generator.Constants {
 		IcedConstantsType(GenTypes genTypes) => this.genTypes = genTypes;
 
 		public void Generate(GenTypes genTypes) {
+			IcedConstants.InitializeEnumCountTypes(genTypes);
 			var type = new ConstantsType(TypeIds.IcedConstants, ConstantsTypeFlags.None, null, GetConstants());
 			genTypes.Add(type);
 		}
@@ -50,31 +78,10 @@ namespace Generator.Constants {
 			var vmmFirst = Get_VMM_first().Value;
 			var vmmLast = Get_VMM_last().Value;
 			ConstantUtils.VerifyMask<Register>((1U << IcedConstants.RegisterBits) - 1);
-			return new Constant[] {
+			var constants = new List<Constant> {
 				new Constant(ConstantKind.Index, nameof(IcedConstants.MaxOpCount), IcedConstants.MaxOpCount),
 				new Constant(ConstantKind.Index, nameof(IcedConstants.MaxInstructionLength), IcedConstants.MaxInstructionLength),
 				new Constant(ConstantKind.Int32, nameof(IcedConstants.RegisterBits), IcedConstants.RegisterBits),
-				new Constant(ConstantKind.Index, IcedConstants.CodeEnumCountName, (uint)genTypes[TypeIds.Code].Values.Length),
-				new Constant(ConstantKind.Index, "RegisterEnumCount", (uint)genTypes[TypeIds.Register].Values.Length),
-				new Constant(ConstantKind.Index, "MemorySizeEnumCount", (uint)genTypes[TypeIds.MemorySize].Values.Length),
-				new Constant(ConstantKind.Index, "EncodingKindEnumCount", (uint)genTypes[TypeIds.EncodingKind].Values.Length),
-				new Constant(ConstantKind.Index, "OpKindEnumCount", (uint)genTypes[TypeIds.OpKind].Values.Length),
-				new Constant(ConstantKind.Index, "CodeSizeEnumCount", (uint)genTypes[TypeIds.CodeSize].Values.Length),
-				new Constant(ConstantKind.Index, "RoundingControlEnumCount", (uint)genTypes[TypeIds.RoundingControl].Values.Length),
-				new Constant(ConstantKind.Index, "MemorySizeOptionsEnumCount", (uint)genTypes[TypeIds.MemorySizeOptions].Values.Length),
-				new Constant(ConstantKind.Index, "CC_b_EnumCount", (uint)genTypes[TypeIds.CC_b].Values.Length),
-				new Constant(ConstantKind.Index, "CC_ae_EnumCount", (uint)genTypes[TypeIds.CC_ae].Values.Length),
-				new Constant(ConstantKind.Index, "CC_e_EnumCount", (uint)genTypes[TypeIds.CC_e].Values.Length),
-				new Constant(ConstantKind.Index, "CC_ne_EnumCount", (uint)genTypes[TypeIds.CC_ne].Values.Length),
-				new Constant(ConstantKind.Index, "CC_be_EnumCount", (uint)genTypes[TypeIds.CC_be].Values.Length),
-				new Constant(ConstantKind.Index, "CC_a_EnumCount", (uint)genTypes[TypeIds.CC_a].Values.Length),
-				new Constant(ConstantKind.Index, "CC_p_EnumCount", (uint)genTypes[TypeIds.CC_p].Values.Length),
-				new Constant(ConstantKind.Index, "CC_np_EnumCount", (uint)genTypes[TypeIds.CC_np].Values.Length),
-				new Constant(ConstantKind.Index, "CC_l_EnumCount", (uint)genTypes[TypeIds.CC_l].Values.Length),
-				new Constant(ConstantKind.Index, "CC_ge_EnumCount", (uint)genTypes[TypeIds.CC_ge].Values.Length),
-				new Constant(ConstantKind.Index, "CC_le_EnumCount", (uint)genTypes[TypeIds.CC_le].Values.Length),
-				new Constant(ConstantKind.Index, "CC_g_EnumCount", (uint)genTypes[TypeIds.CC_g].Values.Length),
-				new Constant(ConstantKind.Index, "RepPrefixKindEnumCount", (uint)genTypes[TypeIds.RepPrefixKind].Values.Length),
 				// This is the largest vector register. If it's VEX/EVEX, the upper bits are always cleared when writing to any sub reg, eg. YMM0
 				new Constant(ConstantKind.Register, "VMM_first", vmmFirst),
 				new Constant(ConstantKind.Register, "VMM_last", vmmLast),
@@ -83,10 +90,18 @@ namespace Generator.Constants {
 				new Constant(ConstantKind.Register, "YMM_last", Get_VEC_last("YMM").Value),
 				new Constant(ConstantKind.Register, "ZMM_last", Get_VEC_last("ZMM").Value),
 				new Constant(ConstantKind.Register, "TMM_last", Get_TMM_last().Value),
-				new Constant(ConstantKind.Index, "MaxCpuidFeatureInternalValues", (uint)genTypes[TypeIds.CpuidFeatureInternal].Values.Length),
+				new Constant(ConstantKind.Index, "MaxCpuidFeatureInternalValues", GetEnumCount(genTypes[TypeIds.CpuidFeatureInternal])),
 				new Constant(ConstantKind.MemorySize, IcedConstants.FirstBroadcastMemorySizeName, GetFirstBroadcastMemorySize()),
 			};
+
+			foreach (var kv in IcedConstants.GetEnumCountTypeIdsAndNames().OrderBy(kv => kv.Value, StringComparer.Ordinal))
+				constants.Add(new Constant(ConstantKind.Index, IcedConstants.GetEnumCountName(kv.Key), GetEnumCount(genTypes[kv.Key])));
+
+			return constants.ToArray();
 		}
+
+		static uint GetEnumCount(EnumType enumType) =>
+			(uint)enumType.Values.Where(a => !a.DeprecatedInfo.IsDeprecatedAndRenamed).Count();
 
 		EnumValue Get_VMM_first() => Get_VMM_first(genTypes);
 		EnumValue Get_VMM_last() => Get_VMM_last(genTypes);

@@ -1,34 +1,15 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::code::{iced_to_code, Code};
-use super::encoding_kind::{iced_to_encoding_kind, EncodingKind};
-use super::mandatory_prefix::{iced_to_mandatory_prefix, MandatoryPrefix};
-use super::memory_size::{iced_to_memory_size, MemorySize};
-use super::mnemonic::{iced_to_mnemonic, Mnemonic};
-use super::op_code_operand_kind::{iced_to_op_code_operand_kind, OpCodeOperandKind};
-use super::op_code_table_kind::{iced_to_op_code_table_kind, OpCodeTableKind};
-use super::tuple_type::{iced_to_tuple_type, TupleType};
+use crate::code::{iced_to_code, Code};
+use crate::encoding_kind::{iced_to_encoding_kind, EncodingKind};
+use crate::ex_utils::to_js_error;
+use crate::mandatory_prefix::{iced_to_mandatory_prefix, MandatoryPrefix};
+use crate::memory_size::{iced_to_memory_size, MemorySize};
+use crate::mnemonic::{iced_to_mnemonic, Mnemonic};
+use crate::op_code_operand_kind::{iced_to_op_code_operand_kind, OpCodeOperandKind};
+use crate::op_code_table_kind::{iced_to_op_code_table_kind, OpCodeTableKind};
+use crate::tuple_type::{iced_to_tuple_type, TupleType};
 use wasm_bindgen::prelude::*;
 
 /// Opcode info, returned by [`Instruction.opCode`]
@@ -266,21 +247,21 @@ impl OpCodeInfo {
 		self.0.can_suppress_all_exceptions()
 	}
 
-	/// (EVEX) `true` if an op mask register can be used
+	/// (EVEX) `true` if an opmask register can be used
 	#[wasm_bindgen(getter)]
 	#[wasm_bindgen(js_name = "canUseOpMaskRegister")]
 	pub fn can_use_op_mask_register(&self) -> bool {
 		self.0.can_use_op_mask_register()
 	}
 
-	/// (EVEX) `true` if a non-zero op mask register must be used
+	/// (EVEX) `true` if a non-zero opmask register must be used
 	#[wasm_bindgen(getter)]
 	#[wasm_bindgen(js_name = "requireOpMaskRegister")]
 	pub fn require_op_mask_register(&self) -> bool {
 		self.0.require_op_mask_register()
 	}
 
-	/// (EVEX) `true` if the instruction supports zeroing masking (if one of the op mask registers `K1`-`K7` is used and destination operand is not a memory operand)
+	/// (EVEX) `true` if the instruction supports zeroing masking (if one of the opmask registers `K1`-`K7` is used and destination operand is not a memory operand)
 	#[wasm_bindgen(getter)]
 	#[wasm_bindgen(js_name = "canUseZeroingMasking")]
 	pub fn can_use_zeroing_masking(&self) -> bool {
@@ -533,7 +514,7 @@ impl OpCodeInfo {
 		self.0.ignores_segment()
 	}
 
-	/// `true` if the op mask register is read and written (instead of just read). This also implies that it can't be `K0`.
+	/// `true` if the opmask register is read and written (instead of just read). This also implies that it can't be `K0`.
 	#[wasm_bindgen(getter)]
 	#[wasm_bindgen(js_name = "isOpMaskReadWrite")]
 	pub fn is_op_mask_read_write(&self) -> bool {
@@ -949,8 +930,8 @@ impl OpCodeInfo {
 	///
 	/// * `operand`: Operand number, 0-4
 	#[wasm_bindgen(js_name = "opKind")]
-	pub fn op_kind(&self, operand: u32) -> OpCodeOperandKind {
-		iced_to_op_code_operand_kind(self.0.op_kind(operand))
+	pub fn op_kind(&self, operand: u32) -> Result<OpCodeOperandKind, JsValue> {
+		Ok(iced_to_op_code_operand_kind(self.0.try_op_kind(operand).map_err(to_js_error)?))
 	}
 
 	/// Checks if the instruction is available in 16-bit mode, 32-bit mode or 64-bit mode

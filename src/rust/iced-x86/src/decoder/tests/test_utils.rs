@@ -1,40 +1,16 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::super::super::test_utils::from_str_conv::{is_ignored_code, to_code};
-use super::super::super::test_utils::*;
-use super::super::super::*;
-use super::decoder_mem_test_case::*;
-use super::decoder_test_case::*;
-use super::enums::DecoderTestOptions;
-use super::test_cases::*;
-#[cfg(not(feature = "std"))]
+use crate::decoder::tests::decoder_mem_test_case::*;
+use crate::decoder::tests::decoder_test_case::*;
+use crate::decoder::tests::enums::DecoderTestOptions;
+use crate::decoder::tests::test_cases::*;
+use crate::test_utils::from_str_conv::{is_ignored_code, to_code};
+use crate::test_utils::*;
+use crate::*;
 use alloc::string::String;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "std"))]
-use hashbrown::HashSet;
-#[cfg(feature = "std")]
+use lazy_static::lazy_static;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::prelude::*;
@@ -44,6 +20,7 @@ pub(crate) struct DecoderTestInfo {
 	bitness: u32,
 	code: Code,
 	hex_bytes: String,
+	ip: u64,
 	#[allow(dead_code)]
 	encoded_hex_bytes: String,
 	decoder_options: u32,
@@ -60,6 +37,9 @@ impl DecoderTestInfo {
 	}
 	pub(crate) fn hex_bytes(&self) -> &str {
 		&self.hex_bytes
+	}
+	pub(crate) fn ip(&self) -> u64 {
+		self.ip
 	}
 	#[cfg(feature = "encoder")]
 	pub(crate) fn encoded_hex_bytes(&self) -> &str {
@@ -181,6 +161,7 @@ fn add_tests(v: &mut Vec<DecoderTestInfo>, tests: &[DecoderTestCase], include_in
 			bitness: tc.bitness,
 			code: tc.code,
 			hex_bytes: tc.hex_bytes.clone(),
+			ip: tc.ip,
 			encoded_hex_bytes: tc.encoded_hex_bytes.clone(),
 			decoder_options: tc.decoder_options,
 			decoder_test_options: tc.test_options,
@@ -203,6 +184,7 @@ fn add_tests_mem(v: &mut Vec<DecoderTestInfo>, tests: &[DecoderMemoryTestCase], 
 			bitness: tc.bitness,
 			code: tc.code,
 			hex_bytes: tc.hex_bytes.clone(),
+			ip: tc.ip,
 			encoded_hex_bytes: tc.encoded_hex_bytes.clone(),
 			decoder_options: tc.decoder_options,
 			decoder_test_options: tc.test_options,

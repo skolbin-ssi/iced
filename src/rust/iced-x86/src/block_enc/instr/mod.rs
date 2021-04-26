@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 mod call_instr;
 mod ip_relmem_instr;
@@ -29,25 +9,21 @@ mod simple_br_instr;
 mod simple_instr;
 mod xbegin_instr;
 
-use self::call_instr::CallInstr;
-use self::ip_relmem_instr::IpRelMemOpInstr;
-use self::jcc_instr::JccInstr;
-use self::jmp_instr::JmpInstr;
-use self::simple_br_instr::SimpleBranchInstr;
-use self::simple_instr::SimpleInstr;
-use self::xbegin_instr::XbeginInstr;
-use super::super::iced_error::IcedError;
-use super::block::{Block, BlockData};
-use super::*;
-#[cfg(any(has_alloc, not(feature = "std")))]
+use crate::block_enc::block::{Block, BlockData};
+use crate::block_enc::instr::call_instr::CallInstr;
+use crate::block_enc::instr::ip_relmem_instr::IpRelMemOpInstr;
+use crate::block_enc::instr::jcc_instr::JccInstr;
+use crate::block_enc::instr::jmp_instr::JmpInstr;
+use crate::block_enc::instr::simple_br_instr::SimpleBranchInstr;
+use crate::block_enc::instr::simple_instr::SimpleInstr;
+use crate::block_enc::instr::xbegin_instr::XbeginInstr;
+use crate::block_enc::*;
+use crate::iced_error::IcedError;
 use alloc::rc::Rc;
-#[cfg(not(feature = "std"))]
 use alloc::string::String;
 use core::cell::RefCell;
 use core::fmt::Display;
 use core::i32;
-#[cfg(all(not(has_alloc), feature = "std"))]
-use std::rc::Rc;
 
 pub(super) trait Instr {
 	fn block(&self) -> Rc<RefCell<Block>>;
@@ -67,14 +43,14 @@ pub(super) trait Instr {
 
 #[derive(Default)]
 pub(super) struct TargetInstr {
-	instruction: Option<Rc<RefCell<Instr>>>,
+	instruction: Option<Rc<RefCell<dyn Instr>>>,
 	address: u64,
 	is_owner: bool,
 }
 
 impl TargetInstr {
 	#[inline]
-	pub(super) fn new_instr(instruction: Rc<RefCell<Instr>>) -> Self {
+	pub(super) fn new_instr(instruction: Rc<RefCell<dyn Instr>>) -> Self {
 		Self { instruction: Some(Rc::clone(&instruction)), address: 0, is_owner: false }
 	}
 
@@ -99,7 +75,7 @@ impl TargetInstr {
 		}
 	}
 
-	fn address(&self, owner: &Instr) -> u64 {
+	fn address(&self, owner: &dyn Instr) -> u64 {
 		if self.is_owner {
 			owner.ip()
 		} else {
@@ -114,19 +90,19 @@ impl TargetInstr {
 pub(super) struct InstrUtils;
 impl InstrUtils {
 	// 6 = FF 15 XXXXXXXX = call qword ptr [rip+mem_target]
-	pub(self) const CALL_OR_JMP_POINTER_DATA_INSTRUCTION_SIZE64: u32 = 6;
+	const CALL_OR_JMP_POINTER_DATA_INSTRUCTION_SIZE64: u32 = 6;
 
 	#[cfg(any(feature = "gas", feature = "intel", feature = "masm", feature = "nasm"))]
-	pub(self) fn create_error_message<T: Display>(error_message: T, instruction: &Instruction) -> String {
+	fn create_error_message<T: Display>(error_message: T, instruction: &Instruction) -> String {
 		format!("{} : 0x{:X} {}", error_message, instruction.ip(), instruction)
 	}
 
 	#[cfg(not(any(feature = "gas", feature = "intel", feature = "masm", feature = "nasm")))]
-	pub(self) fn create_error_message<T: Display>(error_message: T, instruction: &Instruction) -> String {
+	fn create_error_message<T: Display>(error_message: T, instruction: &Instruction) -> String {
 		format!("{} : 0x{:X}", error_message, instruction.ip())
 	}
 
-	pub(super) fn create<'a, 'b>(block_encoder: &'a mut BlockEncoder, block: Rc<RefCell<Block>>, instruction: &'b Instruction) -> Rc<RefCell<Instr>> {
+	pub(super) fn create(block_encoder: &mut BlockEncoder, block: Rc<RefCell<Block>>, instruction: &Instruction) -> Rc<RefCell<dyn Instr>> {
 		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
 		match instruction.code() {
 			// GENERATOR-BEGIN: JccInstr
@@ -312,7 +288,7 @@ impl InstrUtils {
 		block: &mut Block, is_call: bool, ip: u64, pointer_data: Rc<RefCell<BlockData>>, min_size: u32,
 	) -> Result<u32, IcedError> {
 		if min_size > i32::MAX as u32 {
-			return Err(IcedError::new("Internal error: min_size > i32::MAX"));
+			return Err(IcedError::new("Internal error"));
 		}
 
 		let mut instr = Instruction::default();
@@ -323,27 +299,26 @@ impl InstrUtils {
 			64 => {
 				instr.set_code(if is_call { Code::Call_rm64 } else { Code::Jmp_rm64 });
 				instr.set_memory_base(Register::RIP);
+
+				let target_addr = pointer_data.borrow().address()?;
 				let next_rip = ip.wrapping_add(Self::CALL_OR_JMP_POINTER_DATA_INSTRUCTION_SIZE64 as u64);
-				instr.set_next_ip(next_rip);
-				let diff = pointer_data.borrow().address().wrapping_sub(next_rip) as i64;
-				instr.set_memory_displacement(diff as u32);
+				let diff = target_addr.wrapping_sub(next_rip) as i64;
 				if !(i32::MIN as i64 <= diff && diff <= i32::MAX as i64) {
 					return Err(IcedError::new("Block is too big"));
 				}
+
+				instr.set_memory_displacement64(target_addr);
 				reloc_kind = RelocKind::Offset64;
 			}
 
 			_ => unreachable!(),
 		}
 
-		let mut size = match block.encoder.encode(&instr, ip) {
-			Ok(len) => len,
-			Err(err) => return Err(err),
-		} as u32;
+		let mut size = block.encoder.encode(&instr, ip)? as u32;
 		if block.can_add_reloc_infos() && reloc_kind != RelocKind::Offset64 {
 			let co = block.encoder.get_constant_offsets();
 			if !co.has_displacement() {
-				return Err(IcedError::new("Internal error: no displ"));
+				return Err(IcedError::new("Internal error"));
 			}
 			block.add_reloc_info(RelocInfo::new(reloc_kind, ip.wrapping_add(co.displacement_offset() as u64)));
 		}

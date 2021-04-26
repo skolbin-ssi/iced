@@ -1,34 +1,11 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::super::test_utils::from_str_conv::*;
-use super::super::test_utils::get_formatter_unit_tests_dir;
-use super::super::*;
-#[cfg(not(feature = "std"))]
+use crate::formatter::test_utils::from_str_conv::*;
+use crate::formatter::test_utils::get_formatter_unit_tests_dir;
+use crate::formatter::*;
 use alloc::boxed::Box;
-#[cfg(not(feature = "std"))]
 use alloc::string::String;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use std::fs::File;
 use std::io::prelude::*;
@@ -122,7 +99,7 @@ fn read_number_strings(line: String, _line_number: u32) -> Result<Vec<String>, S
 	Ok(elems.into_iter().map(|s| String::from(s.trim())).collect())
 }
 
-#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+#[rustfmt::skip]
 static NUMBER_BASES: [NumberBase; 4] = [
 	NumberBase::Hexadecimal,
 	NumberBase::Decimal,
@@ -130,8 +107,8 @@ static NUMBER_BASES: [NumberBase; 4] = [
 	NumberBase::Binary,
 ];
 
-pub(in super::super) fn number_tests(fmt_factory: fn() -> Box<Formatter>) {
-	assert_eq!(number_base_len(), NUMBER_BASES.len());
+pub(in super::super) fn number_tests(fmt_factory: fn() -> Box<dyn Formatter>) {
+	assert_eq!(NUMBER_BASES.len(), number_base_len());
 	let mut number_filename = get_formatter_unit_tests_dir();
 	number_filename.push("Number.txt");
 	let numbers = read_number_file(number_filename.as_path());
@@ -145,13 +122,13 @@ pub(in super::super) fn number_tests(fmt_factory: fn() -> Box<Formatter>) {
 	}
 
 	for (number, formatted_strings) in numbers.into_iter().zip(formatted_numbers.into_iter()) {
-		assert_eq!(NUMBER_BASES.len(), formatted_strings.len());
+		assert_eq!(formatted_strings.len(), NUMBER_BASES.len());
 		for (&base, formatted_string) in NUMBER_BASES.iter().zip(formatted_strings.iter().map(String::as_str)) {
 			let mut formatter = fmt_factory();
 			formatter.options_mut().set_number_base(base);
 			let cloned_options = formatter.options().clone();
 			let number_options = NumberFormattingOptions::with_immediate(&cloned_options);
-			#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+			#[rustfmt::skip]
 			let (s1, s2) = match number {
 				Number::Int8(value)   => (String::from(formatter.format_i8(value)),  String::from(formatter.format_i8_options(value, &number_options))),
 				Number::UInt8(value)  => (String::from(formatter.format_u8(value)),  String::from(formatter.format_u8_options(value, &number_options))),
@@ -162,8 +139,8 @@ pub(in super::super) fn number_tests(fmt_factory: fn() -> Box<Formatter>) {
 				Number::Int64(value)  => (String::from(formatter.format_i64(value)), String::from(formatter.format_i64_options(value, &number_options))),
 				Number::UInt64(value) => (String::from(formatter.format_u64(value)), String::from(formatter.format_u64_options(value, &number_options))),
 			};
-			assert_eq!(formatted_string, s1);
-			assert_eq!(formatted_string, s2);
+			assert_eq!(s1, formatted_string);
+			assert_eq!(s2, formatted_string);
 		}
 	}
 }

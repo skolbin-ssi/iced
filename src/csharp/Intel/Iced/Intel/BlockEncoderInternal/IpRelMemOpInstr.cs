@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 #if ENCODER && BLOCK_ENCODER
 using System;
@@ -52,10 +32,11 @@ namespace Iced.Intel.BlockEncoderInternal {
 
 			var instrCopy = instruction;
 			instrCopy.MemoryBase = Register.RIP;
-			ripInstructionSize = blockEncoder.GetInstructionSize(instrCopy, instrCopy.IP);
+			instrCopy.MemoryDisplacement64 = 0;
+			ripInstructionSize = blockEncoder.GetInstructionSize(instrCopy, instrCopy.IPRelativeMemoryAddress);
 
 			instrCopy.MemoryBase = Register.EIP;
-			eipInstructionSize = blockEncoder.GetInstructionSize(instrCopy, instrCopy.IP);
+			eipInstructionSize = blockEncoder.GetInstructionSize(instrCopy, instrCopy.IPRelativeMemoryAddress);
 
 			Debug.Assert(eipInstructionSize >= ripInstructionSize);
 			Size = eipInstructionSize;
@@ -105,24 +86,15 @@ namespace Iced.Intel.BlockEncoderInternal {
 			case InstrKind.Eip:
 				isOriginalInstruction = true;
 
-				uint instrSize;
-				if (instrKind == InstrKind.Rip) {
-					instrSize = ripInstructionSize;
+				if (instrKind == InstrKind.Rip)
 					instruction.MemoryBase = Register.RIP;
-				}
-				else if (instrKind == InstrKind.Eip) {
-					instrSize = eipInstructionSize;
+				else if (instrKind == InstrKind.Eip)
 					instruction.MemoryBase = Register.EIP;
-				}
-				else {
+				else
 					Debug.Assert(instrKind == InstrKind.Unchanged);
-					instrSize = instruction.MemoryBase == Register.EIP ? eipInstructionSize : ripInstructionSize;
-				}
 
 				var targetAddress = targetInstr.GetAddress();
-				var nextRip = IP + instrSize;
-				instruction.NextIP = nextRip;
-				instruction.MemoryDisplacement = (uint)targetAddress - (uint)nextRip;
+				instruction.MemoryDisplacement64 = targetAddress;
 				encoder.TryEncode(instruction, IP, out _, out var errorMessage);
 				bool b = instruction.IPRelativeMemoryAddress == (instruction.MemoryBase == Register.EIP ? (uint)targetAddress : targetAddress);
 				Debug.Assert(b);

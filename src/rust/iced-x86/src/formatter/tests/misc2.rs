@@ -1,35 +1,12 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::super::super::iced_constants::IcedConstants;
 #[cfg(feature = "encoder")]
-use super::super::encoder::tests::non_decoded_tests;
-use super::super::test_utils::from_str_conv::*;
-use super::super::*;
-use super::instr_infos::*;
-#[cfg(not(feature = "std"))]
-use alloc::boxed::Box;
-#[cfg(not(feature = "std"))]
+use crate::formatter::encoder::tests::non_decoded_tests;
+use crate::formatter::test_utils::from_str_conv::*;
+use crate::formatter::tests::instr_infos::*;
+use crate::formatter::*;
+use crate::iced_constants::IcedConstants;
 use alloc::string::String;
 use std::fmt::Write;
 
@@ -37,7 +14,7 @@ use std::fmt::Write;
 fn make_sure_all_code_values_are_formatted() {
 	let mut tested = [0u8; IcedConstants::CODE_ENUM_COUNT];
 
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let all_args: [(u32, bool); 6] = [
 		(16, false),
 		(32, false),
@@ -57,10 +34,10 @@ fn make_sure_all_code_values_are_formatted() {
 			tested[info.2.code() as usize] = 1;
 		}
 	} else {
-		for &code in &super::super::super::decoder::tests::NON_DECODED_CODE_VALUES1632 {
+		for &code in &crate::decoder::tests::NON_DECODED_CODE_VALUES1632 {
 			tested[code as usize] = 1;
 		}
-		for &code in &super::super::super::decoder::tests::NON_DECODED_CODE_VALUES {
+		for &code in &crate::decoder::tests::NON_DECODED_CODE_VALUES {
 			tested[code as usize] = 1;
 		}
 	}
@@ -75,12 +52,12 @@ fn make_sure_all_code_values_are_formatted() {
 			missing += 1;
 		}
 	}
-	assert_eq!("Fmt: 0 ins ", format!("Fmt: {} ins {}", missing, sb));
+	assert_eq!(format!("Fmt: {} ins {}", missing, sb), "Fmt: 0 ins ");
 }
 
 #[test]
-#[cfg_attr(feature = "cargo-clippy", allow(clippy::same_functions_in_if_condition))]
-#[cfg_attr(feature = "cargo-clippy", allow(clippy::if_same_then_else))]
+#[allow(clippy::same_functions_in_if_condition)]
+#[allow(clippy::if_same_then_else)]
 fn display_trait() {
 	let bytes = b"\x00\xCE";
 	let mut decoder = Decoder::new(64, bytes, DecoderOptions::NONE);
@@ -100,10 +77,10 @@ fn display_trait() {
 		unreachable!()
 	};
 	let actual = format!("{}", instr);
-	assert_eq!(expected, actual);
+	assert_eq!(actual, expected);
 	let actual = instr.to_string();
-	assert_eq!(expected, actual);
+	assert_eq!(actual, expected);
 	let mut actual = String::new();
 	write!(&mut actual, "{}", instr).unwrap();
-	assert_eq!(expected, actual);
+	assert_eq!(actual, expected);
 }

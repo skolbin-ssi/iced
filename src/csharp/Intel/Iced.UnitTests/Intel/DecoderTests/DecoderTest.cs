@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 using System;
 using System.Collections.Generic;
@@ -29,23 +9,20 @@ using Xunit;
 
 namespace Iced.UnitTests.Intel.DecoderTests {
 	public abstract class DecoderTest {
-		(Decoder decoder, int length, bool canRead, ByteArrayCodeReader codeReader) CreateDecoder(int bitness, string hexBytes, DecoderOptions options) {
+		(Decoder decoder, int length, bool canRead, ByteArrayCodeReader codeReader) CreateDecoder(int bitness, string hexBytes, ulong ip, DecoderOptions options) {
 			var codeReader = new ByteArrayCodeReader(hexBytes);
 			var decoder = Decoder.Create(bitness, codeReader, options);
-			decoder.IP = bitness switch {
-				16 => DecoderConstants.DEFAULT_IP16,
-				32 => DecoderConstants.DEFAULT_IP32,
-				64 => DecoderConstants.DEFAULT_IP64,
-				_ => throw new ArgumentOutOfRangeException(nameof(bitness)),
-			};
+			decoder.IP = ip;
 			Assert.Equal(bitness, decoder.Bitness);
 			int length = Math.Min(IcedConstants.MaxInstructionLength, codeReader.Count);
 			bool canRead = length < codeReader.Count;
 			return (decoder, length, canRead, codeReader);
 		}
 
-		protected void DecodeMemOpsBase(int bitness, string hexBytes, Code code, Register register, Register prefixSeg, Register segReg, Register baseReg, Register indexReg, int scale, uint displ, int displSize, in ConstantOffsets constantOffsets, string encodedHexBytes, DecoderOptions options) {
-			var (decoder, length, canRead, codeReader) = CreateDecoder(bitness, hexBytes, options);
+		internal void DecodeMemOpsBase(int bitness, string hexBytes, Code code, DecoderMemoryTestCase tc) {
+			Debug.Assert(bitness == tc.Bitness);
+			Debug.Assert(hexBytes == tc.HexBytes);
+			var (decoder, length, canRead, codeReader) = CreateDecoder(tc.Bitness, tc.HexBytes, tc.IP, tc.DecoderOptions);
 			var instruction = decoder.Decode();
 			Assert.Equal(DecoderError.None, decoder.LastError);
 			Assert.Equal(canRead, codeReader.CanReadByte);
@@ -58,30 +35,33 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 			Assert.False(instruction.HasRepePrefix);
 			Assert.False(instruction.HasRepnePrefix);
 			Assert.False(instruction.HasLockPrefix);
-			Assert.Equal(prefixSeg, instruction.SegmentPrefix);
+			Assert.Equal(tc.SegmentPrefix, instruction.SegmentPrefix);
 			if (instruction.SegmentPrefix == Register.None)
 				Assert.False(instruction.HasSegmentPrefix);
 			else
 				Assert.True(instruction.HasSegmentPrefix);
 
 			Assert.Equal(OpKind.Memory, instruction.Op0Kind);
-			Assert.Equal(segReg, instruction.MemorySegment);
-			Assert.Equal(baseReg, instruction.MemoryBase);
-			Assert.Equal(indexReg, instruction.MemoryIndex);
-			Assert.Equal(displ, instruction.MemoryDisplacement);
-			Assert.Equal((ulong)(int)displ, instruction.MemoryDisplacement64);
-			Assert.Equal(1 << scale, instruction.MemoryIndexScale);
-			Assert.Equal(displSize, instruction.MemoryDisplSize);
+			Assert.Equal(tc.SegmentRegister, instruction.MemorySegment);
+			Assert.Equal(tc.BaseRegister, instruction.MemoryBase);
+			Assert.Equal(tc.IndexRegister, instruction.MemoryIndex);
+#pragma warning disable CS0618 // Type or member is obsolete
+			Assert.Equal((uint)tc.Displacement, instruction.MemoryDisplacement);
+#pragma warning restore CS0618 // Type or member is obsolete
+			Assert.Equal((uint)tc.Displacement, instruction.MemoryDisplacement32);
+			Assert.Equal(tc.Displacement, instruction.MemoryDisplacement64);
+			Assert.Equal(1 << tc.Scale, instruction.MemoryIndexScale);
+			Assert.Equal(tc.DisplacementSize, instruction.MemoryDisplSize);
 
 			Assert.Equal(OpKind.Register, instruction.Op1Kind);
-			Assert.Equal(register, instruction.Op1Register);
-			VerifyConstantOffsets(constantOffsets, decoder.GetConstantOffsets(instruction));
+			Assert.Equal(tc.Register, instruction.Op1Register);
+			VerifyConstantOffsets(tc.ConstantOffsets, decoder.GetConstantOffsets(instruction));
 		}
 
 		protected static IEnumerable<object[]> GetMemOpsData(int bitness) {
 			var allTestCases = DecoderTestCases.GetMemoryTestCases(bitness);
 			foreach (var tc in allTestCases)
-				yield return new object[13] { tc.HexBytes, tc.Code, tc.Register, tc.SegmentPrefix, tc.SegmentRegister, tc.BaseRegister, tc.IndexRegister, tc.Scale, tc.Displacement, tc.DisplacementSize, tc.ConstantOffsets, tc.EncodedHexBytes, tc.DecoderOptions };
+				yield return new object[3] { tc.HexBytes, tc.Code, tc };
 		}
 
 		protected static IEnumerable<object[]> GetDecoderTestData(int bitness) {
@@ -103,7 +83,7 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 		}
 
 		internal void DecoderTestBase(int bitness, int lineNo, string hexBytes, DecoderTestCase tc) {
-			var (decoder, length, canRead, codeReader) = CreateDecoder(bitness, hexBytes, tc.DecoderOptions);
+			var (decoder, length, canRead, codeReader) = CreateDecoder(bitness, hexBytes, tc.IP, tc.DecoderOptions);
 			ulong rip = decoder.IP;
 			decoder.Decode(out var instruction);
 			Assert.Equal(tc.DecoderError, decoder.LastError);
@@ -115,6 +95,13 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 			Assert.Equal(length, instruction.Length);
 			Assert.Equal(rip, instruction.IP);
 			Assert.Equal(decoder.IP, instruction.NextIP);
+			Assert.Equal(rip + (uint)length, instruction.NextIP);
+			switch (bitness) {
+			case 16: Assert.Equal(CodeSize.Code16, instruction.CodeSize); break;
+			case 32: Assert.Equal(CodeSize.Code32, instruction.CodeSize); break;
+			case 64: Assert.Equal(CodeSize.Code64, instruction.CodeSize); break;
+			default: throw new InvalidOperationException();
+			}
 			Assert.Equal(tc.OpCount, instruction.OpCount);
 			Assert.Equal(tc.ZeroingMasking, instruction.ZeroingMasking);
 			Assert.Equal(!tc.ZeroingMasking, instruction.MergingMasking);
@@ -241,19 +228,16 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 					Assert.Equal(tc.MemorySize, instruction.MemorySize);
 					break;
 
-				case OpKind.Memory64:
-					Assert.Equal(tc.MemorySegment, instruction.MemorySegment);
-					Assert.Equal(tc.MemoryAddress64, instruction.MemoryAddress64);
-					Assert.Equal(tc.MemorySize, instruction.MemorySize);
-					break;
-
 				case OpKind.Memory:
 					Assert.Equal(tc.MemorySegment, instruction.MemorySegment);
 					Assert.Equal(tc.MemoryBase, instruction.MemoryBase);
 					Assert.Equal(tc.MemoryIndex, instruction.MemoryIndex);
 					Assert.Equal(tc.MemoryIndexScale, instruction.MemoryIndexScale);
-					Assert.Equal(tc.MemoryDisplacement, instruction.MemoryDisplacement);
-					Assert.Equal((ulong)(int)tc.MemoryDisplacement, instruction.MemoryDisplacement64);
+#pragma warning disable CS0618 // Type or member is obsolete
+					Assert.Equal((uint)tc.MemoryDisplacement, instruction.MemoryDisplacement);
+#pragma warning restore CS0618 // Type or member is obsolete
+					Assert.Equal((uint)tc.MemoryDisplacement, instruction.MemoryDisplacement32);
+					Assert.Equal(tc.MemoryDisplacement, instruction.MemoryDisplacement64);
 					Assert.Equal(tc.MemoryDisplSize, instruction.MemoryDisplSize);
 					Assert.Equal(tc.MemorySize, instruction.MemorySize);
 					break;

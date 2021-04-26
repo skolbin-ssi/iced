@@ -1,29 +1,10 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
+use crate::{Code, CodeSize, Instruction, Register};
+use static_assertions::const_assert_eq;
 
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::super::{Code, CodeSize, Instruction, Register};
-
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 pub(super) fn is_rep_repe_repne_instruction(code: Code) -> bool {
 	match code {
 		Code::Insb_m8_DX
@@ -90,7 +71,7 @@ pub(super) fn is_rep_repe_repne_instruction(code: Code) -> bool {
 	}
 }
 
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 pub(super) fn show_rep_or_repe_prefix_bool(code: Code, show_useless_prefixes: bool) -> bool {
 	if show_useless_prefixes || is_rep_repe_repne_instruction(code) {
 		true
@@ -103,7 +84,7 @@ pub(super) fn show_rep_or_repe_prefix_bool(code: Code, show_useless_prefixes: bo
 	}
 }
 
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 pub(super) fn show_repne_prefix_bool(code: Code, show_useless_prefixes: bool) -> bool {
 	// If it's a 'rep/repne' instruction, always show the prefix
 	if show_useless_prefixes || is_rep_repe_repne_instruction(code) {
@@ -113,12 +94,12 @@ pub(super) fn show_repne_prefix_bool(code: Code, show_useless_prefixes: bool) ->
 	}
 }
 
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 pub(super) fn is_code64(code_size: CodeSize) -> bool {
 	code_size == CodeSize::Code64 || code_size == CodeSize::Unknown
 }
 
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 pub(super) fn get_default_segment_register(instruction: &Instruction) -> Register {
 	let base_reg = instruction.memory_base();
 	if base_reg == Register::BP || base_reg == Register::EBP || base_reg == Register::ESP || base_reg == Register::RBP || base_reg == Register::RSP {
@@ -128,13 +109,13 @@ pub(super) fn get_default_segment_register(instruction: &Instruction) -> Registe
 	}
 }
 
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 pub(super) fn show_segment_prefix_bool(mut default_seg_reg: Register, instruction: &Instruction, show_useless_prefixes: bool) -> bool {
 	if instruction.code().ignores_segment() {
 		return show_useless_prefixes;
 	}
 	let prefix_seg = instruction.segment_prefix();
-	debug_assert_ne!(Register::None, prefix_seg);
+	debug_assert_ne!(prefix_seg, Register::None);
 	if is_code64(instruction.code_size()) {
 		// ES,CS,SS,DS are ignored
 		if prefix_seg == Register::FS || prefix_seg == Register::GS {
@@ -154,7 +135,7 @@ pub(super) fn show_segment_prefix_bool(mut default_seg_reg: Register, instructio
 	}
 }
 
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 pub(super) fn is_repe_or_repne_instruction(code: Code) -> bool {
 	match code {
 		Code::Cmpsb_m8_m8
@@ -169,12 +150,12 @@ pub(super) fn is_repe_or_repne_instruction(code: Code) -> bool {
 	}
 }
 
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 #[inline]
 pub(super) fn is_notrack_prefix_branch(code: Code) -> bool {
-	const_assert_eq!(Code::Jmp_rm32 as u32, Code::Jmp_rm16 as u32 + 1);
-	const_assert_eq!(Code::Jmp_rm64 as u32, Code::Jmp_rm16 as u32 + 2);
-	const_assert_eq!(Code::Call_rm32 as u32, Code::Call_rm16 as u32 + 1);
-	const_assert_eq!(Code::Call_rm64 as u32, Code::Call_rm16 as u32 + 2);
+	const_assert_eq!(Code::Jmp_rm16 as u32 + 1, Code::Jmp_rm32 as u32);
+	const_assert_eq!(Code::Jmp_rm16 as u32 + 2, Code::Jmp_rm64 as u32);
+	const_assert_eq!(Code::Call_rm16 as u32 + 1, Code::Call_rm32 as u32);
+	const_assert_eq!(Code::Call_rm16 as u32 + 2, Code::Call_rm64 as u32);
 	(code as u32).wrapping_sub(Code::Jmp_rm16 as u32) <= 2 || (code as u32).wrapping_sub(Code::Call_rm16 as u32) <= 2
 }

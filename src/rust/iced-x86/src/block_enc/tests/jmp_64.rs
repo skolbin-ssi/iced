@@ -1,27 +1,7 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::*;
+use crate::block_enc::tests::*;
 use core::u32;
 
 const BITNESS: u32 = 64;
@@ -30,7 +10,7 @@ const NEW_RIP: u64 = 0x8000_0000_0000_0000;
 
 #[test]
 fn jmp_fwd() {
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let original_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0xEB, 0x09,// jmp short 000000000000800Dh
@@ -39,7 +19,7 @@ fn jmp_fwd() {
 		/*000B*/ 0xB0, 0x02,// mov al,2
 		/*000D*/ 0x90,// nop
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let new_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0xEB, 0x06,// jmp short 800000000000000Ah
@@ -48,7 +28,7 @@ fn jmp_fwd() {
 		/*0008*/ 0xB0, 0x02,// mov al,2
 		/*000A*/ 0x90,// nop
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let expected_instruction_offsets = [
 		0x0000,
 		0x0002,
@@ -74,7 +54,7 @@ fn jmp_fwd() {
 
 #[test]
 fn jmp_bwd() {
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let original_data = [
 		/*0000*/ 0x90,// nop
 		/*0001*/ 0xB0, 0x00,// mov al,0
@@ -83,7 +63,7 @@ fn jmp_bwd() {
 		/*0007*/ 0xE9, 0xF4, 0xFF, 0xFF, 0xFF,// jmp near ptr 0000000000008000h
 		/*000C*/ 0xB0, 0x02,// mov al,2
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let new_data = [
 		/*0000*/ 0x90,// nop
 		/*0001*/ 0xB0, 0x00,// mov al,0
@@ -92,7 +72,7 @@ fn jmp_bwd() {
 		/*0007*/ 0xEB, 0xF7,// jmp short 8000000000000000h
 		/*0009*/ 0xB0, 0x02,// mov al,2
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let expected_instruction_offsets = [
 		0x0000,
 		0x0001,
@@ -118,7 +98,7 @@ fn jmp_bwd() {
 
 #[test]
 fn jmp_other_short_os() {
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let original_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0x66, 0xEB, 0x08,// jmp short 800Dh
@@ -126,7 +106,7 @@ fn jmp_other_short_os() {
 		/*0007*/ 0x66, 0xE9, 0x02, 0x00,// jmp near ptr 800Dh
 		/*000B*/ 0xB0, 0x02,// mov al,2
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let new_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0x66, 0xEB, 0x09,// jmp short 800Dh
@@ -134,7 +114,7 @@ fn jmp_other_short_os() {
 		/*0007*/ 0x66, 0xEB, 0x04,// jmp short 800Dh
 		/*000A*/ 0xB0, 0x02,// mov al,2
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let expected_instruction_offsets = [
 		0x0000,
 		0x0002,
@@ -159,7 +139,7 @@ fn jmp_other_short_os() {
 
 #[test]
 fn jmp_other_near_os() {
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let original_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0x66, 0xEB, 0x08,// jmp short 800Dh
@@ -167,7 +147,7 @@ fn jmp_other_near_os() {
 		/*0007*/ 0x66, 0xE9, 0x02, 0x00,// jmp near ptr 800Dh
 		/*000B*/ 0xB0, 0x02,// mov al,2
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let new_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0x66, 0xE9, 0x07, 0xF0,// jmp near ptr 800Dh
@@ -175,7 +155,7 @@ fn jmp_other_near_os() {
 		/*0008*/ 0x66, 0xE9, 0x01, 0xF0,// jmp near ptr 800Dh
 		/*000C*/ 0xB0, 0x02,// mov al,2
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let expected_instruction_offsets = [
 		0x0000,
 		0x0002,
@@ -200,7 +180,7 @@ fn jmp_other_near_os() {
 
 #[test]
 fn jmp_other_short() {
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let original_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0xEB, 0x09,// jmp short 000000000000800Dh
@@ -208,7 +188,7 @@ fn jmp_other_short() {
 		/*0006*/ 0xE9, 0x02, 0x00, 0x00, 0x00,// jmp near ptr 000000000000800Dh
 		/*000B*/ 0xB0, 0x02,// mov al,2
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let new_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0xEB, 0x0A,// jmp short 000000000000800Dh
@@ -216,7 +196,7 @@ fn jmp_other_short() {
 		/*0006*/ 0xEB, 0x06,// jmp short 000000000000800Dh
 		/*0008*/ 0xB0, 0x02,// mov al,2
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let expected_instruction_offsets = [
 		0x0000,
 		0x0002,
@@ -241,7 +221,7 @@ fn jmp_other_short() {
 
 #[test]
 fn jmp_other_near() {
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let original_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0xEB, 0x09,// jmp short 000000000000800Dh
@@ -249,7 +229,7 @@ fn jmp_other_near() {
 		/*0006*/ 0xE9, 0x02, 0x00, 0x00, 0x00,// jmp near ptr 000000000000800Dh
 		/*000B*/ 0xB0, 0x02,// mov al,2
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let new_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0xE9, 0x06, 0xF0, 0xFF, 0xFF,// jmp near ptr 000000000000800Dh
@@ -257,7 +237,7 @@ fn jmp_other_near() {
 		/*0009*/ 0xE9, 0xFF, 0xEF, 0xFF, 0xFF,// jmp near ptr 000000000000800Dh
 		/*000E*/ 0xB0, 0x02,// mov al,2
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let expected_instruction_offsets = [
 		0x0000,
 		0x0002,
@@ -282,7 +262,7 @@ fn jmp_other_near() {
 
 #[test]
 fn jmp_other_long() {
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let original_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0xEB, 0x09,// jmp short 123456789ABCDE0Dh
@@ -290,7 +270,7 @@ fn jmp_other_long() {
 		/*0006*/ 0xE9, 0x03, 0x00, 0x00, 0x00,// jmp near ptr 123456789ABCDE0Eh
 		/*000B*/ 0xB0, 0x02,// mov al,2
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let new_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0xFF, 0x25, 0x10, 0x00, 0x00, 0x00,// jmp qword ptr [8000000000000018h]
@@ -301,7 +281,7 @@ fn jmp_other_long() {
 		/*0018*/ 0x0D, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12,
 		/*0020*/ 0x0E, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12,
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let expected_instruction_offsets = [
 		0x0000,
 		u32::MAX,
@@ -309,7 +289,7 @@ fn jmp_other_long() {
 		u32::MAX,
 		0x0010,
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let expected_reloc_infos = [
 		RelocInfo::new(RelocKind::Offset64, 0x8000_0000_0000_0018),
 		RelocInfo::new(RelocKind::Offset64, 0x8000_0000_0000_0020),
@@ -331,7 +311,7 @@ fn jmp_other_long() {
 
 #[test]
 fn jmp_fwd_no_opt() {
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let original_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0xEB, 0x09,// jmp short 000000000000800Dh
@@ -340,7 +320,7 @@ fn jmp_fwd_no_opt() {
 		/*000B*/ 0xB0, 0x02,// mov al,2
 		/*000D*/ 0x90,// nop
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let new_data = [
 		/*0000*/ 0xB0, 0x00,// mov al,0
 		/*0002*/ 0xEB, 0x09,// jmp short 000000000000800Dh
@@ -349,7 +329,7 @@ fn jmp_fwd_no_opt() {
 		/*000B*/ 0xB0, 0x02,// mov al,2
 		/*000D*/ 0x90,// nop
 	];
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+	#[rustfmt::skip]
 	let expected_instruction_offsets = [
 		0x0000,
 		0x0002,

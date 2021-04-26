@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 using System;
 using System.Collections.Generic;
@@ -100,6 +80,11 @@ namespace Generator.Formatters.Rust {
 
 		void GenerateFast(MemorySizeDef[] defs) {
 			var filename = generatorContext.Types.Dirs.GetRustFilename("formatter", "fast", "mem_size_tbl.rs");
+			var switchValues = defs.Select(a => a.Fast).Distinct().OrderBy(a => a.Value).Select(kw => {
+				var s = (FastMemoryKeywords)kw.Value == FastMemoryKeywords.None ? string.Empty : (kw.RawName + "_").Replace('_', ' ');
+				return (kw, s);
+			}).ToArray();
+			var maxMemSizeLen = switchValues.Max(a => a.s.Length);
 			new FileUpdater(TargetLanguage.Rust, "MemorySizes", filename).Generate(writer => {
 				writer.WriteLine(RustConstants.AttributeNoRustFmt);
 				writer.WriteLine($"static MEM_SIZE_TBL_DATA: [u8; {defs.Length}] = [");
@@ -110,12 +95,27 @@ namespace Generator.Formatters.Rust {
 					}
 				}
 				writer.WriteLine("];");
-			});
-			new FileUpdater(TargetLanguage.Rust, "Match", filename).Generate(writer => {
-				foreach (var kw in defs.Select(a => a.Fast).Distinct().OrderBy(a => a.Value)) {
-					var s = (FastMemoryKeywords)kw.Value == FastMemoryKeywords.None ? string.Empty : (kw.RawName + "_").Replace('_', ' ');
-					writer.WriteLine($"{kw.Value} => \"{s}\",");
+
+				const int FastStringMemorySize = 16;
+				// If this fails, the Rust code will also need to be updated, see FastStringMemorySize in fast.rs
+				if (maxMemSizeLen > FastStringMemorySize)
+					throw new InvalidOperationException();
+				writer.WriteLine($"static MEM_SIZE_TBL_STRINGS: [&str; {switchValues.Length}] = [");
+				using (writer.Indent()) {
+					var paddedString = new char[FastStringMemorySize];
+					foreach (var (kw, s) in switchValues) {
+						for (int i = 0; i < paddedString.Length; i++)
+							paddedString[i] = ' ';
+						for (int i = 0; i < s.Length; i++)
+							paddedString[i] = s[i];
+
+						writer.WriteLine($"\"\\x{s.Length:X2}{new string(paddedString)}\",");
+					}
 				}
+				writer.WriteLine("];");
+
+				writer.WriteLine(RustConstants.AttributeAllowDeadCode);
+				writer.WriteLine($"const MAX_MEMORY_SIZE_STR_LEN: usize = {maxMemSizeLen};");
 			});
 		}
 
@@ -301,11 +301,25 @@ namespace Generator.Formatters.Rust {
 		}
 
 		protected override void GenerateRegisters(string[] registers) {
+			const int FastStringRegisterSize = 8;
+
 			var filename = generatorContext.Types.Dirs.GetRustFilename("formatter", "regs_tbl.rs");
 			new FileUpdater(TargetLanguage.Rust, "Registers", filename).Generate(writer => {
-				var totalLen = registers.Length + registers.Sum(a => a.Length);
+				foreach (var reg in registers) {
+					if (reg.Length > FastStringRegisterSize) {
+						// Requires updating fast.rs `FastStringRegister` to match the new aligned size
+						// eg. FastString12 or FastString16 depending on perf
+						throw new InvalidOperationException();
+					}
+				}
+				var lastReg = registers[^1];
+				int extraPadding = FastStringRegisterSize - lastReg.Length;
+				if (extraPadding < 0)
+					throw new InvalidOperationException();
+
+				int totalLen = registers.Length + registers.Sum(a => a.Length) + extraPadding;
 				writer.WriteLine(RustConstants.AttributeNoRustFmt);
-				writer.WriteLine($"static REGS_DATA: [u8; {totalLen}] = [");
+				writer.WriteLine($"pub(super) static REGS_DATA: [u8; {totalLen}] = [");
 				int maxLen = 0;
 				using (writer.Indent()) {
 					foreach (var register in registers) {
@@ -317,10 +331,21 @@ namespace Generator.Formatters.Rust {
 						writer.Write(",");
 						writer.WriteCommentLine(register);
 					}
+					writer.WriteCommentLine("Padding so it's possible to read FastStringRegister::SIZE bytes from the last value");
+					if (extraPadding > 0) {
+						for (int i = 0; i < extraPadding; i++)
+							writer.WriteByte(0);
+						writer.WriteLine();
+					}
+					else
+						writer.WriteCommentLine("No padding needed");
 				}
 				writer.WriteLine("];");
 				writer.WriteLine($"pub(super) const MAX_STRING_LENGTH: usize = {maxLen};");
-				writer.WriteLine($"const STRINGS_COUNT: usize = {registers.Length};");
+				writer.WriteLine($"pub(super) const STRINGS_COUNT: usize = {registers.Length};");
+				writer.WriteLine(RustConstants.AttributeAllowDeadCode);
+				writer.WriteLine($"pub(super) const VALID_STRING_LENGTH: usize = {FastStringRegisterSize};");
+				writer.WriteLine($"pub(super) const PADDING_SIZE: usize = {extraPadding};");
 			});
 		}
 

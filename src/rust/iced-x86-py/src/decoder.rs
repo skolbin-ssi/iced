@@ -1,35 +1,17 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 use crate::constant_offsets::ConstantOffsets;
 use crate::instruction::Instruction;
+use crate::utils::to_value_error;
 use core::slice;
 use pyo3::class::iter::IterNextOutput;
-use pyo3::exceptions::{PyTypeError, PyValueError};
+use pyo3::exceptions::PyTypeError;
 use pyo3::gc::{PyGCProtocol, PyVisit};
 use pyo3::prelude::*;
 use pyo3::types::{PyByteArray, PyBytes};
 use pyo3::{PyIterProtocol, PyTraverseError};
+use static_assertions::const_assert_eq;
 
 enum DecoderDataRef {
 	None,
@@ -43,6 +25,7 @@ enum DecoderDataRef {
 ///     bitness (int): 16, 32 or 64
 ///     data (bytes, bytearray): Data to decode. For best PERF, use :class:`bytes` since it's immutable and nothing gets copied.
 ///     options (:class:`DecoderOptions`): (default = :class:`DecoderOptions.NONE`) Decoder options, eg. :class:`DecoderOptions.NO_INVALID_CHECK` | :class:`DecoderOptions.AMD`
+///     ip (int): (``u64``) (default = ``0``) ``RIP`` value
 ///
 /// Raises:
 ///     ValueError: If `bitness` is invalid
@@ -55,8 +38,7 @@ enum DecoderDataRef {
 ///     from iced_x86 import *
 ///
 ///     data = b"\x86\x64\x32\x16\xF0\xF2\x83\x00\x5A\x62\xC1\xFE\xCB\x6F\xD3"
-///     decoder = Decoder(64, data)
-///     decoder.ip = 0x1234_5678
+///     decoder = Decoder(64, data, ip=0x1234_5678)
 ///
 ///     # The decoder is iterable
 ///     for instr in decoder:
@@ -78,8 +60,7 @@ enum DecoderDataRef {
 ///     # xacquire lock add dword ptr [rax],5Ah
 ///     # vmovdqu64 zmm18{k3}{z},zmm11
 ///     data = b"\x86\x64\x32\x16\xF0\xF2\x83\x00\x5A\x62\xC1\xFE\xCB\x6F\xD3"
-///     decoder = Decoder(64, data)
-///     decoder.ip = 0x1234_5678
+///     decoder = Decoder(64, data, ip=0x1234_5678)
 ///
 ///     instr1 = decoder.decode()
 ///     assert instr1.code == Code.XCHG_RM8_R8
@@ -106,19 +87,17 @@ enum DecoderDataRef {
 ///
 ///     # lock add esi,ecx   # lock not allowed
 ///     data = b"\xF0\x01\xCE"
-///     decoder = Decoder(64, data)
-///     decoder.ip = 0x1234_5678
+///     decoder = Decoder(64, data, ip=0x1234_5678)
 ///     instr = decoder.decode()
 ///     assert instr.code == Code.INVALID
 ///
 ///     # We want to decode some instructions with invalid encodings
-///     decoder = Decoder(64, data, DecoderOptions.NO_INVALID_CHECK)
-///     decoder.ip = 0x1234_5678
+///     decoder = Decoder(64, data, DecoderOptions.NO_INVALID_CHECK, 0x1234_5678)
 ///     instr = decoder.decode()
 ///     assert instr.code == Code.ADD_RM32_R32
 ///     assert instr.has_lock_prefix
 #[pyclass(module = "_iced_x86_py")]
-#[text_signature = "(bitness, data, options, /)"]
+#[text_signature = "(bitness, data, options, ip, /)"]
 pub(crate) struct Decoder {
 	// * If the decoder ctor was called with a `bytes` object, data_ref is PyObj(`bytes` object)
 	//   and the decoder holds a ref to its data.
@@ -134,15 +113,10 @@ unsafe impl Send for Decoder {}
 #[pymethods]
 impl Decoder {
 	#[new]
-	#[args(options = 0)]
-	fn new(bitness: u32, data: &PyAny, options: u32) -> PyResult<Self> {
+	#[args(options = 0, ip = 0)]
+	fn new(bitness: u32, data: &PyAny, options: u32, ip: u64) -> PyResult<Self> {
 		// #[args] line assumption
-		const_assert_eq!(0, iced_x86::DecoderOptions::NONE);
-
-		match bitness {
-			16 | 32 | 64 => {}
-			_ => return Err(PyValueError::new_err("bitness must be 16, 32 or 64")),
-		}
+		const_assert_eq!(iced_x86::DecoderOptions::NONE, 0);
 
 		let (data_ref, decoder_data): (DecoderDataRef, &'static [u8]) = if let Ok(bytes) = <PyBytes as PyTryFrom>::try_from(data) {
 			let slice_data = bytes.as_bytes();
@@ -158,7 +132,7 @@ impl Decoder {
 			return Err(PyTypeError::new_err("Expected one of these types: bytes, bytearray"));
 		};
 
-		let decoder = iced_x86::Decoder::new(bitness, decoder_data, options);
+		let decoder = iced_x86::Decoder::try_with_ip(bitness, decoder_data, ip, options).map_err(to_value_error)?;
 		Ok(Decoder { data_ref, decoder })
 	}
 
@@ -206,8 +180,7 @@ impl Decoder {
 	///
 	///     # nop and pause
 	///     data = b"\x90\xF3\x90"
-	///     decoder = Decoder(64, data)
-	///     decoder.ip = 0x1234_5678
+	///     decoder = Decoder(64, data, ip=0x1234_5678)
 	///
 	///     assert decoder.position == 0
 	///     assert decoder.max_position == 3
@@ -233,12 +206,7 @@ impl Decoder {
 
 	#[setter]
 	fn set_position(&mut self, new_value: usize) -> PyResult<()> {
-		if new_value > self.decoder.max_position() {
-			Err(PyValueError::new_err("Invalid position"))
-		} else {
-			self.decoder.set_position(new_value);
-			Ok(())
-		}
+		self.decoder.try_set_position(new_value).map_err(to_value_error)
 	}
 
 	/// bool: Returns ``True`` if there's at least one more byte to decode.
@@ -257,8 +225,7 @@ impl Decoder {
 	///
 	///     # nop and an incomplete instruction
 	///     data = b"\x90\xF3\x0F"
-	///     decoder = Decoder(64, data)
-	///     decoder.ip = 0x1234_5678
+	///     decoder = Decoder(64, data, ip=0x1234_5678)
 	///
 	///     # 3 bytes left to read
 	///     assert decoder.can_decode
@@ -305,8 +272,7 @@ impl Decoder {
 	///
 	///     # xrelease lock add [rax],ebx
 	///     data = b"\xF0\xF3\x01\x18"
-	///     decoder = Decoder(64, data)
-	///     decoder.ip = 0x1234_5678
+	///     decoder = Decoder(64, data, ip=0x1234_5678)
 	///     instr = decoder.decode()
 	///
 	///     assert instr.code == Code.ADD_RM32_R32
@@ -351,8 +317,7 @@ impl Decoder {
 	///
 	///     # xrelease lock add [rax],ebx
 	///     data = b"\xF0\xF3\x01\x18"
-	///     decoder = Decoder(64, data)
-	///     decoder.ip = 0x1234_5678
+	///     decoder = Decoder(64, data, ip=0x1234_5678)
 	///     instr = Instruction()
 	///     decoder.decode_out(instr)
 	///
@@ -401,8 +366,7 @@ impl Decoder {
 	///     #              00  01  02  03  04  05  06
 	///     #            \opc\mrm\displacement___\imm
 	///     data = b"\x90\x83\xB3\x34\x12\x5A\xA5\x5A"
-	///     decoder = Decoder(64, data)
-	///     decoder.ip = 0x1234_5678
+	///     decoder = Decoder(64, data, ip=0x1234_5678)
 	///     assert decoder.decode().code == Code.NOPD
 	///     instr = decoder.decode()
 	///     co = decoder.get_constant_offsets(instr)
@@ -425,7 +389,7 @@ impl Decoder {
 
 #[pyproto]
 impl PyGCProtocol for Decoder {
-	fn __traverse__(&self, visit: PyVisit) -> Result<(), PyTraverseError> {
+	fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
 		if let DecoderDataRef::PyObj(ref data_obj) = self.data_ref {
 			visit.call(data_obj)?
 		}
@@ -446,7 +410,7 @@ impl PyIterProtocol for Decoder {
 	}
 
 	fn __next__(mut slf: PyRefMut<Self>) -> IterNextOutput<Instruction, ()> {
-		if slf.decoder.can_decode() {
+		if slf.can_decode() {
 			IterNextOutput::Yield(slf.decode())
 		} else {
 			IterNextOutput::Return(())

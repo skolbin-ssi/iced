@@ -1,42 +1,37 @@
-#
-# Copyright (C) 2018-2019 de4dot@gmail.com
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2018-present iced project and contributors
 
+import sys
 from setuptools import setup
-from setuptools_rust import RustExtension, Strip
+
+try:
+	from setuptools_rust import RustExtension, Strip
+except:
+	print()
+	print("=============== MISSING BUILD TOOLS ===============")
+	print("Missing setuptools-rust")
+	print("Building iced-x86 requires `setuptools-rust` and Rust")
+	print("setuptools-rust: pip3 install setuptools-rust")
+	print("Rust: https://www.rust-lang.org/tools/install")
+	print("=============== MISSING BUILD TOOLS ===============")
+	print()
+	raise
 
 with open("README.md", "r", encoding="utf-8") as file:
 	readme_md = file.read()
 
+py_limited_api = any(arg == "--py-limited-api" or arg.startswith("--py-limited-api=") for arg in sys.argv)
+
 setup(
 	name="iced-x86",
-	version="1.10.1",
+	version="1.11.1",
 	license="MIT",
-	author_email="de4dot@gmail.com",
-	author="0xd4d",
-	description="iced-x86 is a high performance and correct x86/x64 disassembler, assembler and instruction decoder",
+	author_email="wtfsck@protonmail.com",
+	author="wtfsck",
+	description="iced-x86 is a blazing fast and correct x86/x64 disassembler, assembler and instruction decoder",
 	long_description=readme_md,
 	long_description_content_type="text/markdown",
-	url="https://github.com/0xd4d/iced/tree/master/src/rust/iced-x86-py",
+	url="https://github.com/icedland/iced/tree/master/src/rust/iced-x86-py",
 	platforms=["any"],
 	python_requires="~=3.6",
 	classifiers=[
@@ -61,7 +56,7 @@ setup(
 	],
 	package_dir={"": "src"},
 	packages=["iced_x86"],
-	rust_extensions=[RustExtension("iced_x86._iced_x86_py", path="Cargo.toml", strip=Strip.All)],
+	rust_extensions=[RustExtension("iced_x86._iced_x86_py", path="Cargo.toml", strip=Strip.All, py_limited_api=py_limited_api)],
 	include_package_data=True,
 	zip_safe=False,
 )

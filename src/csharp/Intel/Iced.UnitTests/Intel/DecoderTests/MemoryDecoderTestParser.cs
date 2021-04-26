@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 using System;
 using System.Collections.Generic;
@@ -55,6 +35,12 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 			var tc = new DecoderMemoryTestCase();
 			tc.LineNumber = lineNumber;
 			tc.Bitness = bitness;
+			tc.IP = bitness switch {
+				16 => DecoderConstants.DEFAULT_IP16,
+				32 => DecoderConstants.DEFAULT_IP32,
+				64 => DecoderConstants.DEFAULT_IP64,
+				_ => throw new InvalidOperationException(),
+			};
 			tc.HexBytes = parts[0].Trim();
 			var code = parts[1].Trim();
 			if (CodeUtils.IsIgnored(code))
@@ -65,9 +51,9 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 			tc.SegmentRegister = ToEnumConverter.GetRegister(parts[4].Trim());
 			tc.BaseRegister = ToEnumConverter.GetRegister(parts[5].Trim());
 			tc.IndexRegister = ToEnumConverter.GetRegister(parts[6].Trim());
-			tc.Scale = (int)ParseUInt32(parts[7].Trim());
-			tc.Displacement = ParseUInt32(parts[8].Trim());
-			tc.DisplacementSize = (int)ParseUInt32(parts[9].Trim());
+			tc.Scale = (int)NumberConverter.ToUInt32(parts[7].Trim());
+			tc.Displacement = NumberConverter.ToUInt64(parts[8].Trim());
+			tc.DisplacementSize = (int)NumberConverter.ToUInt32(parts[9].Trim());
 			var coStr = parts[10].Trim();
 			if (!DecoderTestParser.TryParseConstantOffsets(coStr, out tc.ConstantOffsets))
 				throw new InvalidOperationException($"Invalid ConstantOffsets: '{coStr}'");
@@ -75,18 +61,6 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 			tc.DecoderOptions = DecoderOptions.None;
 			tc.TestOptions = DecoderTestOptions.None;
 			return tc;
-		}
-
-		static uint ParseUInt32(string s) {
-			if (uint.TryParse(s, out uint value))
-				return value;
-			if (s.StartsWith("0x", StringComparison.Ordinal)) {
-				s = s.Substring(2);
-				if (uint.TryParse(s, SG.NumberStyles.HexNumber, null, out value))
-					return value;
-			}
-
-			throw new InvalidOperationException();
 		}
 	}
 }

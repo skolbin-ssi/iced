@@ -1,28 +1,7 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 use crate::enum_utils::{to_code, to_code_size, to_op_kind, to_register, to_rep_prefix_kind, to_rounding_control};
-use crate::iced_constants::IcedConstants;
 use crate::memory_operand::MemoryOperand;
 use crate::op_code_info::OpCodeInfo;
 use crate::utils::{get_temporary_byte_array_ref, to_value_error};
@@ -46,8 +25,7 @@ use std::collections::hash_map::DefaultHasher;
 ///
 ///     # xchg ah,[rdx+rsi+16h]
 ///     data = b"\x86\x64\x32\x16"
-///     decoder = Decoder(64, data)
-///     decoder.ip = 0x1234_5678
+///     decoder = Decoder(64, data, ip=0x1234_5678)
 ///
 ///     instr = decoder.decode()
 ///
@@ -96,7 +74,7 @@ use std::collections::hash_map::DefaultHasher;
 ///     formatter.first_operand_char_index = 8
 ///
 ///     print(f"disasm  : {formatter.format(instr)}")
-///     print(f"mnemonic: {formatter.format_mnemonic(instr)}")
+///     print(f"mnemonic: {formatter.format_mnemonic(instr, FormatMnemonicOptions.NO_PREFIXES)}")
 ///     print(f"operands: {formatter.format_all_operands(instr)}")
 ///     print(f"op #0   : {formatter.format_operand(instr, 0)}")
 ///     print(f"op #1   : {formatter.format_operand(instr, 1)}")
@@ -168,7 +146,7 @@ use std::collections::hash_map::DefaultHasher;
 /// r      RIP-relative memory operands use RIP register instead of abs addr (``[rip+123h]`` vs ``[123456789ABCDEF0h]``)
 /// U      Uppercase everything except numbers and hex prefixes/suffixes (ignored by fast fmt)
 /// s      Add a space after the operand separator
-/// S      Always show the segment register
+/// S      Always show the segment register (memory operands)
 /// B      Don't show the branch size (``SHORT`` or ``NEAR PTR``) (ignored by fast fmt)
 /// G      (GNU Assembler): Add mnemonic size suffix (eg. ``movl`` vs ``mov``)
 /// M      Always show the memory size (eg. ``BYTE PTR``) even when not needed
@@ -193,7 +171,7 @@ impl Instruction {
 	/// Returns:
 	///     Instruction: A copy of this instance
 	///
-	/// This is identical to :class:`Instruction.clone`
+	/// This is identical to :class:`Instruction.copy`
 	#[text_signature = "($self, /)"]
 	fn __copy__(&self) -> Self {
 		*self
@@ -207,7 +185,7 @@ impl Instruction {
 	/// Returns:
 	///     Instruction: A copy of this instance
 	///
-	/// This is identical to :class:`Instruction.clone`
+	/// This is identical to :class:`Instruction.copy`
 	#[text_signature = "($self, memo, /)"]
 	fn __deepcopy__(&self, _memo: &PyAny) -> Self {
 		*self
@@ -218,7 +196,7 @@ impl Instruction {
 	/// Returns:
 	///     Instruction: A copy of this instance
 	#[text_signature = "($self, /)"]
-	fn clone(&self) -> Self {
+	fn copy(&self) -> Self {
 		*self
 	}
 
@@ -529,15 +507,7 @@ impl Instruction {
 	///     assert instr.op_register(1) == Register.EBX
 	#[text_signature = "($self, operand, /)"]
 	fn op_kind(&self, operand: u32) -> PyResult<u32> {
-		const_assert_eq!(5, IcedConstants::MAX_OP_COUNT);
-		match operand {
-			0 => Ok(self.op0_kind()),
-			1 => Ok(self.op1_kind()),
-			2 => Ok(self.op2_kind()),
-			3 => Ok(self.op3_kind()),
-			4 => Ok(self.op4_kind()),
-			_ => Err(PyValueError::new_err("Invalid operand")),
-		}
+		self.instr.try_op_kind(operand).map_or_else(|e| Err(to_value_error(e)), |op_kind| Ok(op_kind as u32))
 	}
 
 	/// Sets an operand's kind
@@ -550,15 +520,7 @@ impl Instruction {
 	///     ValueError: If `operand` is invalid
 	#[text_signature = "($self, operand, op_kind, /)"]
 	fn set_op_kind(&mut self, operand: u32, op_kind: u32) -> PyResult<()> {
-		const_assert_eq!(5, IcedConstants::MAX_OP_COUNT);
-		match operand {
-			0 => self.set_op0_kind(op_kind),
-			1 => self.set_op1_kind(op_kind),
-			2 => self.set_op2_kind(op_kind),
-			3 => self.set_op3_kind(op_kind),
-			4 => self.set_op4_kind(op_kind),
-			_ => Err(PyValueError::new_err("Invalid operand")),
-		}
+		self.instr.try_set_op_kind(operand, to_op_kind(op_kind)?).map_err(to_value_error)
 	}
 
 	/// bool: Checks if the instruction has a segment override prefix, see :class:`Instruction.segment_prefix`
@@ -571,7 +533,7 @@ impl Instruction {
 	///
 	/// See also :class:`Instruction.memory_segment`.
 	///
-	/// Use this method if the operand has kind :class:`OpKind.MEMORY`, :class:`OpKind.MEMORY64`,
+	/// Use this method if the operand has kind :class:`OpKind.MEMORY`,
 	/// :class:`OpKind.MEMORY_SEG_SI`, :class:`OpKind.MEMORY_SEG_ESI`, :class:`OpKind.MEMORY_SEG_RSI`
 	#[getter]
 	fn segment_prefix(&self) -> u32 {
@@ -586,7 +548,7 @@ impl Instruction {
 
 	/// :class:`Register`: Gets the effective segment register used to reference the memory location (a :class:`Register` enum value).
 	///
-	/// Use this method if the operand has kind :class:`OpKind.MEMORY`, :class:`OpKind.MEMORY64`,
+	/// Use this method if the operand has kind :class:`OpKind.MEMORY`,
 	/// :class:`OpKind.MEMORY_SEG_SI`, :class:`OpKind.MEMORY_SEG_ESI`, :class:`OpKind.MEMORY_SEG_RSI`
 	#[getter]
 	fn memory_segment(&self) -> u32 {
@@ -626,7 +588,7 @@ impl Instruction {
 	///
 	/// See also :class:`Instruction.is_broadcast`.
 	///
-	/// Use this method if the operand has kind :class:`OpKind.MEMORY`, :class:`OpKind.MEMORY64`,
+	/// Use this method if the operand has kind :class:`OpKind.MEMORY`,
 	/// :class:`OpKind.MEMORY_SEG_SI`, :class:`OpKind.MEMORY_SEG_ESI`, :class:`OpKind.MEMORY_SEG_RSI`,
 	/// :class:`OpKind.MEMORY_ESDI`, :class:`OpKind.MEMORY_ESEDI`, :class:`OpKind.MEMORY_ESRDI`
 	#[getter]
@@ -647,27 +609,18 @@ impl Instruction {
 		self.instr.set_memory_index_scale(new_value)
 	}
 
-	/// int: (``u32``) Gets the memory operand's displacement.
-	///
-	/// This should be sign extended to 64 bits if it's 64-bit addressing (see :class:`Instruction.memory_displacement64`).
+	/// int: (``u64``) Gets the memory operand's displacement or the 64-bit absolute address if it's
+	/// an ``EIP`` or ``RIP`` relative memory operand.
 	///
 	/// Use this method if the operand has kind :class:`OpKind.MEMORY`
 	#[getter]
-	fn memory_displacement(&self) -> u32 {
-		self.instr.memory_displacement()
+	fn memory_displacement(&self) -> u64 {
+		self.instr.memory_displacement64()
 	}
 
 	#[setter]
-	fn set_memory_displacement(&mut self, new_value: u32) {
-		self.instr.set_memory_displacement(new_value)
-	}
-
-	/// int: (``u64``) Gets the memory operand's displacement sign extended to 64 bits.
-	///
-	/// Use this method if the operand has kind :class:`OpKind.MEMORY`
-	#[getter]
-	fn memory_displacement64(&self) -> u64 {
-		self.instr.memory_displacement64()
+	fn set_memory_displacement(&mut self, new_value: u64) {
+		self.instr.set_memory_displacement64(new_value)
 	}
 
 	/// Gets an operand's immediate value
@@ -852,19 +805,6 @@ impl Instruction {
 	#[setter]
 	fn set_immediate32to64(&mut self, new_value: i64) {
 		self.instr.set_immediate32to64(new_value);
-	}
-
-	/// int: (``u64``) Gets the operand's 64-bit address value.
-	///
-	/// Use this method if the operand has kind :class:`OpKind.MEMORY64`
-	#[getter]
-	fn memory_address64(&self) -> u64 {
-		self.instr.memory_address64()
-	}
-
-	#[setter]
-	fn set_memory_address64(&mut self, new_value: u64) {
-		self.instr.set_memory_address64(new_value);
 	}
 
 	/// int: (``u16``) Gets the operand's branch target.
@@ -1080,15 +1020,7 @@ impl Instruction {
 	///     assert instr.op_register(1) == Register.EBX
 	#[text_signature = "($self, operand, /)"]
 	fn op_register(&self, operand: u32) -> PyResult<u32> {
-		const_assert_eq!(5, IcedConstants::MAX_OP_COUNT);
-		match operand {
-			0 => Ok(self.op0_register()),
-			1 => Ok(self.op1_register()),
-			2 => Ok(self.op2_register()),
-			3 => Ok(self.op3_register()),
-			4 => Ok(self.op4_register()),
-			_ => Err(PyValueError::new_err("Invalid operand")),
-		}
+		self.instr.try_op_register(operand).map_or_else(|e| Err(to_value_error(e)), |register| Ok(register as u32))
 	}
 
 	/// Sets the operand's register value.
@@ -1103,18 +1035,10 @@ impl Instruction {
 	///     ValueError: If `operand` is invalid
 	#[text_signature = "($self, operand, new_value, /)"]
 	fn set_op_register(&mut self, operand: u32, new_value: u32) -> PyResult<()> {
-		const_assert_eq!(5, IcedConstants::MAX_OP_COUNT);
-		match operand {
-			0 => self.set_op0_register(new_value),
-			1 => self.set_op1_register(new_value),
-			2 => self.set_op2_register(new_value),
-			3 => self.set_op3_register(new_value),
-			4 => self.set_op4_register(new_value),
-			_ => Err(PyValueError::new_err("Invalid operand")),
-		}
+		self.instr.try_set_op_register(operand, to_register(new_value)?).map_err(to_value_error)
 	}
 
-	/// :class:`Register`: Gets the op mask register (:class:`Register.K1` - :class:`Register.K7`) or :class:`Register.NONE` if none (a :class:`Register` enum value)
+	/// :class:`Register`: Gets the opmask register (:class:`Register.K1` - :class:`Register.K7`) or :class:`Register.NONE` if none (a :class:`Register` enum value)
 	#[getter]
 	fn op_mask(&self) -> u32 {
 		self.instr.op_mask() as u32
@@ -1126,7 +1050,7 @@ impl Instruction {
 		Ok(())
 	}
 
-	/// bool: Checks if there's an op mask register (:class:`Instruction.op_mask`)
+	/// bool: Checks if there's an opmask register (:class:`Instruction.op_mask`)
 	#[getter]
 	fn has_op_mask(&self) -> bool {
 		self.instr.has_op_mask()
@@ -1134,7 +1058,7 @@ impl Instruction {
 
 	/// bool: ``True`` if zeroing-masking, ``False`` if merging-masking.
 	///
-	/// Only used by most EVEX encoded instructions that use op mask registers.
+	/// Only used by most EVEX encoded instructions that use opmask registers.
 	#[getter]
 	fn zeroing_masking(&self) -> bool {
 		self.instr.zeroing_masking()
@@ -1147,7 +1071,7 @@ impl Instruction {
 
 	/// bool: ``True`` if merging-masking, ``False`` if zeroing-masking.
 	///
-	/// Only used by most EVEX encoded instructions that use op mask registers.
+	/// Only used by most EVEX encoded instructions that use opmask registers.
 	#[getter]
 	fn merging_masking(&self) -> bool {
 		self.instr.merging_masking()
@@ -1198,8 +1122,7 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, new_value, /)"]
 	fn set_declare_byte_value_i8(&mut self, index: usize, new_value: i8) -> PyResult<()> {
-		self.instr.try_set_declare_byte_value_i8(index, new_value).map_err(to_value_error)?;
-		Ok(())
+		self.instr.try_set_declare_byte_value_i8(index, new_value).map_err(to_value_error)
 	}
 
 	/// Sets a new ``db`` value, see also :class:`Instruction.declare_data_len`.
@@ -1214,8 +1137,7 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, new_value, /)"]
 	fn set_declare_byte_value(&mut self, index: usize, new_value: u8) -> PyResult<()> {
-		self.instr.try_set_declare_byte_value(index, new_value).map_err(to_value_error)?;
-		Ok(())
+		self.instr.try_set_declare_byte_value(index, new_value).map_err(to_value_error)
 	}
 
 	/// Gets a ``db`` value, see also :class:`Instruction.declare_data_len`.
@@ -1266,8 +1188,7 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, new_value, /)"]
 	fn set_declare_word_value_i16(&mut self, index: usize, new_value: i16) -> PyResult<()> {
-		self.instr.try_set_declare_word_value_i16(index, new_value).map_err(to_value_error)?;
-		Ok(())
+		self.instr.try_set_declare_word_value_i16(index, new_value).map_err(to_value_error)
 	}
 
 	/// Sets a new ``dw`` value, see also :class:`Instruction.declare_data_len`.
@@ -1282,8 +1203,7 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, new_value, /)"]
 	fn set_declare_word_value(&mut self, index: usize, new_value: u16) -> PyResult<()> {
-		self.instr.try_set_declare_word_value(index, new_value).map_err(to_value_error)?;
-		Ok(())
+		self.instr.try_set_declare_word_value(index, new_value).map_err(to_value_error)
 	}
 
 	/// Gets a ``dw`` value, see also :class:`Instruction.declare_data_len`.
@@ -1334,8 +1254,7 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, new_value, /)"]
 	fn set_declare_dword_value_i32(&mut self, index: usize, new_value: i32) -> PyResult<()> {
-		self.instr.try_set_declare_dword_value_i32(index, new_value).map_err(to_value_error)?;
-		Ok(())
+		self.instr.try_set_declare_dword_value_i32(index, new_value).map_err(to_value_error)
 	}
 
 	/// Sets a new ``dd`` value, see also :class:`Instruction.declare_data_len`.
@@ -1350,8 +1269,7 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, new_value, /)"]
 	fn set_declare_dword_value(&mut self, index: usize, new_value: u32) -> PyResult<()> {
-		self.instr.try_set_declare_dword_value(index, new_value).map_err(to_value_error)?;
-		Ok(())
+		self.instr.try_set_declare_dword_value(index, new_value).map_err(to_value_error)
 	}
 
 	/// Gets a ``dd`` value, see also :class:`Instruction.declare_data_len`.
@@ -1402,8 +1320,7 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, new_value, /)"]
 	fn set_declare_qword_value_i64(&mut self, index: usize, new_value: i64) -> PyResult<()> {
-		self.instr.try_set_declare_qword_value_i64(index, new_value).map_err(to_value_error)?;
-		Ok(())
+		self.instr.try_set_declare_qword_value_i64(index, new_value).map_err(to_value_error)
 	}
 
 	/// Sets a new ``dq`` value, see also :class:`Instruction.declare_data_len`.
@@ -1418,8 +1335,7 @@ impl Instruction {
 	///     ValueError: If `index` is invalid
 	#[text_signature = "($self, index, new_value, /)"]
 	fn set_declare_qword_value(&mut self, index: usize, new_value: u64) -> PyResult<()> {
-		self.instr.try_set_declare_qword_value(index, new_value).map_err(to_value_error)?;
-		Ok(())
+		self.instr.try_set_declare_qword_value(index, new_value).map_err(to_value_error)
 	}
 
 	/// Gets a ``dq`` value, see also :class:`Instruction.declare_data_len`.
@@ -1503,7 +1419,7 @@ impl Instruction {
 		self.instr.is_ip_rel_memory_operand()
 	}
 
-	/// int: (``u64``) Gets the ``RIP``/``EIP`` releative address ((:class:`Instruction.next_ip` or :class:`Instruction.next_ip32`) + :class:`Instruction.memory_displacement`).
+	/// int: (``u64``) Gets the ``RIP``/``EIP`` releative address (:class:`Instruction.memory_displacement`).
 	///
 	/// This method is only valid if there's a memory operand with ``RIP``/``EIP`` relative addressing, see :class:`Instruction.is_ip_rel_memory_operand`
 	#[getter]
@@ -2197,7 +2113,7 @@ impl Instruction {
 				'G' => fmt_opts.set_gas_show_mnemonic_size_suffix(true),
 				'M' => fmt_opts.set_memory_size_options(iced_x86::MemorySizeOptions::Always),
 				'_' => fmt_opts.set_digit_separator("_"),
-				_ => return Err(PyValueError::new_err(format!("Unknown format code '{}'", format_spec))),
+				_ => return Err(PyValueError::new_err(format!("Unknown format specifier '{}' ('{}')", c, format_spec))),
 			}
 		}
 
@@ -3319,48 +3235,6 @@ impl Instruction {
 	#[text_signature = "(bitness, target, /)"]
 	fn create_xbegin(bitness: u32, target: u64) -> PyResult<Self> {
 		Ok(Instruction { instr: iced_x86::Instruction::try_with_xbegin(bitness, target).map_err(to_value_error)? })
-	}
-
-	/// Creates an instruction with a 64-bit memory offset as the second operand, eg. ``mov al,[123456789ABCDEF0]``
-	///
-	/// Args:
-	///     `code` (:class:`Code`): Code value
-	///     `register` (:class:`Register`): Register (``AL``, ``AX``, ``EAX``, ``RAX``)
-	///     `address` (int): (``u64``) 64-bit address
-	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
-	///
-	/// Returns:
-	///     :class:`Instruction`: Created instruction
-	#[rustfmt::skip]
-	#[staticmethod]
-	#[text_signature = "(code, register, address, segment_prefix, /)"]
-	#[args(segment_prefix = 0)]
-	fn create_reg_mem64(code: u32, register: u32, address: u64, segment_prefix: u32) -> PyResult<Self> {
-		let code = to_code(code)?;
-		let register = to_register(register)?;
-		let segment_prefix = to_register(segment_prefix)?;
-		Ok(Instruction { instr: iced_x86::Instruction::with_reg_mem64(code, register, address, segment_prefix) })
-	}
-
-	/// Creates an instruction with a 64-bit memory offset as the first operand, eg. ``mov [123456789ABCDEF0],al``
-	///
-	/// Args:
-	///     `code` (:class:`Code`): Code value
-	///     `address` (int): (``u64``) 64-bit address
-	///     `register` (:class:`Register`): Register (``AL``, ``AX``, ``EAX``, ``RAX``)
-	///     `segment_prefix` (:class:`Register`): Segment override or :class:`Register.NONE`
-	///
-	/// Returns:
-	///     :class:`Instruction`: Created instruction
-	#[rustfmt::skip]
-	#[staticmethod]
-	#[text_signature = "(code, address, register, segment_prefix, /)"]
-	#[args(segment_prefix = 0)]
-	fn create_mem64_reg(code: u32, address: u64, register: u32, segment_prefix: u32) -> PyResult<Self> {
-		let code = to_code(code)?;
-		let register = to_register(register)?;
-		let segment_prefix = to_register(segment_prefix)?;
-		Ok(Instruction { instr: iced_x86::Instruction::with_mem64_reg(code, address, register, segment_prefix) })
 	}
 
 	/// Creates a ``OUTSB`` instruction

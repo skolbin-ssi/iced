@@ -1,6 +1,6 @@
 iced-x86 disassembler Python bindings [![pypi](https://img.shields.io/pypi/v/iced-x86.svg)](https://pypi.org/project/iced-x86/) ![Python](https://img.shields.io/pypi/pyversions/iced-x86.svg) ![License](https://img.shields.io/pypi/l/iced-x86.svg)
 
-iced-x86 is a high performance and correct x86 (16/32/64-bit) disassembler for Python.
+iced-x86 is a blazing fast and correct x86 (16/32/64-bit) disassembler for Python.
 
 - ✔️Supports all Intel and AMD instructions
 - ✔️Correct: All instructions are tested and iced has been tested against other disassemblers/assemblers (xed, gas, objdump, masm, dumpbin, nasm, ndisasm) and fuzzed
@@ -10,14 +10,14 @@ iced-x86 is a high performance and correct x86 (16/32/64-bit) disassembler for P
 - ✔️Rust + Python
 - ✔️License: MIT
 
-Rust crate: https://github.com/0xd4d/iced/blob/master/src/rust/iced-x86/README.md
+Rust crate: https://github.com/icedland/iced/blob/master/src/rust/iced-x86/README.md
 
 ## Installing iced-x86
 
 It's on [PyPI](https://pypi.org/project/iced-x86/) with built wheels for Windows, macOS and Linux so this command should work (use `python` or `py` if on Windows):
 
 ```sh
-python3 -m pip install iced-x86
+python3 -m pip install -U iced-x86
 ```
 
 If `pip` tries to build it from source and fails, see below for all required build tools (eg. `python3 -m pip install setuptools wheel setuptools-rust` and Rust https://www.rust-lang.org/tools/install).
@@ -36,7 +36,7 @@ Prerequisites:
 # Create the wheel
 python3 setup.py bdist_wheel
 # Install the built wheel
-python3 -m pip install iced-x86 --no-index -f dist
+python3 -m pip install iced-x86 --no-index -f dist --only-binary :all:
 # Uninstall your built copy
 python3 -m pip uninstall iced-x86
 ```
@@ -49,7 +49,7 @@ Tests:
 
 ```sh
 python3 setup.py bdist_wheel
-python3 -m pip install iced-x86 --no-index -f dist
+python3 -m pip install iced-x86 --no-index -f dist --only-binary :all:
 python3 -m pytest
 python3 -m pip uninstall -y iced-x86
 ```
@@ -104,7 +104,6 @@ from iced_x86 import *
 # xchg ah,[rdx+rsi+16h]
 # xchgb %ah, %ds:0x16(%rdx,%rsi)
 
-HEXBYTES_COLUMN_BYTE_LENGTH = 10
 EXAMPLE_CODE_BITNESS = 64
 EXAMPLE_CODE_RIP = 0x0000_7FFA_C46A_CDA4
 EXAMPLE_CODE = \
@@ -114,8 +113,7 @@ EXAMPLE_CODE = \
     b"\x05\x2F\x24\x0A\x00\x48\x8D\x05\x78\x7C\x04\x00\x33\xFF"
 
 # Create the decoder and initialize RIP
-decoder = Decoder(EXAMPLE_CODE_BITNESS, EXAMPLE_CODE)
-decoder.ip = EXAMPLE_CODE_RIP
+decoder = Decoder(EXAMPLE_CODE_BITNESS, EXAMPLE_CODE, ip=EXAMPLE_CODE_RIP)
 
 # Formatters: MASM, NASM, GAS (AT&T) and INTEL (XED).
 # There's also `FastFormatter` which is ~1.25x faster. Use it if formatting
@@ -143,8 +141,7 @@ for instr in decoder:
     print(f"{instr.ip:016X} {bytes_str:20} {disasm}")
 
 # Instruction also supports format specifiers, see the table below
-decoder = Decoder(64, b"\x86\x64\x32\x16")
-decoder.ip = 0x1234_5678
+decoder = Decoder(64, b"\x86\x64\x32\x16", ip=0x1234_5678)
 instr = decoder.decode()
 
 print()
@@ -171,7 +168,7 @@ print(f"{instr:gG_xSs}")
 # r      RIP-relative memory operands use RIP register instead of abs addr (``[rip+123h]`` vs ``[123456789ABCDEF0h]``)
 # U      Uppercase everything except numbers and hex prefixes/suffixes (ignored by fast fmt)
 # s      Add a space after the operand separator
-# S      Always show the segment register
+# S      Always show the segment register (memory operands)
 # B      Don't show the branch size (``SHORT`` or ``NEAR PTR``) (ignored by fast fmt)
 # G      (GNU Assembler): Add mnemonic size suffix (eg. ``movl`` vs ``mov``)
 # M      Always show the memory size (eg. ``BYTE PTR``) even when not needed
@@ -256,8 +253,7 @@ encoded_bytes = encoder.encode(target_rip)
 # didn't disable branch optimizations.
 bytes_code = encoded_bytes[0:len(encoded_bytes) - len(raw_data)]
 bytes_data = encoded_bytes[len(encoded_bytes) - len(raw_data):]
-decoder = Decoder(bitness, bytes_code)
-decoder.ip = target_rip
+decoder = Decoder(bitness, bytes_code, ip=target_rip)
 formatter = Formatter(FormatterSyntax.GAS)
 formatter.first_operand_char_index = 8
 for instruction in decoder:
@@ -348,8 +344,7 @@ from iced_x86 import *
 
 def disassemble(data: bytes, ip: int) -> None:
     formatter = Formatter(FormatterSyntax.NASM)
-    decoder = Decoder(EXAMPLE_CODE_BITNESS, data)
-    decoder.ip = ip
+    decoder = Decoder(EXAMPLE_CODE_BITNESS, data, ip=ip)
     for instruction in decoder:
         disasm = formatter.format(instruction)
         print(f"{instruction.ip:016X} {disasm}")
@@ -359,8 +354,7 @@ def how_to_move_code() -> None:
     print("Original code:")
     disassemble(EXAMPLE_CODE, EXAMPLE_CODE_RIP)
 
-    decoder = Decoder(EXAMPLE_CODE_BITNESS, EXAMPLE_CODE)
-    decoder.ip = EXAMPLE_CODE_RIP
+    decoder = Decoder(EXAMPLE_CODE_BITNESS, EXAMPLE_CODE, ip=EXAMPLE_CODE_RIP)
 
     # In 64-bit mode, we need 12 bytes to jump to any address:
     #      mov rax,imm64   # 10
@@ -661,8 +655,7 @@ from types import ModuleType
 #     Op1: R32_OR_MEM
 #     Used reg: RDI:WRITE
 def how_to_get_instruction_info() -> None:
-    decoder = Decoder(EXAMPLE_CODE_BITNESS, EXAMPLE_CODE)
-    decoder.ip = EXAMPLE_CODE_RIP
+    decoder = Decoder(EXAMPLE_CODE_BITNESS, EXAMPLE_CODE, ip=EXAMPLE_CODE_RIP)
 
     # Use a factory to create the instruction info if you need register and
     # memory usage. If it's something else, eg. encoding, flags, etc, there
@@ -687,15 +680,15 @@ def how_to_get_instruction_info() -> None:
         print(f"    Code: {code_to_string(instr.code)}")
         print(f"    CpuidFeature: {cpuid_features_to_string(instr.cpuid_features())}")
         print(f"    FlowControl: {flow_control_to_string(instr.flow_control)}")
-        if offsets.has_displacement:
-            print(f"    Displacement offset = {offsets.displacement_offset}, size = {offsets.displacement_size}")
         if fpu_info.writes_top:
             if fpu_info.increment == 0:
                 print(f"    FPU TOP: the instruction overwrites TOP")
             else:
                 print(f"    FPU TOP inc: {fpu_info.increment}")
-            cond_write = "true" if fpu_info.conditional else "false"
+            cond_write = "True" if fpu_info.conditional else "False"
             print(f"    FPU TOP cond write: {cond_write}")
+        if offsets.has_displacement:
+            print(f"    Displacement offset = {offsets.displacement_offset}, size = {offsets.displacement_size}")
         if offsets.has_immediate:
             print(f"    Immediate offset = {offsets.immediate_offset}, size = {offsets.immediate_size}")
         if offsets.has_immediate2:
@@ -703,7 +696,7 @@ def how_to_get_instruction_info() -> None:
         if instr.is_stack_instruction:
             print(f"    SP Increment: {instr.stack_pointer_increment}")
         if instr.condition_code != ConditionCode.NONE:
-            print(f"    Condition code: {instr.condition_code}")
+            print(f"    Condition code: {condition_code_to_string(instr.condition_code)}")
         if instr.rflags_read != RflagsBits.NONE:
             print(f"    RFLAGS Read: {rflags_bits_to_string(instr.rflags_read)}")
         if instr.rflags_written != RflagsBits.NONE:
@@ -718,7 +711,7 @@ def how_to_get_instruction_info() -> None:
             print(f"    RFLAGS Modified: {rflags_bits_to_string(instr.rflags_modified)}")
         for i in range(instr.op_count):
             op_kind = instr.op_kind(i)
-            if op_kind == OpKind.MEMORY or op_kind == OpKind.MEMORY64:
+            if op_kind == OpKind.MEMORY:
                 size = MemorySizeExt.size(instr.memory_size)
                 if size != 0:
                     print(f"    Memory size: {size}")
@@ -840,6 +833,13 @@ def memory_size_to_string(value: int) -> str:
         return str(value) + " /*MemorySize enum*/"
     return s
 
+CONDITION_CODE_TO_STRING: Dict[int, str] = create_enum_dict(ConditionCode)
+def condition_code_to_string(value: int) -> str:
+    s = CONDITION_CODE_TO_STRING.get(value)
+    if s is None:
+        return str(value) + " /*ConditionCode enum*/"
+    return s
+
 def used_reg_to_string(reg_info: UsedRegister) -> str:
     return register_to_string(reg_info.register) + ":" + op_access_to_string(reg_info.access)
 
@@ -903,8 +903,7 @@ DECODER_OPTIONS = DecoderOptions.MPX | \
     DecoderOptions.CYRIX | \
     DecoderOptions.CYRIX_DMI | \
     DecoderOptions.ALTINST
-decoder = Decoder(32, TEST_CODE, DECODER_OPTIONS)
-decoder.ip = 0x731E_0A03
+decoder = Decoder(32, TEST_CODE, DECODER_OPTIONS, ip=0x731E_0A03)
 
 for instr in decoder:
     # 'n' format specifier means NASM formatter, see the disassemble

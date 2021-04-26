@@ -1,29 +1,9 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::super::super::iced_error::IcedError;
-use super::super::*;
-use super::*;
+use crate::block_enc::instr::*;
+use crate::block_enc::*;
+use crate::iced_error::IcedError;
 use core::cell::RefCell;
 use core::{i16, u32};
 
@@ -148,13 +128,11 @@ impl Instr for XbeginInstr {
 					debug_assert!(self.instr_kind == InstrKind::Rel32);
 					self.instruction.set_code(Code::Xbegin_rel32);
 				}
-				// Temp needed if rustc < 1.36.0 (2015 edition)
-				let tmp = self.target_instr.address(self);
-				self.instruction.set_near_branch64(tmp);
-				match block.encoder.encode(&self.instruction, self.ip) {
-					Err(err) => Err(IcedError::with_string(InstrUtils::create_error_message(&err, &self.instruction))),
-					Ok(_) => Ok((block.encoder.get_constant_offsets(), true)),
-				}
+				self.instruction.set_near_branch64(self.target_instr.address(self));
+				block.encoder.encode(&self.instruction, self.ip).map_or_else(
+					|err| Err(IcedError::with_string(InstrUtils::create_error_message(&err, &self.instruction))),
+					|_| Ok((block.encoder.get_constant_offsets(), true)),
+				)
 			}
 
 			InstrKind::Uninitialized => unreachable!(),

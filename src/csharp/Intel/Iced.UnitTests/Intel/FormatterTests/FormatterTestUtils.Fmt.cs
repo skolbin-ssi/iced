@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 #if GAS || INTEL || MASM || NASM
 using System;
@@ -28,8 +8,9 @@ using Xunit;
 
 namespace Iced.UnitTests.Intel.FormatterTests {
 	static partial class FormatterTestUtils {
-		public static void FormatTest(int bitness, string hexBytes, Code code, DecoderOptions options, string formattedString, Formatter formatter) {
-			var decoder = CreateDecoder(bitness, hexBytes, options, out ulong nextRip);
+		public static void FormatTest(int bitness, string hexBytes, ulong ip, Code code, DecoderOptions options, string formattedString, Formatter formatter) {
+			var decoder = CreateDecoder(bitness, hexBytes, ip, options);
+			var nextRip = decoder.IP;
 			var instruction = decoder.Decode();
 			Assert.Equal(code, instruction.Code);
 			Assert.Equal((ushort)nextRip, instruction.IP16);
@@ -79,19 +60,19 @@ namespace Iced.UnitTests.Intel.FormatterTests {
 			Assert.Equal(formattedString, actualFormattedString);
 		}
 
-		public static void SimpleFormatTest(int bitness, string hexBytes, Code code, DecoderOptions options, string formattedString, Formatter formatter, Action<Decoder> initDecoder) {
+		public static void SimpleFormatTest(int bitness, string hexBytes, ulong ip, Code code, DecoderOptions options, string formattedString, Formatter formatter, Action<Decoder> initDecoder) {
 			FormatInstr format = (in Instruction instruction) => {
 				var output = new StringOutput();
 				formatter.Format(instruction, output);
 				return output.ToStringAndReset();
 			};
-			SimpleFormatTest(bitness, hexBytes, code, options, formattedString, format, initDecoder);
+			SimpleFormatTest(bitness, hexBytes, ip, code, options, formattedString, format, initDecoder);
 		}
 
 		public static void TestFormatterDoesNotThrow(Formatter formatter) {
 			var output = new StringOutput();
 			foreach (var info in DecoderTests.DecoderTestUtils.GetDecoderTests(includeOtherTests: true, includeInvalid: true)) {
-				var decoder = CreateDecoder(info.Bitness, info.HexBytes, info.Options, out _);
+				var decoder = CreateDecoder(info.Bitness, info.HexBytes, info.IP, info.Options);
 				decoder.Decode(out var instruction);
 				formatter.Format(instruction, output);
 				output.Reset();

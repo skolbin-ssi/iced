@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 use crate::constant_offsets::ConstantOffsets;
 use crate::instruction::Instruction;
@@ -46,8 +26,7 @@ use pyo3::types::PyBytes;
 ///
 ///     # xchg ah,[rdx+rsi+16h]
 ///     data = b"\x86\x64\x32\x16"
-///     decoder = Decoder(64, data)
-///     decoder.ip = 0x1234_5678
+///     decoder = Decoder(64, data, ip=0x1234_5678)
 ///     instr = decoder.decode()
 ///
 ///     encoder = Encoder(64)
@@ -96,8 +75,7 @@ impl Encoder {
 	///
 	///     # je short $+4
 	///     data = b"\x75\x02"
-	///     decoder = Decoder(64, data)
-	///     decoder.ip = 0x1234_5678
+	///     decoder = Decoder(64, data, ip=0x1234_5678)
 	///     instr = decoder.decode()
 	///
 	///     encoder = Encoder(64)
@@ -130,8 +108,7 @@ impl Encoder {
 	///
 	///     # je short $+4
 	///     data = b"\x75\x02"
-	///     decoder = Decoder(64, data)
-	///     decoder.ip = 0x1234_5678
+	///     decoder = Decoder(64, data, ip=0x1234_5678)
 	///     instr = decoder.decode()
 	///
 	///     encoder = Encoder(64)
@@ -164,9 +141,9 @@ impl Encoder {
 	/// Returns:
 	///     bytes: The encoded instructions
 	#[text_signature = "($self, /)"]
-	fn take_buffer<'py>(&mut self, py: Python<'py>) -> PyResult<&'py PyBytes> {
+	fn take_buffer<'py>(&mut self, py: Python<'py>) -> &'py PyBytes {
 		let buffer = self.encoder.take_buffer();
-		Ok(PyBytes::new(py, &buffer))
+		PyBytes::new(py, &buffer)
 	}
 
 	/// Gets the offsets of the constants (memory displacement and immediate) in the encoded instruction.

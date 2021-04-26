@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
+
 #if ENCODER && BLOCK_ENCODER && CODE_ASSEMBLER
 using Iced.Intel;
 using Xunit;

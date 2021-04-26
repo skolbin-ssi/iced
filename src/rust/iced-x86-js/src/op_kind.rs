@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 use wasm_bindgen::prelude::*;
 
@@ -148,21 +128,21 @@ pub enum OpKind {
 	///
 	/// [`Instruction.memorySize`]: struct.Instruction.html#method.memorySize
 	MemoryESRDI = 23,
-	/// 64-bit offset `[xxxxxxxxxxxxxxxx]`. This operand kind uses [`Instruction.memoryAddress64`], [`Instruction.memorySegment`], [`Instruction.segmentPrefix`], [`Instruction.memorySize`]
+	/// DEPRECATED. Use [`Memory`]
 	///
-	/// [`Instruction.memoryAddress64`]: struct.Instruction.html#method.memoryAddress64
-	/// [`Instruction.memorySegment`]: struct.Instruction.html#method.memorySegment
-	/// [`Instruction.segmentPrefix`]: struct.Instruction.html#method.segmentPrefix
-	/// [`Instruction.memorySize`]: struct.Instruction.html#method.memorySize
+	/// [`Memory`]: enum.OpKind.html#variant.Memory
+	///
+	/// ***************************************************
+	/// DEPRECATED since 1.11.0: Don't use it!
 	Memory64 = 24,
 	/// Memory operand.
 	///
-	/// This operand kind uses [`Instruction.memoryDisplSize`], [`Instruction.memorySize`], [`Instruction.memoryIndexScale`], [`Instruction.memoryDisplacement`], [`Instruction.memoryBase`], [`Instruction.memoryIndex`], [`Instruction.memorySegment`], [`Instruction.segmentPrefix`]
+	/// This operand kind uses [`Instruction.memoryDisplSize`], [`Instruction.memorySize`], [`Instruction.memoryIndexScale`], [`Instruction.memoryDisplacement64`], [`Instruction.memoryBase`], [`Instruction.memoryIndex`], [`Instruction.memorySegment`], [`Instruction.segmentPrefix`]
 	///
 	/// [`Instruction.memoryDisplSize`]: struct.Instruction.html#method.memoryDisplSize
 	/// [`Instruction.memorySize`]: struct.Instruction.html#method.memorySize
 	/// [`Instruction.memoryIndexScale`]: struct.Instruction.html#method.memoryIndexScale
-	/// [`Instruction.memoryDisplacement`]: struct.Instruction.html#method.memoryDisplacement
+	/// [`Instruction.memoryDisplacement64`]: struct.Instruction.html#method.memoryDisplacement64
 	/// [`Instruction.memoryBase`]: struct.Instruction.html#method.memoryBase
 	/// [`Instruction.memoryIndex`]: struct.Instruction.html#method.memoryIndex
 	/// [`Instruction.memorySegment`]: struct.Instruction.html#method.memorySegment

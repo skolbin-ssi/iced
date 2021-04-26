@@ -1,25 +1,5 @@
-#
-# Copyright (C) 2018-2019 de4dot@gmail.com
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2018-present iced project and contributors
 
 import pytest
 from iced_x86 import *
@@ -57,7 +37,7 @@ from iced_x86 import *
 	(64, b"\x83\xC1\x5A", DecoderOptions.NONE, Instruction.create_reg_i32(Code.ADD_RM32_IMM8, Register.ECX, 0x5A)),
 	(64, b"\x48\x83\xC1\x5A", DecoderOptions.NONE, Instruction.create_reg_i32(Code.ADD_RM64_IMM8, Register.RCX, 0x5A)),
 	(64, b"\x48\x81\xC1\x5A\xA5\x12\x34", DecoderOptions.NONE, Instruction.create_reg_i32(Code.ADD_RM64_IMM32, Register.RCX, 0x3412_A55A)),
-	(64, b"\x64\xA0\x12\x34\x56\x78\x9A\xBC\xDE\xF0", DecoderOptions.NONE, Instruction.create_reg_mem64(Code.MOV_AL_MOFFS8, Register.AL, 0xF0DE_BC9A_7856_3412, Register.FS)),
+	(64, b"\x64\xA0\x12\x34\x56\x78\x9A\xBC\xDE\xF0", DecoderOptions.NONE, Instruction.create_reg_mem(Code.MOV_AL_MOFFS8, Register.AL, MemoryOperand(Register.NONE, Register.NONE, 1, -0x0F21_4365_87A9_CBEE, 8, False, Register.FS))),
 	(64, b"\x64\x00\x94\x75\x01\xEF\xCD\xAB", DecoderOptions.NONE, Instruction.create_mem_reg(Code.ADD_RM8_R8, MemoryOperand(Register.RBP, Register.RSI, 2, -0x5432_10FF, 8, False, Register.FS), Register.DL)),
 	(64, b"\x64\x80\x84\x75\x01\xEF\xCD\xAB\x5A", DecoderOptions.NONE, Instruction.create_mem_i32(Code.ADD_RM8_IMM8, MemoryOperand(Register.RBP, Register.RSI, 2, -0x5432_10FF, 8, False, Register.FS), 0x5A)),
 	(64, b"\x64\x66\x81\x84\x75\x01\xEF\xCD\xAB\x5A\xA5", DecoderOptions.NONE, Instruction.create_mem_u32(Code.ADD_RM16_IMM16, MemoryOperand(Register.RBP, Register.RSI, 2, -0x5432_10FF, 8, False, Register.FS), 0xA55A)),
@@ -70,7 +50,7 @@ from iced_x86 import *
 	(64, b"\xE6\x5A", DecoderOptions.NONE, Instruction.create_u32_reg(Code.OUT_IMM8_AL, 0x5A, Register.AL)),
 	(64, b"\x66\xC8\x5A\xA5\xA6", DecoderOptions.NONE, Instruction.create_i32_i32(Code.ENTERW_IMM16_IMM8, 0xA55A, 0xA6)),
 	(64, b"\x66\xC8\x5A\xA5\xA6", DecoderOptions.NONE, Instruction.create_u32_u32(Code.ENTERW_IMM16_IMM8, 0xA55A, 0xA6)),
-	(64, b"\x64\xA2\x12\x34\x56\x78\x9A\xBC\xDE\xF0", DecoderOptions.NONE, Instruction.create_mem64_reg(Code.MOV_MOFFS8_AL, 0xF0DE_BC9A_7856_3412, Register.AL, Register.FS)),
+	(64, b"\x64\xA2\x12\x34\x56\x78\x9A\xBC\xDE\xF0", DecoderOptions.NONE, Instruction.create_mem_reg(Code.MOV_MOFFS8_AL, MemoryOperand(Register.NONE, Register.NONE, 1, -0x0F21_4365_87A9_CBEE, 8, False, Register.FS), Register.AL)),
 	(64, b"\x66\x69\xCA\xA5\x5A", DecoderOptions.NONE, Instruction.create_reg_reg_u32(Code.IMUL_R16_RM16_IMM16, Register.CX, Register.DX, 0x5AA5)),
 	(64, b"\x69\xCA\x5A\xA5\x12\x34", DecoderOptions.NONE, Instruction.create_reg_reg_i32(Code.IMUL_R32_RM32_IMM32, Register.ECX, Register.EDX, 0x3412_A55A)),
 	(64, b"\x66\x6B\xCA\x5A", DecoderOptions.NONE, Instruction.create_reg_reg_i32(Code.IMUL_R16_RM16_IMM8, Register.CX, Register.DX, 0x5A)),
@@ -440,15 +420,15 @@ from iced_x86 import *
 	(64, b"\x64\x62\xF1\x6D\x08\xC4\x8C\x75\x01\xEF\xCD\xAB\xA5", DecoderOptions.NONE, Instruction.create_reg_reg_mem_u32(Code.EVEX_VPINSRW_XMM_XMM_R32M16_IMM8, Register.XMM1, Register.XMM2, MemoryOperand(Register.RBP, Register.RSI, 2, -0x5432_10FF, 8, False, Register.FS), 0xA5)),
 ])
 def test_create(bitness, data, options, created_instr):
-	decoder = Decoder(bitness, data, options)
 	if bitness == 64:
-		decoder.ip = 0x7FFF_FFFF_FFFF_FFF0
+		ip = 0x7FFF_FFFF_FFFF_FFF0
 	elif bitness == 32:
-		decoder.ip = 0x0000_0000_7FFF_FFF0
+		ip = 0x0000_0000_7FFF_FFF0
 	elif bitness == 16:
-		decoder.ip = 0x0000_0000_0000_7FF0
+		ip = 0x0000_0000_0000_7FF0
 	else:
 		raise ValueError("Invalid bitness")
+	decoder = Decoder(bitness, data, options, ip=ip)
 	orig_rip = decoder.ip
 	decoded_instr = decoder.decode()
 	decoded_instr.code_size = CodeSize.UNKNOWN
@@ -583,7 +563,6 @@ def test_invalid_db_slice_type(data, is_valid):
 	lambda: Instruction.create_reg_i32(12345, Register.ECX, 0x5A),
 	lambda: Instruction.create_reg_i32(12345, Register.RCX, 0x5A),
 	lambda: Instruction.create_reg_i32(12345, Register.RCX, 0x3412_A55A),
-	lambda: Instruction.create_reg_mem64(12345, Register.AL, 0xF0DE_BC9A_7856_3412, Register.FS),
 	lambda: Instruction.create_mem_reg(12345, MemoryOperand(Register.RBP, Register.RSI, 2, -0x5432_10FF, 8, False, Register.FS), Register.DL),
 	lambda: Instruction.create_mem_i32(12345, MemoryOperand(Register.RBP, Register.RSI, 2, -0x5432_10FF, 8, False, Register.FS), 0x5A),
 	lambda: Instruction.create_mem_u32(12345, MemoryOperand(Register.RBP, Register.RSI, 2, -0x5432_10FF, 8, False, Register.FS), 0xA55A),
@@ -596,7 +575,6 @@ def test_invalid_db_slice_type(data, is_valid):
 	lambda: Instruction.create_u32_reg(12345, 0x5A, Register.AL),
 	lambda: Instruction.create_i32_i32(12345, 0xA55A, 0xA6),
 	lambda: Instruction.create_u32_u32(12345, 0xA55A, 0xA6),
-	lambda: Instruction.create_mem64_reg(12345, 0xF0DE_BC9A_7856_3412, Register.AL, Register.FS),
 	lambda: Instruction.create_reg_reg_u32(12345, Register.CX, Register.DX, 0x5AA5),
 	lambda: Instruction.create_reg_reg_i32(12345, Register.ECX, Register.EDX, 0x3412_A55A),
 	lambda: Instruction.create_reg_reg_i32(12345, Register.CX, Register.DX, 0x5A),
@@ -812,13 +790,9 @@ def test_invalid_rep_enum_arg(create):
 	lambda: Instruction.create_reg_i32(Code.ADD_RM32_IMM8, 1234, 0x5A),
 	lambda: Instruction.create_reg_i32(Code.ADD_RM64_IMM8, 1234, 0x5A),
 	lambda: Instruction.create_reg_i32(Code.ADD_RM64_IMM32, 1234, 0x3412_A55A),
-	lambda: Instruction.create_reg_mem64(Code.MOV_AL_MOFFS8, 1234, 0xF0DE_BC9A_7856_3412, Register.FS),
-	lambda: Instruction.create_reg_mem64(Code.MOV_AL_MOFFS8, Register.AL, 0xF0DE_BC9A_7856_3412, 1234),
 	lambda: Instruction.create_mem_reg(Code.ADD_RM8_R8, MemoryOperand(Register.RBP, Register.RSI, 2, -0x5432_10FF, 8, False, Register.FS), 1234),
 	lambda: Instruction.create_i32_reg(Code.OUT_IMM8_AL, 0x5A, 1234),
 	lambda: Instruction.create_u32_reg(Code.OUT_IMM8_AL, 0x5A, 1234),
-	lambda: Instruction.create_mem64_reg(Code.MOV_MOFFS8_AL, 0xF0DE_BC9A_7856_3412, 1234, Register.FS),
-	lambda: Instruction.create_mem64_reg(Code.MOV_MOFFS8_AL, 0xF0DE_BC9A_7856_3412, Register.AL, 1234),
 	lambda: Instruction.create_reg_reg_u32(Code.IMUL_R16_RM16_IMM16, 1234, Register.DX, 0x5AA5),
 	lambda: Instruction.create_reg_reg_u32(Code.IMUL_R16_RM16_IMM16, Register.CX, 1234, 0x5AA5),
 	lambda: Instruction.create_reg_reg_i32(Code.IMUL_R32_RM32_IMM32, 1234, Register.EDX, 0x3412_A55A),

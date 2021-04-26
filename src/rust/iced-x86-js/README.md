@@ -1,6 +1,6 @@
-iced-x86 JavaScript bindings (Rust -> WebAssembly) [![npm](https://img.shields.io/npm/v/iced-x86.svg)](https://www.npmjs.com/package/iced-x86) [![GitHub builds](https://github.com/0xd4d/iced/workflows/GitHub%20CI/badge.svg)](https://github.com/0xd4d/iced/actions) ![Minimum rustc version](https://img.shields.io/badge/rustc-1.20.0+-yellow.svg) ![License](https://img.shields.io/crates/l/iced-x86.svg)
+iced-x86 JavaScript bindings (Rust -> WebAssembly) [![npm](https://img.shields.io/npm/v/iced-x86.svg)](https://www.npmjs.com/package/iced-x86) [![GitHub builds](https://github.com/icedland/iced/workflows/GitHub%20CI/badge.svg)](https://github.com/icedland/iced/actions) ![Minimum rustc version](https://img.shields.io/badge/rustc-1.41.0+-blue.svg) ![License](https://img.shields.io/crates/l/iced-x86.svg)
 
-iced-x86 is a high performance and correct x86 (16/32/64-bit) disassembler for JavaScript (WebAssembly).
+iced-x86 is a blazing fast and correct x86 (16/32/64-bit) disassembler for JavaScript (WebAssembly).
 
 - ✔️Supports all Intel and AMD instructions
 - ✔️Correct: All instructions are tested and iced has been tested against other disassemblers/assemblers (xed, gas, objdump, masm, dumpbin, nasm, ndisasm) and fuzzed
@@ -10,7 +10,7 @@ iced-x86 is a high performance and correct x86 (16/32/64-bit) disassembler for J
 - ✔️Rust + WebAssembly + JavaScript
 - ✔️License: MIT
 
-Rust crate: https://github.com/0xd4d/iced/blob/master/src/rust/iced-x86/README.md
+Rust crate: https://github.com/icedland/iced/blob/master/src/rust/iced-x86/README.md
 
 ## Building the code
 
@@ -52,7 +52,7 @@ wasm-opt = ["-O4"]
 Prerequisites:
 
 - Same as building it, see above👆
-- `Node.js` >= 10.0.0
+- `Node.js` >= 12.0.0
 
 This tests the JS API. The tests in `../iced-x86` test everything else.
 
@@ -798,7 +798,7 @@ while (decoder.canDecode) {
         console.log("    RFLAGS Modified: %s", rflagsBitsToString(instr.rflagsModified));
     for (let i = 0; i < instr.opCount; i++) {
         const opKind = instr.opKind(i);
-        if (opKind === OpKind.Memory || opKind === OpKind.Memory64) {
+        if (opKind === OpKind.Memory) {
             const size = MemorySizeExt.size(instr.memorySize);
             if (size !== 0)
                 console.log("    Memory size: %d", size);

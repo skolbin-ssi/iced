@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 using System;
 using System.Collections.Generic;
@@ -664,7 +644,6 @@ namespace Generator.Assembler.CSharp {
 				return false;
 			}
 
-			bool isMoffs = IsMoffs(def);
 			var assemblerArgs = new List<string>();
 			var instructionCreateArgs = new List<string>();
 			int forceBitness = 0;
@@ -714,7 +693,7 @@ namespace Generator.Assembler.CSharp {
 					argValueForInstructionCreate += ".k1";
 				}
 
-				if (renderArg.Kind == ArgKind.Memory && (!isMoffs || bitness != 64))
+				if (renderArg.Kind == ArgKind.Memory)
 					argValueForInstructionCreate += ".ToMemoryOperand(Bitness)";
 
 				// Perform casting for unsigned
@@ -771,10 +750,6 @@ namespace Generator.Assembler.CSharp {
 				beginInstruction = $"ApplyK1({beginInstruction}";
 				endInstruction = "))";
 			}
-
-			// Special case for moffs
-			if (isMoffs && bitness == 64)
-				beginInstruction = $"CreateMemory64(Code.{def.Code.Name(idConverter)}";
 
 			var assemblerArgsStr = string.Join(", ", assemblerArgs);
 			var instructionCreateArgsStr = instructionCreateArgs.Count > 0 ? $", {string.Join(", ", instructionCreateArgs)}" : string.Empty;
@@ -934,7 +909,7 @@ namespace Generator.Assembler.CSharp {
 				var selector = node.Selector;
 				Debug.Assert(selector is not null);
 				var condition = GetArgConditionForOpCodeKind(selector.ArgIndex >= 0 ? args[selector.ArgIndex] : default, selector.Kind, selector.ArgIndex);
-				if (selector.IsConditionInlineable && !IsMemOffs64Selector(selector.Kind)) {
+				if (selector.IsConditionInlineable) {
 					writer.Write($"op = {condition} ? ");
 					GenerateOpCodeSelector(writer, group, false, selector.IfTrue, args);
 					writer.Write(" : ");
@@ -943,18 +918,8 @@ namespace Generator.Assembler.CSharp {
 				}
 				else {
 					writer.WriteLine($"if ({condition}) {{");
-					using (writer.Indent()) {
+					using (writer.Indent())
 						GenerateOpCodeSelector(writer, group, true, selector.IfTrue, args);
-
-						if (IsMemOffs64Selector(selector.Kind)) {
-							var argIndex = selector.ArgIndex;
-							if (argIndex == 1)
-								writer.WriteLine($"AddInstruction(Instruction.CreateMemory64(op, {args[0].Name}, (ulong){args[1].Name}.Displacement, {args[1].Name}.Prefix));");
-							else
-								writer.WriteLine($"AddInstruction(Instruction.CreateMemory64(op, (ulong){args[0].Name}.Displacement, {args[1].Name}, {args[0].Name}.Prefix));");
-							writer.WriteLine("return;");
-						}
-					}
 
 					writer.Write("} else ");
 					if (!selector.IfFalse.IsEmpty)

@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 #if ENCODER
 using System;
@@ -52,9 +32,9 @@ namespace Iced.UnitTests.Intel.EncoderTests {
 			return true;
 		}
 
-		protected void EncodeBase(uint id, int bitness, Code code, string hexBytes, string encodedHexBytes, DecoderOptions options) {
+		protected void EncodeBase(uint id, int bitness, Code code, string hexBytes, ulong ip, string encodedHexBytes, DecoderOptions options) {
 			var origBytes = HexUtils.ToByteArray(hexBytes);
-			var decoder = CreateDecoder(bitness, origBytes, options);
+			var decoder = CreateDecoder(bitness, origBytes, ip, options);
 			var origRip = decoder.IP;
 			var origInstr = decoder.Decode();
 			var origConstantOffsets = decoder.GetConstantOffsets(origInstr);
@@ -92,13 +72,11 @@ namespace Iced.UnitTests.Intel.EncoderTests {
 #pragma warning restore xUnit2006 // Do not use invalid string equality check
 			}
 
-			var newInstr = CreateDecoder(bitness, encodedBytes, options).Decode();
+			var newInstr = CreateDecoder(bitness, encodedBytes, ip, options).Decode();
 			Assert.Equal(code, newInstr.Code);
 			Assert.Equal(encodedBytes.Length, newInstr.Length);
 			newInstr.Length = origInstr.Length;
 			newInstr.NextIP = origInstr.NextIP;
-			if (origBytes.Length != expectedBytes.Length && (origInstr.MemoryBase == Register.EIP || origInstr.MemoryBase == Register.RIP))
-				newInstr.MemoryDisplacement += (uint)(expectedBytes.Length - origBytes.Length);
 			Assert.True(Instruction.EqualsAllBits(origInstr, newInstr));
 		}
 
@@ -139,9 +117,9 @@ namespace Iced.UnitTests.Intel.EncoderTests {
 			Assert.Equal(encodedBytes.Length, (int)encodedInstrLen);
 		}
 
-		protected void EncodeInvalidBase(uint id, int bitness, Code code, string hexBytes, DecoderOptions options, int invalidBitness) {
+		protected void EncodeInvalidBase(uint id, int bitness, Code code, string hexBytes, ulong ip, DecoderOptions options, int invalidBitness) {
 			var origBytes = HexUtils.ToByteArray(hexBytes);
-			var decoder = CreateDecoder(bitness, origBytes, options);
+			var decoder = CreateDecoder(bitness, origBytes, ip, options);
 			var origRip = decoder.IP;
 			var origInstr = decoder.Decode();
 			Assert.Equal(code, origInstr.Code);
@@ -168,15 +146,10 @@ namespace Iced.UnitTests.Intel.EncoderTests {
 			return encoder;
 		}
 
-		Decoder CreateDecoder(int bitness, byte[] hexBytes, DecoderOptions options) {
+		Decoder CreateDecoder(int bitness, byte[] hexBytes, ulong ip, DecoderOptions options) {
 			var codeReader = new ByteArrayCodeReader(hexBytes);
 			var decoder = Decoder.Create(bitness, codeReader, options);
-			decoder.IP = bitness switch {
-				16 => DecoderConstants.DEFAULT_IP16,
-				32 => DecoderConstants.DEFAULT_IP32,
-				64 => DecoderConstants.DEFAULT_IP64,
-				_ => throw new ArgumentOutOfRangeException(nameof(bitness)),
-			};
+			decoder.IP = ip;
 			Assert.Equal(bitness, decoder.Bitness);
 			return decoder;
 		}
@@ -185,7 +158,7 @@ namespace Iced.UnitTests.Intel.EncoderTests {
 			foreach (var info in DecoderTestUtils.GetEncoderTests(includeOtherTests: true, includeInvalid: false)) {
 				if (bitness != info.Bitness)
 					continue;
-				yield return new object[] { info.Id, info.Bitness, info.Code, info.HexBytes, info.EncodedHexBytes, info.Options };
+				yield return new object[] { info.Id, info.Bitness, info.Code, info.HexBytes, info.IP, info.EncodedHexBytes, info.Options };
 			}
 		}
 

@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 // These funcs should be in Instruction but since racer (used by RLS) shows
 // all functions even if they're private, they've been moved here.
@@ -28,11 +8,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // pub(crate) from Instruction's fields.
 
 #[cfg(feature = "encoder")]
-use super::iced_error::IcedError;
-use super::*;
+use crate::iced_error::IcedError;
+use crate::*;
 #[cfg(feature = "encoder")]
 use core::{i16, i32, i8, u8};
 use core::{u16, u32};
+#[cfg(feature = "encoder")]
+use static_assertions::const_assert_eq;
 
 #[cfg(feature = "decoder")]
 #[inline]
@@ -59,21 +41,21 @@ pub(crate) fn internal_set_len(this: &mut Instruction, new_value: u32) {
 }
 
 #[cfg(feature = "encoder")]
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 #[inline]
 pub(crate) fn internal_has_repe_prefix_has_xrelease_prefix(this: &Instruction) -> bool {
 	(this.code_flags & (CodeFlags::REPE_PREFIX | CodeFlags::XRELEASE_PREFIX)) != 0
 }
 
 #[cfg(feature = "encoder")]
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 #[inline]
 pub(crate) fn internal_has_repne_prefix_has_xacquire_prefix(this: &Instruction) -> bool {
 	(this.code_flags & (CodeFlags::REPNE_PREFIX | CodeFlags::XACQUIRE_PREFIX)) != 0
 }
 
 #[cfg(feature = "instr_info")]
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 #[inline]
 pub(crate) fn internal_has_repe_or_repne_prefix(this: &Instruction) -> bool {
 	(this.code_flags & (CodeFlags::REPE_PREFIX | CodeFlags::REPNE_PREFIX)) != 0
@@ -108,6 +90,12 @@ pub(crate) fn internal_has_any_of_xacquire_xrelease_lock_rep_repne_prefix(this: 
 #[inline]
 pub(crate) fn internal_has_op_mask_or_zeroing_masking(this: &Instruction) -> bool {
 	(this.code_flags & ((CodeFlags::OP_MASK_MASK << CodeFlags::OP_MASK_SHIFT) | CodeFlags::ZEROING_MASKING)) != 0
+}
+
+#[cfg(feature = "decoder")]
+#[inline]
+pub(crate) fn internal_clear_has_repe_repne_prefix(this: &mut Instruction) {
+	this.code_flags &= !(CodeFlags::REPE_PREFIX | CodeFlags::REPNE_PREFIX)
 }
 
 #[cfg(feature = "decoder")]
@@ -147,7 +135,7 @@ pub(crate) fn internal_set_op0_kind(this: &mut Instruction, new_value: OpKind) {
 }
 
 #[cfg(feature = "instr_info")]
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 #[inline]
 pub(crate) fn internal_op0_is_not_reg_or_op1_is_not_reg(this: &Instruction) -> bool {
 	(this.op_kind_flags & (OpKindFlags::OP_KIND_MASK | (OpKindFlags::OP_KIND_MASK << OpKindFlags::OP1_KIND_SHIFT))) != 0
@@ -171,7 +159,7 @@ pub(crate) fn internal_set_op3_kind(this: &mut Instruction, new_value: OpKind) {
 	this.op_kind_flags |= (new_value as u32) << OpKindFlags::OP3_KIND_SHIFT;
 }
 
-#[cfg(any(feature = "decoder", feature = "encoder"))]
+#[cfg(feature = "decoder")]
 #[inline]
 pub(crate) fn internal_set_memory_displ_size(this: &mut Instruction, new_value: u32) {
 	debug_assert!(new_value <= 4);
@@ -185,7 +173,7 @@ pub(crate) fn internal_set_is_broadcast(this: &mut Instruction) {
 	this.memory_flags |= MemoryFlags::BROADCAST as u16;
 }
 
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 #[inline]
 pub(crate) fn internal_get_memory_index_scale(this: &Instruction) -> u32 {
 	(this.memory_flags & (MemoryFlags::SCALE_MASK as u16)) as u32
@@ -227,16 +215,16 @@ pub(crate) fn internal_set_immediate64_hi(this: &mut Instruction, new_value: u32
 	this.mem_displ = new_value;
 }
 
-#[cfg(feature = "decoder")]
+#[cfg(any(feature = "decoder", feature = "encoder"))]
 #[inline]
-pub(crate) fn internal_set_memory_address64_lo(this: &mut Instruction, new_value: u32) {
-	this.immediate = new_value;
+pub(crate) fn internal_set_memory_displacement64_lo(this: &mut Instruction, new_value: u32) {
+	this.mem_displ = new_value;
 }
 
 #[cfg(feature = "decoder")]
 #[inline]
-pub(crate) fn internal_set_memory_address64_hi(this: &mut Instruction, new_value: u32) {
-	this.mem_displ = new_value;
+pub(crate) fn internal_set_memory_displacement64_hi(this: &mut Instruction, new_value: u32) {
+	this.mem_displ_hi = new_value;
 }
 
 #[cfg(feature = "decoder")]
@@ -333,7 +321,7 @@ pub(crate) fn internal_set_op3_register_u32(this: &mut Instruction, new_value: u
 
 #[cfg(feature = "encoder")]
 #[cfg(not(feature = "no_evex"))]
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 #[inline]
 pub(crate) fn internal_op_mask(this: &Instruction) -> u32 {
 	(this.code_flags >> CodeFlags::OP_MASK_SHIFT) & CodeFlags::OP_MASK_MASK
@@ -379,7 +367,7 @@ pub(crate) fn internal_set_suppress_all_exceptions(this: &mut Instruction) {
 	this.code_flags |= CodeFlags::SUPPRESS_ALL_EXCEPTIONS;
 }
 
-#[cfg_attr(has_must_use, must_use)]
+#[must_use]
 pub(crate) fn get_address_size_in_bytes(base_reg: Register, index_reg: Register, displ_size: u32, code_size: CodeSize) -> u32 {
 	if (Register::RAX <= base_reg && base_reg <= Register::R15)
 		|| (Register::RAX <= index_reg && index_reg <= Register::R15)
@@ -396,7 +384,7 @@ pub(crate) fn get_address_size_in_bytes(base_reg: Register, index_reg: Register,
 	if (Register::AX <= base_reg && base_reg <= Register::DI) || (Register::AX <= index_reg && index_reg <= Register::DI) {
 		return 2;
 	}
-	if displ_size == 2 || displ_size == 4 || displ_size == 8 {
+	if displ_size >= 2 {
 		return displ_size;
 	}
 
@@ -562,7 +550,7 @@ pub(crate) fn initialize_unsigned_immediate(instruction: &mut Instruction, opera
 
 #[cfg(feature = "encoder")]
 fn get_immediate_op_kind(code: Code, operand: usize) -> Result<OpKind, IcedError> {
-	let operands = &super::encoder::handlers_table::HANDLERS_TABLE[code as usize].operands;
+	let operands = &crate::encoder::handlers_table::HANDLERS_TABLE[code as usize].operands;
 	if let Some(op) = operands.get(operand) {
 		match op.immediate_op_kind() {
 			Some(op_kind) => {
@@ -598,7 +586,7 @@ fn get_immediate_op_kind(code: Code, operand: usize) -> Result<OpKind, IcedError
 
 #[cfg(feature = "encoder")]
 pub(crate) fn get_near_branch_op_kind(code: Code, operand: usize) -> Result<OpKind, IcedError> {
-	let operands = &super::encoder::handlers_table::HANDLERS_TABLE[code as usize].operands;
+	let operands = &crate::encoder::handlers_table::HANDLERS_TABLE[code as usize].operands;
 	if let Some(op) = operands.get(operand) {
 		match op.near_branch_op_kind() {
 			Some(op_kind) => Ok(op_kind),
@@ -621,7 +609,7 @@ pub(crate) fn get_near_branch_op_kind(code: Code, operand: usize) -> Result<OpKi
 
 #[cfg(feature = "encoder")]
 pub(crate) fn get_far_branch_op_kind(code: Code, operand: usize) -> Result<OpKind, IcedError> {
-	let operands = &super::encoder::handlers_table::HANDLERS_TABLE[code as usize].operands;
+	let operands = &crate::encoder::handlers_table::HANDLERS_TABLE[code as usize].operands;
 	if let Some(op) = operands.get(operand) {
 		match op.far_branch_op_kind() {
 			Some(op_kind) => Ok(op_kind),
@@ -655,7 +643,7 @@ pub(crate) fn with_string_reg_segrsi(
 		RepPrefixKind::Repne => internal_set_has_repne_prefix(&mut instruction),
 	}
 
-	const_assert_eq!(0, OpKind::Register as u32);
+	const_assert_eq!(OpKind::Register as u32, 0);
 	//internal_set_op0_kind(&mut instruction, OpKind::Register);
 	internal_set_op0_register(&mut instruction, register);
 
@@ -668,7 +656,7 @@ pub(crate) fn with_string_reg_segrsi(
 
 	instruction.set_segment_prefix(segment_prefix);
 
-	debug_assert_eq!(2, instruction.op_count());
+	debug_assert_eq!(instruction.op_count(), 2);
 	Ok(instruction)
 }
 
@@ -683,7 +671,7 @@ pub(crate) fn with_string_reg_esrdi(code: Code, address_size: u32, register: Reg
 		RepPrefixKind::Repne => internal_set_has_repne_prefix(&mut instruction),
 	}
 
-	const_assert_eq!(0, OpKind::Register as u32);
+	const_assert_eq!(OpKind::Register as u32, 0);
 	//internal_set_op0_kind(&mut instruction, OpKind::Register);
 	internal_set_op0_register(&mut instruction, register);
 
@@ -694,7 +682,7 @@ pub(crate) fn with_string_reg_esrdi(code: Code, address_size: u32, register: Reg
 		_ => return Err(IcedError::new("Invalid address size")),
 	}
 
-	debug_assert_eq!(2, instruction.op_count());
+	debug_assert_eq!(instruction.op_count(), 2);
 	Ok(instruction)
 }
 
@@ -716,11 +704,11 @@ pub(crate) fn with_string_esrdi_reg(code: Code, address_size: u32, register: Reg
 		_ => return Err(IcedError::new("Invalid address size")),
 	}
 
-	const_assert_eq!(0, OpKind::Register as u32);
+	const_assert_eq!(OpKind::Register as u32, 0);
 	//internal_set_op1_kind(&mut instruction, OpKind::Register);
 	internal_set_op1_register(&mut instruction, register);
 
-	debug_assert_eq!(2, instruction.op_count());
+	debug_assert_eq!(instruction.op_count(), 2);
 	Ok(instruction)
 }
 
@@ -755,7 +743,7 @@ pub(crate) fn with_string_segrsi_esrdi(
 
 	instruction.set_segment_prefix(segment_prefix);
 
-	debug_assert_eq!(2, instruction.op_count());
+	debug_assert_eq!(instruction.op_count(), 2);
 	Ok(instruction)
 }
 
@@ -790,7 +778,7 @@ pub(crate) fn with_string_esrdi_segrsi(
 
 	instruction.set_segment_prefix(segment_prefix);
 
-	debug_assert_eq!(2, instruction.op_count());
+	debug_assert_eq!(instruction.op_count(), 2);
 	Ok(instruction)
 }
 
@@ -808,16 +796,16 @@ pub(crate) fn with_maskmov(
 		_ => return Err(IcedError::new("Invalid address size")),
 	}
 
-	const_assert_eq!(0, OpKind::Register as u32);
+	const_assert_eq!(OpKind::Register as u32, 0);
 	//internal_set_op1_kind(&mut instruction, OpKind::Register);
 	internal_set_op1_register(&mut instruction, register1);
 
-	const_assert_eq!(0, OpKind::Register as u32);
+	const_assert_eq!(OpKind::Register as u32, 0);
 	//internal_set_op2_kind(&mut instruction, OpKind::Register);
 	internal_set_op2_register(&mut instruction, register2);
 
 	instruction.set_segment_prefix(segment_prefix);
 
-	debug_assert_eq!(3, instruction.op_count());
+	debug_assert_eq!(instruction.op_count(), 3);
 	Ok(instruction)
 }

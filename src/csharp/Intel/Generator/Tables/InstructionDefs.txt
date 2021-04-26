@@ -1,25 +1,5 @@
-#
-# Copyright (C) 2018-2019 de4dot@gmail.com
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2018-present iced project and contributors
 
 # Code: INVALID
 INSTRUCTION: <invalid> | <invalid> | INTEL8086
@@ -8644,6 +8624,7 @@ END
 
 # Code: Swapgs
 INSTRUCTION: 0F 01 F8 | SWAPGS | X64
+	# #UD if CR4.FRED=1
 	flags: 64 cpl0 serialize-amd tsx-impl-abort
 END
 
@@ -8854,6 +8835,7 @@ INSTRUCTION: 0F 07 | SYSRET | SYSCALL
 	rflags: w=oszacpdiA
 	# Not supported by Intel in 64-bit mode but the Intel decoder should still decode it.
 	# AMD: no-rm no-v86 or #GP(0)
+	# #UD if CR4.FRED=1
 	flags: cpl0 cflow=ret tsx-impl-abort
 	gas: suffix=l osz-suffix-3 16 32
 END
@@ -8863,6 +8845,7 @@ INSTRUCTION: o64 0F 07 | SYSRETQ | SYSCALL
 	implied: r=rcx;r11d w=cs;ss
 	rflags: w=oszacpdiA
 	# Not supported by Intel in 64-bit mode but the Intel decoder should still decode it.
+	# #UD if CR4.FRED=1
 	flags: 64 cpl0 cflow=ret tsx-impl-abort
 	nasm: mnemonic=sysret flags=o64
 END
@@ -10339,7 +10322,7 @@ END
 
 # Code: Cvtpi2ps_xmm_mmm64
 INSTRUCTION: NP 0F 2A /r | CVTPI2PS xmm, mm/m64 | SSE
-	ops: w=reg r=rm | Packed64_Int32
+	ops: rw=reg r=rm | Packed64_Int32
 	flags: tsx-impl-abort
 	masm: flags=force-size=default
 END
@@ -10856,7 +10839,7 @@ END
 # Code: Wrmsr
 INSTRUCTION: 0F 30 | WRMSR | MSR
 	implied: r=eax;ecx;edx
-	# Not serializing if writing to some MSRs (Intel)
+	# Not serializing if writing to some MSRs (Intel, AMD)
 	flags: cpl0 serialize-intel serialize-amd intel-may-vm-exit tdx-non-root-may-gen-ex amd-may-vm-exit tsx-impl-abort
 END
 
@@ -10898,6 +10881,7 @@ INSTRUCTION: 0F 35 | SYSEXIT | SEP
 	code-mnemonic: sysexitd
 	# Not supported by AMD in 64-bit mode but the AMD decoder should still decode it.
 	# AMD: no-rm no-v86 or #GP(0)
+	# #UD if CR4.FRED=1
 	flags: cpl0 cflow=ret tsx-impl-abort
 END
 
@@ -10905,6 +10889,7 @@ END
 INSTRUCTION: o64 0F 35 | SYSEXITQ | SEP
 	implied: r=rcx;rdx w=rsp w=cs;ss
 	# Not supported by AMD in 64-bit mode but the AMD decoder should still decode it.
+	# #UD if CR4.FRED=1
 	flags: 64 cpl0 cflow=ret tsx-impl-abort
 	gas: mnemonic=sysexit flags=o64
 	nasm: mnemonic=sysexit flags=o64
@@ -29682,7 +29667,7 @@ INSTRUCTION: F3 0F 38 DC 11:rrr:bbb | LOADIWKEY xmm1, xmm2, <EAX>, <XMM0> | KL
 	implied: r=eax;xmm0
 	rflags: w=z 0=osacp
 	# All Key Locker instructions may cause a TSX abort
-	flags: cpl0 tsx-impl-abort
+	flags: cpl0 tsx-impl-abort intel-may-vm-exit
 END
 
 # Code: Aesenc128kl_xmm_m384
@@ -29906,4 +29891,49 @@ INSTRUCTION: a64 F3 0F A7 F0 | CCS_ENCRYPT | PADLOCK_GMI
 	gas: asz
 	intel: asz
 	nasm: asz
+END
+
+# Code: Lkgs_rm16
+INSTRUCTION: o16 F2 0F 00 /6 | LKGS r/m16 | LKGS
+	ops: r=rm | UInt16
+	implied: w=gs
+	flags: 64 cpl0
+	gas: reg16
+	masm: flags=force-size=default
+	nasm: osz-reg16
+END
+
+# Code: Lkgs_r32m16
+INSTRUCTION: o32 F2 0F 00 /6 | LKGS r32/m16 | LKGS
+	ops: r=rm | UInt16
+	implied: last-gpr-16 w=gs
+	flags: 64 cpl0
+	gas: reg16
+	masm: flags=force-size=default
+	nasm: osz-reg16
+END
+
+# Code: Lkgs_r64m16
+INSTRUCTION: F2 o64 0F 00 /6 | LKGS r64/m16 | LKGS
+	ops: r=rm | UInt16
+	implied: last-gpr-16 w=gs
+	flags: 64 cpl0
+	gas: reg16
+	masm: flags=force-size=default
+	nasm: osz-reg16
+END
+
+# Code: Eretu
+INSTRUCTION: F3 0F 01 CA | ERETU | FRED
+	# Also loads GS.base (but not GS (selector))
+	implied: pop=5x8 w=rsp;cs;ss
+	rflags: w=oszacpdiA
+	flags: 64 cpl0 sp=pop;40 cflow=ret 
+END
+
+# Code: Erets
+INSTRUCTION: F2 0F 01 CA | ERETS | FRED
+	implied: pop=5x8 w=rsp
+	rflags: w=oszacpdiA
+	flags: 64 cpl0 sp=pop;40 cflow=ret 
 END

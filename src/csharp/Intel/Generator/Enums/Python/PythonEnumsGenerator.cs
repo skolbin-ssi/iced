@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 using System;
 using System.Collections.Generic;
@@ -144,7 +124,7 @@ namespace Generator.Enums.Python {
 			using (writer.Indent()) {
 				uint expectedValue = 0;
 				foreach (var value in enumType.Values) {
-					if (value.DeprecatedInfo.IsDeprecated)
+					if (value.DeprecatedInfo.IsDeprecatedAndRenamed)
 						continue;
 					rustDocWriter.WriteSummary(writer, value.Documentation, enumType.RawName);
 					if (enumType.IsFlags)
@@ -169,20 +149,14 @@ namespace Generator.Enums.Python {
 				writer.WriteLine();
 				docWriter.WriteSummary(writer, enumType.Documentation, enumType.RawName);
 				writer.WriteLine();
-				writer.WriteLine("from typing import List");
-				writer.WriteLine();
-
 				WriteEnumCore(writer, enumType, docWriter);
-
-				writer.WriteLine();
-				writer.WriteLine(@"__all__: List[str] = []");
 			}
 		}
 
 		void WriteEnumCore(FileWriter writer, EnumType enumType, PythonDocCommentWriter docWriter) {
 			bool mustHaveDocs = enumType.TypeId != TypeIds.Register && enumType.TypeId != TypeIds.Mnemonic;
 			bool uppercaseRawName = PythonUtils.UppercaseEnum(enumType.TypeId.Id1);
-			var firstVersion = new Version(1, 9, 1);
+			var firstVersion = new Version(1, 12, 0);
 			// *****************************************************************************
 			// For PERF reasons, we do NOT use Enums. They're incredibly slow to load!
 			// Eg. loading 'class Code(IntEnum)' (plus other non-Mnemonic enums and some random
@@ -202,8 +176,19 @@ namespace Generator.Enums.Python {
 
 				var (valueName, numStr) = PythonUtils.GetEnumNameValue(pythonIdConverter, value, uppercaseRawName);
 				writer.WriteLine($"{valueName}: int = {numStr}");
-				if (value.DeprecatedInfo.IsDeprecated)
-					docs = $"DEPRECATED({value.DeprecatedInfo.VersionStr}): {docs}";
+				if (value.DeprecatedInfo.IsDeprecated) {
+					string? extra;
+					if (value.DeprecatedInfo.NewName is not null)
+						extra = $"Use {value.DeprecatedInfo.NewName} instead";
+					else
+						extra = null;
+
+					if (extra is null)
+						extra = string.Empty;
+					else
+						extra = $": {extra}";
+					docs = $"DEPRECATED({value.DeprecatedInfo.VersionStr}){extra}";
+				}
 				docWriter.WriteSummary(writer, docs, enumType.RawName);
 			}
 		}

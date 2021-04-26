@@ -1,31 +1,12 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 use crate::enum_utils::to_register;
 use core::hash::{Hash, Hasher};
 use pyo3::class::basic::CompareOp;
 use pyo3::prelude::*;
 use pyo3::PyObjectProtocol;
+use static_assertions::const_assert_eq;
 use std::collections::hash_map::DefaultHasher;
 
 /// Memory operand passed to one of :class:`Instruction`'s `create*()` constructor methods
@@ -49,9 +30,9 @@ pub(crate) struct MemoryOperand {
 impl MemoryOperand {
 	#[new]
 	#[args(base = 0, index = 0, scale = 1, displ = 0, displ_size = 0, is_broadcast = false, seg = 0)]
-	fn new(base: u32, index: u32, scale: u32, displ: i32, mut displ_size: u32, is_broadcast: bool, seg: u32) -> PyResult<Self> {
+	fn new(base: u32, index: u32, scale: u32, displ: i64, mut displ_size: u32, is_broadcast: bool, seg: u32) -> PyResult<Self> {
 		// #[args] line assumption
-		const_assert_eq!(0, iced_x86::Register::None as u32);
+		const_assert_eq!(iced_x86::Register::None as u32, 0);
 
 		if displ != 0 && displ_size == 0 {
 			displ_size = 1
@@ -67,7 +48,7 @@ impl MemoryOperand {
 	/// Returns:
 	///     MemoryOperand: A copy of this instance
 	///
-	/// This is identical to :class:`MemoryOperand.clone`
+	/// This is identical to :class:`MemoryOperand.copy`
 	#[text_signature = "($self, /)"]
 	fn __copy__(&self) -> Self {
 		*self
@@ -81,7 +62,7 @@ impl MemoryOperand {
 	/// Returns:
 	///     MemoryOperand: A copy of this instance
 	///
-	/// This is identical to :class:`MemoryOperand.clone`
+	/// This is identical to :class:`MemoryOperand.copy`
 	#[text_signature = "($self, memo, /)"]
 	fn __deepcopy__(&self, _memo: &PyAny) -> Self {
 		*self
@@ -92,7 +73,7 @@ impl MemoryOperand {
 	/// Returns:
 	///     MemoryOperand: A copy of this instance
 	#[text_signature = "($self, /)"]
-	fn clone(&self) -> Self {
+	fn copy(&self) -> Self {
 		*self
 	}
 }

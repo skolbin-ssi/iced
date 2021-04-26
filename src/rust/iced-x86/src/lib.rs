@@ -1,46 +1,24 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 //! iced-x86
 //! [![Latest version](https://img.shields.io/crates/v/iced-x86.svg)](https://crates.io/crates/iced-x86)
 //! [![Documentation](https://docs.rs/iced-x86/badge.svg)](https://docs.rs/iced-x86)
-//! [![Minimum rustc version](https://img.shields.io/badge/rustc-1.20.0+-yellow.svg)](#minimum-supported-rustc-version)
+//! [![Minimum rustc version](https://img.shields.io/badge/rustc-1.41.0+-blue.svg)](#minimum-supported-rustc-version)
 //! ![License](https://img.shields.io/crates/l/iced-x86.svg)
 //!
-//! iced-x86 is a high performance and correct x86 (16/32/64-bit) instruction decoder, disassembler and assembler written in Rust.
-//!
-//! It can be used for static analysis of x86/x64 binaries, to rewrite code (eg. remove garbage instructions), to relocate code or as a disassembler.
+//! iced-x86 is a blazing fast and correct x86 (16/32/64-bit) instruction decoder, disassembler and assembler written in Rust.
 //!
 //! - ✔️Supports all Intel and AMD instructions
 //! - ✔️Correct: All instructions are tested and iced has been tested against other disassemblers/assemblers (xed, gas, objdump, masm, dumpbin, nasm, ndisasm) and fuzzed
 //! - ✔️100% Rust code
 //! - ✔️The formatter supports masm, nasm, gas (AT&T), Intel (XED) and there are many options to customize the output
-//! - ✔️The decoder is 4x+ faster than other similar libraries and doesn't allocate any memory
-//! - ✔️Small decoded instructions, only 32 bytes
+//! - ✔️Blazing fast: Decodes >200 MB/s and decode+format >110 MB/s ([see here](https://github.com/icedland/disas-bench/tree/7ccde32e77c802b22cbeabe2ddcf769130e658fb#results))
+//! - ✔️Small decoded instructions, only 40 bytes and the decoder doesn't allocate any memory
 //! - ✔️The encoder can be used to re-encode decoded instructions at any address
 //! - ✔️API to get instruction info, eg. read/written registers, memory and rflags bits; CPUID feature flag, control flow info, etc
 //! - ✔️Supports `#![no_std]` and `WebAssembly`
-//! - ✔️Supports `rustc` `1.20.0` or later
+//! - ✔️Supports `rustc` `1.41.0` or later
 //! - ✔️Few dependencies (`static_assertions` and `lazy_static`)
 //! - ✔️License: MIT
 //!
@@ -50,23 +28,17 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //!
 //! ```toml
 //! [dependencies]
-//! iced-x86 = "1.10.1"
+//! iced-x86 = "1.11.1"
 //! ```
 //!
 //! Or to customize which features to use:
 //!
 //! ```toml
 //! [dependencies.iced-x86]
-//! version = "1.10.1"
+//! version = "1.11.1"
 //! default-features = false
 //! # See below for all features
 //! features = ["std", "decoder", "masm"]
-//! ```
-//!
-//! If you're using Rust 2015 edition you must also add this to your `lib.rs` or `main.rs`:
-//!
-//! ```rust
-//! extern crate iced_x86;
 //! ```
 //!
 //! ## Crate feature flags
@@ -82,10 +54,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //! - `intel`: (✔️Enabled by default) Enables the Intel (XED) formatter
 //! - `masm`: (✔️Enabled by default) Enables the masm formatter
 //! - `nasm`: (✔️Enabled by default) Enables the nasm formatter
-//! - `fast_fmt`: (✔️Enabled by default) Enables `FastFormatter` (masm syntax) which is ~1.9x faster than the other formatters (the time includes decoding + formatting). Use it if formatting speed is more important than being able to re-assemble formatted instructions or if targeting wasm (this formatter uses less code).
+//! - `fast_fmt`: (✔️Enabled by default) Enables [`SpecializedFormatter<TraitOptions>`] (and [`FastFormatter`]) (masm syntax) which is ~3.3x faster than the other formatters (the time includes decoding + formatting). Use it if formatting speed is more important than being able to re-assemble formatted instructions or if targeting wasm (this formatter uses less code).
 //! - `db`: Enables creating `db`, `dw`, `dd`, `dq` instructions. It's not enabled by default because it's possible to store up to 16 bytes in the instruction and then use another method to read an enum value.
 //! - `std`: (✔️Enabled by default) Enables the `std` crate. `std` or `no_std` must be defined, but not both.
-//! - `no_std`: Enables `#![no_std]`. `std` or `no_std` must be defined, but not both. This feature uses the `alloc` crate (`rustc` `1.36.0+`) and the `hashbrown` crate.
+//! - `no_std`: Enables `#![no_std]`. `std` or `no_std` must be defined, but not both. This feature uses the `alloc` crate and the `hashbrown` crate.
 //! - `exhaustive_enums`: Enables exhaustive enums, i.e., no enum has the `#[non_exhaustive]` attribute
 //! - `no_vex`: Disables all `VEX` instructions. See below for more info.
 //! - `no_evex`: Disables all `EVEX` instructions. See below for more info.
@@ -100,6 +72,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //! ## How-tos
 //!
 //! - [Disassemble (decode and format instructions)](#disassemble-decode-and-format-instructions)
+//! - [Disassemble as fast as possible](#disassemble-as-fast-as-possible)
 //! - [Create and encode instructions](#create-and-encode-instructions)
 //! - [Disassemble with a symbol resolver](#disassemble-with-a-symbol-resolver)
 //! - [Disassemble with colorized text](#disassemble-with-colorized-text)
@@ -111,7 +84,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //! ## Disassemble (decode and format instructions)
 //!
 //! This example uses a [`Decoder`] and one of the [`Formatter`]s to decode and format the code,
-//! eg. [`GasFormatter`], [`IntelFormatter`], [`MasmFormatter`], [`NasmFormatter`], [`FastFormatter`].
+//! eg. [`GasFormatter`], [`IntelFormatter`], [`MasmFormatter`], [`NasmFormatter`], [`SpecializedFormatter<TraitOptions>`] (or [`FastFormatter`]).
 //!
 //! [`Decoder`]: struct.Decoder.html
 //! [`Formatter`]: trait.Formatter.html
@@ -119,7 +92,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //! [`IntelFormatter`]: struct.IntelFormatter.html
 //! [`MasmFormatter`]: struct.MasmFormatter.html
 //! [`NasmFormatter`]: struct.NasmFormatter.html
-//! [`FastFormatter`]: struct.FastFormatter.html
+//! [`SpecializedFormatter<TraitOptions>`]: struct.SpecializedFormatter.html
+//! [`FastFormatter`]: type.FastFormatter.html
 //!
 //! ```rust
 //! use iced_x86::{Decoder, DecoderOptions, Formatter, Instruction, NasmFormatter};
@@ -142,12 +116,11 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //! */
 //! pub(crate) fn how_to_disassemble() {
 //!     let bytes = EXAMPLE_CODE;
-//!     let mut decoder = Decoder::new(EXAMPLE_CODE_BITNESS, bytes, DecoderOptions::NONE);
-//!     decoder.set_ip(EXAMPLE_CODE_RIP);
+//!     let mut decoder = Decoder::with_ip(EXAMPLE_CODE_BITNESS, bytes, EXAMPLE_CODE_RIP, DecoderOptions::NONE);
 //!
 //!     // Formatters: Masm*, Nasm*, Gas* (AT&T) and Intel* (XED).
-//!     // There's also `FastFormatter` which is ~1.9x faster. Use it if formatting speed is more
-//!     // important than being able to re-assemble formatted instructions.
+//!     // For fastest code, see `SpecializedFormatter` which is ~3.3x faster. Use it if formatting
+//!     // speed is more important than being able to re-assemble formatted instructions.
 //!     let mut formatter = NasmFormatter::new();
 //!
 //!     // Change some options, there are many more
@@ -167,7 +140,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //!     // but can_decode()/decode_out() is a little faster:
 //!     while decoder.can_decode() {
 //!         // There's also a decode() method that returns an instruction but that also
-//!         // means it copies an instruction (32 bytes):
+//!         // means it copies an instruction (40 bytes):
 //!         //     instruction = decoder.decode();
 //!         decoder.decode_out(&mut instruction);
 //!
@@ -200,6 +173,58 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //!     0x18, 0x57, 0x0A, 0x00, 0x48, 0x33, 0xC4, 0x48, 0x89, 0x85, 0xF0, 0x00, 0x00, 0x00, 0x4C, 0x8B,
 //!     0x05, 0x2F, 0x24, 0x0A, 0x00, 0x48, 0x8D, 0x05, 0x78, 0x7C, 0x04, 0x00, 0x33, 0xFF,
 //! ];
+//! ```
+//!
+//! ## Disassemble as fast as possible
+//!
+//! For fastest possible disassembly, you should *not* enable the `db` feature (or you should set [`ENABLE_DB_DW_DD_DQ`] to `false`)
+//! and you should also override the unsafe [`verify_output_has_enough_bytes_left()`] and return `false`.
+//!
+//! [`ENABLE_DB_DW_DD_DQ`]: https://docs.rs/iced-x86/trait.SpecializedFormatterTraitOptions.html#associatedconstant.ENABLE_DB_DW_DD_DQ
+//! [`verify_output_has_enough_bytes_left()`]: https://docs.rs/iced-x86/trait.SpecializedFormatterTraitOptions.html#method.verify_output_has_enough_bytes_left
+//!
+//! ```rust
+//! use iced_x86::{
+//!     Decoder, DecoderOptions, Instruction, SpecializedFormatter, SpecializedFormatterTraitOptions,
+//! };
+//!
+//! pub(crate) fn how_to_disassemble_really_fast() {
+//!     struct MyTraitOptions;
+//!     impl SpecializedFormatterTraitOptions for MyTraitOptions {
+//!         // If you never create a db/dw/dd/dq 'instruction', we don't need this feature.
+//!         const ENABLE_DB_DW_DD_DQ: bool = false;
+//!         // It reserves 300 bytes at the start of format() which is enough for all
+//!         // instructions. See the docs for more info.
+//!         unsafe fn verify_output_has_enough_bytes_left() -> bool {
+//!             false
+//!         }
+//!     }
+//!     type MyFormatter = SpecializedFormatter<MyTraitOptions>;
+//!
+//!     // Assume this is a big slice and not just one instruction
+//!     let bytes = b"\x62\xF2\x4F\xDD\x72\x50\x01";
+//!     let mut decoder = Decoder::new(64, bytes, DecoderOptions::NONE);
+//!
+//!     let mut output = String::new();
+//!     let mut instruction = Instruction::default();
+//!     let mut formatter = MyFormatter::new();
+//!     while decoder.can_decode() {
+//!         decoder.decode_out(&mut instruction);
+//!         output.clear();
+//!         formatter.format(&instruction, &mut output);
+//!         // do something with 'output' here, eg.:
+//!         //     println!("{}", output);
+//!     }
+//! }
+//! ```
+//!
+//! Also add this to your `Cargo.toml` file:
+//!
+//! ```toml
+//! [profile.release]
+//! codegen-units = 1
+//! lto = true
+//! opt-level = 3
 //! ```
 //!
 //! ## Create and encode instructions
@@ -273,7 +298,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //!     instructions.push(Instruction::with_reg_mem(
 //!         Code::Lea_r64_m,
 //!         Register::R14,
-//!         MemoryOperand::with_base_displ(Register::RIP, data1 as i32),
+//!         MemoryOperand::with_base_displ(Register::RIP, data1 as i64),
 //!     ));
 //!     instructions.push(Instruction::with(Code::Nopd));
 //!     let raw_data: &[u8] = &[0x12, 0x34, 0x56, 0x78];
@@ -300,8 +325,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //!     let mut output = String::new();
 //!     let bytes_code = &bytes[0..bytes.len() - raw_data.len()];
 //!     let bytes_data = &bytes[bytes.len() - raw_data.len()..];
-//!     let mut decoder = Decoder::new(bitness, bytes_code, DecoderOptions::NONE);
-//!     decoder.set_ip(target_rip);
+//!     let mut decoder = Decoder::with_ip(bitness, bytes_code, target_rip, DecoderOptions::NONE);
 //!     let mut formatter = GasFormatter::new();
 //!     formatter.options_mut().set_first_operand_char_index(8);
 //!     for instruction in &mut decoder {
@@ -430,8 +454,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //!
 //! pub(crate) fn how_to_colorize_text() {
 //!     let bytes = EXAMPLE_CODE;
-//!     let mut decoder = Decoder::new(EXAMPLE_CODE_BITNESS, bytes, DecoderOptions::NONE);
-//!     decoder.set_ip(EXAMPLE_CODE_RIP);
+//!     let mut decoder = Decoder::with_ip(EXAMPLE_CODE_BITNESS, bytes, EXAMPLE_CODE_RIP, DecoderOptions::NONE);
 //!
 //!     let mut formatter = IntelFormatter::new();
 //!     formatter.options_mut().set_first_operand_char_index(8);
@@ -533,8 +556,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //!     println!("Original code:");
 //!     disassemble(&example_code, EXAMPLE_CODE_RIP);
 //!
-//!     let mut decoder = Decoder::new(EXAMPLE_CODE_BITNESS, &example_code, DecoderOptions::NONE);
-//!     decoder.set_ip(EXAMPLE_CODE_RIP);
+//!     let mut decoder = Decoder::with_ip(EXAMPLE_CODE_BITNESS, &example_code, EXAMPLE_CODE_RIP, DecoderOptions::NONE);
 //!
 //!     // In 64-bit mode, we need 12 bytes to jump to any address:
 //!     //      mov rax,imm64   // 10
@@ -641,8 +663,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //! fn disassemble(data: &[u8], ip: u64) {
 //!     let mut formatter = NasmFormatter::new();
 //!     let mut output = String::new();
-//!     let mut decoder = Decoder::new(EXAMPLE_CODE_BITNESS, data, DecoderOptions::NONE);
-//!     decoder.set_ip(ip);
+//!     let mut decoder = Decoder::with_ip(EXAMPLE_CODE_BITNESS, data, ip, DecoderOptions::NONE);
 //!     for instruction in &mut decoder {
 //!         output.clear();
 //!         formatter.format(&instruction, &mut output);
@@ -883,8 +904,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //!     Used reg: RDI:Write
 //! */
 //! pub(crate) fn how_to_get_instruction_info() {
-//!     let mut decoder = Decoder::new(EXAMPLE_CODE_BITNESS, EXAMPLE_CODE, DecoderOptions::NONE);
-//!     decoder.set_ip(EXAMPLE_CODE_RIP);
+//!     let mut decoder = Decoder::with_ip(EXAMPLE_CODE_BITNESS, EXAMPLE_CODE, EXAMPLE_CODE_RIP, DecoderOptions::NONE);
 //!
 //!     // Use a factory to create the instruction info if you need register and
 //!     // memory usage. If it's something else, eg. encoding, flags, etc, there
@@ -922,13 +942,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //!                 .join(" and ")
 //!         );
 //!         println!("    FlowControl: {:?}", instr.flow_control());
-//!         if offsets.has_displacement() {
-//!             println!(
-//!                 "    Displacement offset = {}, size = {}",
-//!                 offsets.displacement_offset(),
-//!                 offsets.displacement_size()
-//!             );
-//!         }
 //!         if fpu_info.writes_top() {
 //!             if fpu_info.increment() == 0 {
 //!                 println!("    FPU TOP: the instruction overwrites TOP");
@@ -938,6 +951,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //!             println!(
 //!                 "    FPU TOP cond write: {}",
 //!                 if fpu_info.conditional() { "true" } else { "false" }
+//!             );
+//!         }
+//!         if offsets.has_displacement() {
+//!             println!(
+//!                 "    Displacement offset = {}, size = {}",
+//!                 offsets.displacement_offset(),
+//!                 offsets.displacement_size()
 //!             );
 //!         }
 //!         if offsets.has_immediate() {
@@ -978,21 +998,17 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //!         if instr.rflags_modified() != RflagsBits::NONE {
 //!             println!("    RFLAGS Modified: {}", flags(instr.rflags_modified()));
 //!         }
-//!         for i in 0..instr.op_count() {
-//!             let op_kind = instr.try_op_kind(i).unwrap();
-//!             if op_kind == OpKind::Memory || op_kind == OpKind::Memory64 {
-//!                 let size = instr.memory_size().size();
-//!                 if size != 0 {
-//!                     println!("    Memory size: {}", size);
-//!                 }
-//!                 break;
+//!         if instr.op_kinds().any(|op_kind| op_kind == OpKind::Memory) {
+//!             let size = instr.memory_size().size();
+//!             if size != 0 {
+//!                 println!("    Memory size: {}", size);
 //!             }
 //!         }
 //!         for i in 0..instr.op_count() {
-//!             println!("    Op{}Access: {:?}", i, info.op_access(i));
+//!             println!("    Op{}Access: {:?}", i, info.try_op_access(i).unwrap());
 //!         }
 //!         for i in 0..op_code.op_count() {
-//!             println!("    Op{}: {:?}", i, op_code.op_kind(i));
+//!             println!("    Op{}: {:?}", i, op_code.try_op_kind(i).unwrap());
 //!         }
 //!         for reg_info in info.used_registers() {
 //!             println!("    Used reg: {:?}", reg_info);
@@ -1078,7 +1094,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //!             _ => None,
 //!         }
 //!     });
-//!     assert_eq!(Some(0x0000_001F_B55A_1234), va);
+//!     assert_eq!(va, Some(0x0000_001F_B55A_1234));
 //! }
 //! ```
 //!
@@ -1133,8 +1149,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //!         | DecoderOptions::CYRIX
 //!         | DecoderOptions::CYRIX_DMI
 //!         | DecoderOptions::ALTINST;
-//!     let mut decoder = Decoder::new(32, bytes, DECODER_OPTIONS);
-//!     decoder.set_ip(0x731E_0A03);
+//!     let mut decoder = Decoder::with_ip(32, bytes, 0x731E_0A03, DECODER_OPTIONS);
 //!
 //!     let mut formatter = NasmFormatter::new();
 //!     formatter.options_mut().set_space_after_operand_separator(true);
@@ -1154,27 +1169,19 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //!
 //! ## Minimum supported `rustc` version
 //!
-//! iced-x86 supports `rustc` `1.20.0` or later.
+//! iced-x86 supports `rustc` `1.41.0` or later.
 //! This is checked in CI builds where the minimum supported version and the latest stable version are used to build the source code and run tests.
-//!
-//! If you use an older version of `rustc`, you may need to update the versions of some iced-x86 dependencies because `cargo` prefers to use the latest version which may not support your `rustc`.
-//! Eg. iced-x86 needs `lazy_static` `1.1.1` (or later), but `cargo` wants to use the latest version which is currently `1.4.0` and it doesn't support the minimum supported `rustc` version.
-//! Here's how you can force a compatible version of any iced-x86 dependency without updating iced-x86's `Cargo.toml`:
-//!
-//! ```sh
-//! cargo generate-lockfile
-//! cargo update --package lazy_static --precise 1.1.1
-//! ```
 //!
 //! Bumping the minimum supported version of `rustc` is considered a minor breaking change. The minor version of iced-x86 will be incremented.
 
-#![doc(html_logo_url = "https://raw.githubusercontent.com/0xd4d/iced/master/logo.png")]
-#![doc(html_root_url = "https://docs.rs/iced-x86/1.10.1")]
+#![doc(html_logo_url = "https://raw.githubusercontent.com/icedland/iced/master/logo.png")]
+#![doc(html_root_url = "https://docs.rs/iced-x86/1.11.1")]
 #![allow(unknown_lints)]
-#![allow(bare_trait_objects)] // Not supported if < 1.27.0
 #![warn(absolute_paths_not_starting_with_crate)]
 #![warn(anonymous_parameters)]
-#![warn(deprecated_in_future)]
+#![warn(elided_lifetimes_in_paths)]
+#![warn(explicit_outlives_requirements)]
+#![warn(invalid_html_tags)]
 #![warn(keyword_idents)]
 #![warn(meta_variable_misuse)]
 #![warn(missing_copy_implementations)]
@@ -1185,51 +1192,61 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #![warn(trivial_numeric_casts)]
 #![warn(unused_extern_crates)]
 #![warn(unused_import_braces)]
-#![warn(unused_labels)]
 #![warn(unused_lifetimes)]
 #![warn(unused_must_use)]
 #![warn(unused_qualifications)]
 #![warn(unused_results)]
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::cast_lossless))]
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::collapsible_if))]
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::manual_strip))] // Not supported if < 1.45.0
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::match_like_matches_macro))] // Not supported if < 1.42.0
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::match_ref_pats))] // Not supported if < 1.26.0
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::needless_lifetimes))] // Not supported if < 1.31.0
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::ptr_offset_with_cast))] // Not supported if < 1.26.0
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::type_complexity))]
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::wrong_self_convention))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::clone_on_ref_ptr))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::dbg_macro))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::debug_assert_with_mut_call))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::default_trait_access))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::doc_markdown))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::empty_line_after_outer_attr))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::explicit_into_iter_loop))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::explicit_iter_loop))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::fallible_impl_from))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::implicit_saturating_sub))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::large_digit_groups))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::let_unit_value))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::match_bool))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::missing_errors_doc))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::missing_inline_in_public_items))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::must_use_candidate))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::needless_borrow))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::print_stdout))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::rc_buffer))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::redundant_closure_for_method_calls))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::redundant_closure))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::same_functions_in_if_condition))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::todo))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::unimplemented))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::unnested_or_patterns))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::unreadable_literal))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::unused_self))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::used_underscore_binding))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::useless_let_if_seq))]
-#![cfg_attr(feature = "cargo-clippy", warn(clippy::useless_transmute))]
+#![allow(clippy::cast_lossless)]
+#![allow(clippy::collapsible_else_if)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::manual_strip)] // Not supported if < 1.45.0
+#![allow(clippy::match_like_matches_macro)]
+#![allow(clippy::match_ref_pats)]
+#![allow(clippy::ptr_eq)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::upper_case_acronyms)]
+#![allow(clippy::wrong_self_convention)]
+#![warn(clippy::clone_on_ref_ptr)]
+#![warn(clippy::dbg_macro)]
+#![warn(clippy::debug_assert_with_mut_call)]
+#![warn(clippy::default_trait_access)]
+#![warn(clippy::doc_markdown)]
+#![warn(clippy::empty_line_after_outer_attr)]
+#![warn(clippy::explicit_into_iter_loop)]
+#![warn(clippy::explicit_iter_loop)]
+#![warn(clippy::fallible_impl_from)]
+#![warn(clippy::get_unwrap)]
+#![warn(clippy::implicit_saturating_sub)]
+#![warn(clippy::large_digit_groups)]
+#![warn(clippy::let_unit_value)]
+#![warn(clippy::match_bool)]
+#![warn(clippy::match_on_vec_items)]
+#![warn(clippy::match_wild_err_arm)]
+#![warn(clippy::missing_errors_doc)]
+#![warn(clippy::missing_inline_in_public_items)]
+#![warn(clippy::must_use_candidate)]
+#![warn(clippy::needless_borrow)]
+#![warn(clippy::print_stderr)]
+#![warn(clippy::print_stdout)]
+#![warn(clippy::rc_buffer)]
+#![warn(clippy::redundant_closure_for_method_calls)]
+#![warn(clippy::redundant_closure)]
+#![warn(clippy::same_functions_in_if_condition)]
+#![warn(clippy::todo)]
+#![warn(clippy::unimplemented)]
+#![warn(clippy::unnested_or_patterns)]
+#![warn(clippy::unreadable_literal)]
+#![warn(clippy::unused_self)]
+#![warn(clippy::unwrap_in_result)]
+#![warn(clippy::used_underscore_binding)]
+#![warn(clippy::useless_let_if_seq)]
+#![warn(clippy::useless_transmute)]
+#![warn(clippy::zero_sized_map_values)]
+#![cfg_attr(not(test), warn(clippy::expect_used))]
+#![cfg_attr(not(test), warn(clippy::unwrap_used))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 // This should be the only place in the source code that uses no_std
@@ -1238,28 +1255,43 @@ compile_error!("`std` and `no_std` features can't be used at the same time");
 #[cfg(all(not(feature = "std"), not(feature = "no_std")))]
 compile_error!("`std` or `no_std` feature must be defined");
 
-#[cfg(all(
-	has_alloc,
-	any(not(feature = "std"), feature = "encoder", feature = "gas", feature = "intel", feature = "masm", feature = "nasm", feature = "fast_fmt")
-))]
 #[cfg_attr(
-	all(has_alloc, any(feature = "encoder", feature = "gas", feature = "intel", feature = "masm", feature = "nasm", feature = "fast_fmt")),
+	any(
+		feature = "encoder",
+		feature = "block_encoder",
+		feature = "op_code_info",
+		feature = "gas",
+		feature = "intel",
+		feature = "masm",
+		feature = "nasm",
+		feature = "fast_fmt"
+	),
 	macro_use
 )]
 extern crate alloc;
 #[cfg(feature = "std")]
 extern crate core;
-#[cfg(any(feature = "decoder", feature = "encoder", feature = "gas", feature = "intel", feature = "masm", feature = "nasm", feature = "fast_fmt"))]
-#[cfg_attr(
-	any(feature = "decoder", feature = "encoder", feature = "gas", feature = "intel", feature = "masm", feature = "nasm", feature = "fast_fmt"),
-	macro_use
-)]
-extern crate lazy_static;
+
 #[macro_use]
-extern crate static_assertions;
-#[cfg(not(feature = "std"))]
-#[cfg(all(feature = "encoder", feature = "block_encoder"))]
-extern crate hashbrown;
+mod iced_assert {
+	macro_rules! iced_assert {
+		($($expr:tt)*) => {{
+			// If it's a debug build, include the expression string
+			#[cfg(debug_assertions)]
+			{
+				assert!($($expr)*);
+			}
+
+			// If it's not a debug build, don't include the expression string
+			#[cfg(not(debug_assertions))]
+			{
+				if !($($expr)*) {
+					panic!();
+				}
+			}
+		}};
+	}
+}
 
 #[cfg(all(feature = "encoder", feature = "block_encoder"))]
 mod block_enc;
@@ -1296,22 +1328,22 @@ pub(crate) mod test_utils;
 mod tuple_type_tbl;
 
 #[cfg(all(feature = "encoder", feature = "block_encoder"))]
-pub use self::block_enc::*;
-pub use self::code::*;
+pub use crate::block_enc::*;
+pub use crate::code::*;
 #[cfg(any(feature = "decoder", feature = "encoder"))]
-pub use self::constant_offsets::*;
+pub use crate::constant_offsets::*;
 #[cfg(feature = "decoder")]
-pub use self::decoder::*;
+pub use crate::decoder::*;
 #[cfg(feature = "encoder")]
-pub use self::encoder::*;
-pub use self::enums::*;
+pub use crate::encoder::*;
+pub use crate::enums::*;
 #[cfg(any(feature = "gas", feature = "intel", feature = "masm", feature = "nasm", feature = "fast_fmt"))]
-pub use self::formatter::*;
-pub use self::iced_error::*;
-pub use self::iced_features::*;
+pub use crate::formatter::*;
+pub use crate::iced_error::*;
+pub use crate::iced_features::*;
 #[cfg(feature = "instr_info")]
-pub use self::info::*;
-pub use self::instruction::*;
-pub use self::memory_size::*;
-pub use self::mnemonic::*;
-pub use self::register::*;
+pub use crate::info::*;
+pub use crate::instruction::*;
+pub use crate::memory_size::*;
+pub use crate::mnemonic::*;
+pub use crate::register::*;

@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 // Use FuzzerGen (.NET) app to generate the valid and invalid files (--amd to use AMD decoder)
 //		./IcedFuzzer.exe -16 -oil C:\path\invalid16.bin -ovlc C:\path\valid16.bin
@@ -59,11 +39,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 	let bytes = fs::read(options.filename)?;
 	let mut bytes = bytes.as_slice();
 	let mut instr = Instruction::default();
-	let mut decoder_options = DecoderOptions::MPX | DecoderOptions::NO_LOCK_MOV_CR;
-	if options.amd {
-		decoder_options = (decoder_options & !DecoderOptions::NO_LOCK_MOV_CR) | DecoderOptions::AMD;
-	}
-	let decoder_options = decoder_options;
+	let decoder_options = DecoderOptions::MPX | if options.amd { DecoderOptions::AMD } else { DecoderOptions::NONE };
 	while !bytes.is_empty() {
 		let code = if has_code_value {
 			let raw_value = (bytes[0] as u16) | ((bytes[1] as u16) << 8);
@@ -74,17 +50,17 @@ fn main() -> Result<(), Box<dyn Error>> {
 		};
 		let len = bytes[0] as usize;
 		bytes = &bytes[1..];
-		let mut decoder = Decoder::new(options.bitness, &bytes[0..len], decoder_options);
+		let mut decoder = Decoder::try_new(options.bitness, &bytes[0..len], decoder_options)?;
 		decoder.decode_out(&mut instr);
 		if options.invalid {
-			assert_ne!(DecoderError::None, decoder.last_error());
-			assert_eq!(Code::INVALID, instr.code());
+			assert_ne!(decoder.last_error(), DecoderError::None);
+			assert_eq!(instr.code(), Code::INVALID);
 		} else {
-			assert_eq!(DecoderError::None, decoder.last_error());
+			assert_eq!(decoder.last_error(), DecoderError::None);
 			if has_code_value {
-				assert_eq!(code, instr.code());
+				assert_eq!(instr.code(), code);
 			}
-			assert_eq!(len, instr.len());
+			assert_eq!(instr.len(), len);
 		}
 		bytes = &bytes[len..];
 	}

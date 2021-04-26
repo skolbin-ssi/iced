@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 #if MASM
 using System;
@@ -55,12 +35,14 @@ namespace Iced.UnitTests.Intel.FormatterTests.Masm {
 	readonly struct SymbolOptionsTestCase {
 		public readonly string HexBytes;
 		public readonly int Bitness;
+		public readonly ulong IP;
 		public readonly string FormattedString;
 		public readonly SymbolTestFlags Flags;
 
-		public SymbolOptionsTestCase(string hexBytes, int bitness, string formattedString, SymbolTestFlags flags) {
+		public SymbolOptionsTestCase(string hexBytes, int bitness, ulong ip, string formattedString, SymbolTestFlags flags) {
 			HexBytes = hexBytes;
 			Bitness = bitness;
+			IP = ip;
 			FormattedString = formattedString;
 			Flags = flags;
 		}
@@ -114,6 +96,12 @@ namespace Iced.UnitTests.Intel.FormatterTests.Masm {
 			if (CodeUtils.IsIgnored(elems[1].Trim()))
 				return null;
 			var bitness = NumberConverter.ToInt32(elems[2].Trim());
+			var ip = bitness switch {
+				16 => DecoderConstants.DEFAULT_IP16,
+				32 => DecoderConstants.DEFAULT_IP32,
+				64 => DecoderConstants.DEFAULT_IP64,
+				_ => throw new InvalidOperationException(),
+			};
 			var formattedString = elems[3].Trim().Replace('|', ',');
 			var flags = SymbolTestFlags.None;
 			foreach (var value in elems[4].Split(spaceSeparator, StringSplitOptions.RemoveEmptyEntries)) {
@@ -121,7 +109,7 @@ namespace Iced.UnitTests.Intel.FormatterTests.Masm {
 					throw new InvalidOperationException($"Invalid flags value: {value}");
 				flags |= f;
 			}
-			return new SymbolOptionsTestCase(hexBytes, bitness, formattedString, flags);
+			return new SymbolOptionsTestCase(hexBytes, bitness, ip, formattedString, flags);
 		}
 	}
 
@@ -144,14 +132,9 @@ namespace Iced.UnitTests.Intel.FormatterTests.Masm {
 
 		[Theory]
 		[MemberData(nameof(TestIt_Data))]
-		void TestIt(string hexBytes, int bitness, string formattedString, SymbolTestFlags flags) {
+		void TestIt(string hexBytes, int bitness, ulong ip, string formattedString, SymbolTestFlags flags) {
 			var decoder = Decoder.Create(bitness, new ByteArrayCodeReader(hexBytes));
-			decoder.IP = bitness switch {
-				16 => DecoderConstants.DEFAULT_IP16,
-				32 => DecoderConstants.DEFAULT_IP32,
-				64 => DecoderConstants.DEFAULT_IP64,
-				_ => throw new InvalidOperationException(),
-			};
+			decoder.IP = ip;
 			decoder.Decode(out var instruction);
 
 			var formatter = FormatterFactory.Create_Resolver(new SymbolResolver(flags)).formatter;
@@ -173,7 +156,7 @@ namespace Iced.UnitTests.Intel.FormatterTests.Masm {
 			get {
 				var filename = PathUtils.GetTestTextFilename("SymbolOptions.txt", "Formatter", "Masm");
 				foreach (var tc in SymbolOptionsTestsReader.ReadFile(filename))
-					yield return new object[4] { tc.HexBytes, tc.Bitness, tc.FormattedString, tc.Flags };
+					yield return new object[5] { tc.HexBytes, tc.Bitness, tc.IP, tc.FormattedString, tc.Flags };
 			}
 		}
 	}

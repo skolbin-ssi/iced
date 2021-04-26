@@ -1,31 +1,10 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use crate::iced_constants::IcedConstants;
 use crate::instruction::Instruction;
+use crate::utils::to_value_error;
 use core::hash::{Hash, Hasher};
 use pyo3::class::basic::CompareOp;
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::PyObjectProtocol;
 use std::collections::hash_map::DefaultHasher;
@@ -56,7 +35,7 @@ impl UsedRegister {
 	/// Returns:
 	///     UsedRegister: A copy of this instance
 	///
-	/// This is identical to :class:`UsedRegister.clone`
+	/// This is identical to :class:`UsedRegister.copy`
 	#[text_signature = "($self, /)"]
 	fn __copy__(&self) -> Self {
 		*self
@@ -70,7 +49,7 @@ impl UsedRegister {
 	/// Returns:
 	///     UsedRegister: A copy of this instance
 	///
-	/// This is identical to :class:`UsedRegister.clone`
+	/// This is identical to :class:`UsedRegister.copy`
 	#[text_signature = "($self, memo, /)"]
 	fn __deepcopy__(&self, _memo: &PyAny) -> Self {
 		*self
@@ -81,7 +60,7 @@ impl UsedRegister {
 	/// Returns:
 	///     UsedRegister: A copy of this instance
 	#[text_signature = "($self, /)"]
-	fn clone(&self) -> Self {
+	fn copy(&self) -> Self {
 		*self
 	}
 }
@@ -177,7 +156,7 @@ impl UsedMemory {
 	/// Returns:
 	///     UsedMemory: A copy of this instance
 	///
-	/// This is identical to :class:`UsedMemory.clone`
+	/// This is identical to :class:`UsedMemory.copy`
 	#[text_signature = "($self, /)"]
 	fn __copy__(&self) -> Self {
 		*self
@@ -191,7 +170,7 @@ impl UsedMemory {
 	/// Returns:
 	///     UsedMemory: A copy of this instance
 	///
-	/// This is identical to :class:`UsedMemory.clone`
+	/// This is identical to :class:`UsedMemory.copy`
 	#[text_signature = "($self, memo, /)"]
 	fn __deepcopy__(&self, _memo: &PyAny) -> Self {
 		*self
@@ -202,7 +181,7 @@ impl UsedMemory {
 	/// Returns:
 	///     UsedMemory: A copy of this instance
 	#[text_signature = "($self, /)"]
-	fn clone(&self) -> Self {
+	fn copy(&self) -> Self {
 		*self
 	}
 }
@@ -299,11 +278,7 @@ impl InstructionInfo {
 	///     ValueError: If `operand` is invalid
 	#[text_signature = "($self, operand, /)"]
 	fn op_access(&self, operand: u32) -> PyResult<u32> {
-		if operand >= IcedConstants::MAX_OP_COUNT as u32 {
-			Err(PyValueError::new_err("Invalid operand"))
-		} else {
-			Ok(self.info.op_access(operand) as u32)
-		}
+		self.info.try_op_access(operand).map_or_else(|e| Err(to_value_error(e)), |op_access| Ok(op_access as u32))
 	}
 }
 

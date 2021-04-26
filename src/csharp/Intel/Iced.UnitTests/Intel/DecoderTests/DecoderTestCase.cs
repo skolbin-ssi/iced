@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 using System;
 using Iced.Intel;
@@ -33,6 +13,7 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 		public int Bitness;
 		public string HexBytes;
 		public string EncodedHexBytes;
+		public ulong IP;
 		public Code Code;
 		public Mnemonic Mnemonic;
 		public int OpCount;
@@ -55,10 +36,9 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 		public int MemoryDisplSize;
 		public MemorySize MemorySize;
 		public int MemoryIndexScale;
-		public uint MemoryDisplacement;
+		public ulong MemoryDisplacement;
 		public ulong Immediate;
 		public byte Immediate_2nd;
-		public ulong MemoryAddress64;
 		public ulong NearBranch;
 		public uint FarBranch;
 		public ushort FarBranchSelector;
@@ -114,6 +94,7 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 		public int Bitness;
 		public string HexBytes;
 		public string EncodedHexBytes;
+		public ulong IP;
 		public Code Code;
 		public Register Register;
 		public Register SegmentPrefix;
@@ -121,7 +102,7 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 		public Register BaseRegister;
 		public Register IndexRegister;
 		public int Scale;
-		public uint Displacement;
+		public ulong Displacement;
 		public int DisplacementSize;
 		public DecoderTestOptions TestOptions;
 		public ConstantOffsets ConstantOffsets;

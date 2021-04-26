@@ -1,39 +1,15 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::super::super::FastFormatter;
-use super::super::super::SymbolResolver;
-#[cfg(not(feature = "std"))]
+use crate::formatter::{SpecializedFormatter, SpecializedFormatterTraitOptions, SymbolResolver};
 use alloc::boxed::Box;
-#[cfg(not(feature = "std"))]
-use alloc::string::String;
 
-pub(super) fn create_default() -> Box<FastFormatter> {
-	Box::new(FastFormatter::new())
+pub(super) fn create_default<TraitOptions: SpecializedFormatterTraitOptions>() -> Box<SpecializedFormatter<TraitOptions>> {
+	Box::new(SpecializedFormatter::<TraitOptions>::new())
 }
 
-pub(super) fn create_inverted() -> Box<FastFormatter> {
-	let mut fmt = FastFormatter::new();
+pub(super) fn create_inverted<TraitOptions: SpecializedFormatterTraitOptions>() -> Box<SpecializedFormatter<TraitOptions>> {
+	let mut fmt = SpecializedFormatter::<TraitOptions>::new();
 
 	let opt = fmt.options().space_after_operand_separator() ^ true;
 	fmt.options_mut().set_space_after_operand_separator(opt);
@@ -62,14 +38,16 @@ pub(super) fn create_inverted() -> Box<FastFormatter> {
 	Box::new(fmt)
 }
 
-pub(super) fn create_options() -> Box<FastFormatter> {
-	let mut fmt = FastFormatter::new();
+pub(super) fn create_options<TraitOptions: SpecializedFormatterTraitOptions>() -> Box<SpecializedFormatter<TraitOptions>> {
+	let mut fmt = SpecializedFormatter::<TraitOptions>::new();
 	fmt.options_mut().set_rip_relative_addresses(true);
 	Box::new(fmt)
 }
 
-pub(super) fn create_resolver(symbol_resolver: Box<SymbolResolver>) -> Box<FastFormatter> {
-	let mut fmt = FastFormatter::with_options(Some(symbol_resolver));
+pub(super) fn create_resolver<TraitOptions: SpecializedFormatterTraitOptions>(
+	symbol_resolver: Box<dyn SymbolResolver>,
+) -> Box<SpecializedFormatter<TraitOptions>> {
+	let mut fmt = SpecializedFormatter::<TraitOptions>::try_with_options(Some(symbol_resolver)).unwrap();
 	fmt.options_mut().set_rip_relative_addresses(true);
 	Box::new(fmt)
 }

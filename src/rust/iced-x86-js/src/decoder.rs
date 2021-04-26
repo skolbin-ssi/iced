@@ -1,31 +1,13 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 #[cfg(feature = "instr_info")]
-use super::constant_offsets::ConstantOffsets;
-use super::decoder_error::{iced_to_decoder_error, DecoderError};
-use super::decoder_options::DecoderOptions;
-use super::instruction::Instruction;
+use crate::constant_offsets::ConstantOffsets;
+use crate::decoder_error::{iced_to_decoder_error, DecoderError};
+use crate::decoder_options::DecoderOptions;
+use crate::ex_utils::to_js_error;
+use crate::instruction::Instruction;
+use static_assertions::const_assert_eq;
 use std::slice;
 use wasm_bindgen::prelude::*;
 
@@ -122,14 +104,14 @@ impl Decoder {
 	/// instr2.free();
 	/// ```
 	#[wasm_bindgen(constructor)]
-	pub fn new(bitness: u32, data: Vec<u8>, options: u32 /*flags: DecoderOptions*/) -> Self {
+	pub fn new(bitness: u32, data: Vec<u8>, options: u32 /*flags: DecoderOptions*/) -> Result<Decoder, JsValue> {
 		// It's not part of the method sig so make sure it's still compiled by referencing it here
-		const_assert_eq!(0, DecoderOptions::None as u32);
+		const_assert_eq!(DecoderOptions::None as u32, 0);
 		// Safe, we only read it, we own the data, and store it in the returned value.
 		// The decoder also doesn't impl Drop (it can't ref possibly freed data in drop()).
 		let decoder_data = unsafe { slice::from_raw_parts(data.as_ptr(), data.len()) };
-		let decoder = iced_x86_rust::Decoder::new(bitness, decoder_data, options);
-		Decoder { __data_do_not_use: data, decoder }
+		let decoder = iced_x86_rust::Decoder::try_new(bitness, decoder_data, options).map_err(to_js_error)?;
+		Ok(Decoder { __data_do_not_use: data, decoder })
 	}
 
 	/// Gets the low 32 bits of the current `IP`/`EIP`/`RIP` value, see also [`position`].
@@ -295,8 +277,8 @@ impl Decoder {
 	/// instr.free();
 	/// ```
 	#[wasm_bindgen(setter)]
-	pub fn set_position(&mut self, new_pos: usize) {
-		self.decoder.set_position(new_pos)
+	pub fn set_position(&mut self, new_pos: usize) -> Result<(), JsValue> {
+		self.decoder.try_set_position(new_pos).map_err(to_js_error)
 	}
 
 	/// Returns `true` if there's at least one more byte to decode. It doesn't verify that the

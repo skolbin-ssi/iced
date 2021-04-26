@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 using System;
 using System.Collections.Generic;
@@ -92,10 +72,10 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 		internal const string OpKind_MemoryESDI = "esdi";
 		internal const string OpKind_MemoryESEDI = "esedi";
 		internal const string OpKind_MemoryESRDI = "esrdi";
-		internal const string OpKind_Memory64 = "m64";
 		internal const string OpKind_Memory = "m";
 		internal const string DecoderTestOptions_NoEncode = "noencode";
 		internal const string DecoderTestOptions_NoOptDisableTest = "no_opt_disable_test";
+		internal const string IP = "ip";
 	}
 	// GENERATOR-END: DecoderTestText
 
@@ -130,6 +110,12 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 			tc.LineNumber = lineNumber;
 			tc.TestOptions = DecoderTestOptions.None;
 			tc.Bitness = bitness;
+			tc.IP = bitness switch {
+				16 => DecoderConstants.DEFAULT_IP16,
+				32 => DecoderConstants.DEFAULT_IP32,
+				64 => DecoderConstants.DEFAULT_IP64,
+				_ => throw new InvalidOperationException(),
+			};
 			tc.HexBytes = ToHexBytes(parts[0].Trim());
 			tc.EncodedHexBytes = tc.HexBytes;
 			var code = parts[1].Trim();
@@ -267,6 +253,12 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 						throw new InvalidOperationException($"Invalid DecoderOption value: '{value}'");
 					if (!TryParseDecoderOptions(value.Split(semicolonSeparator), ref tc.DecoderOptions))
 						throw new Exception($"Invalid DecoderOptions value, '{value}'");
+					break;
+
+				case DecoderTestParserConstants.IP:
+					if (string.IsNullOrWhiteSpace(value))
+						throw new InvalidOperationException($"Invalid IP value: '{value}'");
+					tc.IP = NumberConverter.ToUInt64(value);
 					break;
 
 				case DecoderTestParserConstants.SegmentPrefix_ES:
@@ -552,15 +544,6 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 				tc.MemorySize = ToMemorySize(parts[1]);
 				break;
 
-			case DecoderTestParserConstants.OpKind_Memory64:
-				if (parts.Length != 4)
-					throw new InvalidOperationException($"Operand {operand}: expected 4 values, actual = {parts.Length}");
-				tc.SetOpKind(operand, OpKind.Memory64);
-				tc.MemorySegment = ToRegister(parts[1]);
-				tc.MemoryAddress64 = NumberConverter.ToUInt64(parts[2]);
-				tc.MemorySize = ToMemorySize(parts[3]);
-				break;
-
 			case DecoderTestParserConstants.OpKind_Memory:
 				if (parts.Length != 8)
 					throw new InvalidOperationException($"Operand {operand}: expected 8 values, actual = {parts.Length}");
@@ -569,7 +552,7 @@ namespace Iced.UnitTests.Intel.DecoderTests {
 				tc.MemoryBase = ToRegister(parts[2]);
 				tc.MemoryIndex = ToRegister(parts[3]);
 				tc.MemoryIndexScale = NumberConverter.ToInt32(parts[4]);
-				tc.MemoryDisplacement = NumberConverter.ToUInt32(parts[5]);
+				tc.MemoryDisplacement = NumberConverter.ToUInt64(parts[5]);
 				tc.MemoryDisplSize = NumberConverter.ToInt32(parts[6]);
 				tc.MemorySize = ToMemorySize(parts[7]);
 				break;

@@ -1,30 +1,12 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::super::iced_constants::IcedConstants;
-use super::enums::*;
-use super::*;
+use crate::iced_constants::IcedConstants;
+use crate::info::enums::*;
+use crate::info::*;
+use crate::instruction_internal;
 use core::{mem, u16, u32, u64};
+use static_assertions::const_assert_eq;
 
 /// Instruction info options used by [`InstructionInfoFactory`]
 ///
@@ -69,7 +51,7 @@ pub struct InstructionInfoFactory {
 	info: InstructionInfo,
 }
 
-#[cfg_attr(feature = "cargo-clippy", allow(clippy::new_without_default))]
+#[allow(clippy::new_without_default)]
 impl InstructionInfoFactory {
 	/// Creates a new instance.
 	///
@@ -104,8 +86,8 @@ impl InstructionInfoFactory {
 	///     }
 	/// }
 	/// ```
-	#[cfg_attr(has_must_use, must_use)]
-	#[cfg_attr(feature = "cargo-clippy", allow(clippy::missing_inline_in_public_items))]
+	#[must_use]
+	#[allow(clippy::missing_inline_in_public_items)]
 	pub fn new() -> Self {
 		Self { info: InstructionInfo::new(0) }
 	}
@@ -139,26 +121,26 @@ impl InstructionInfoFactory {
 	/// let instr = decoder.decode();
 	/// let info = info_factory.info(&instr);
 	///
-	/// assert_eq!(1, info.used_memory().len());
+	/// assert_eq!(info.used_memory().len(), 1);
 	/// let mem = info.used_memory()[0];
-	/// assert_eq!(Register::DS, mem.segment());
-	/// assert_eq!(Register::RDI, mem.base());
-	/// assert_eq!(Register::R12, mem.index());
-	/// assert_eq!(8, mem.scale());
-	/// assert_eq!(0xFFFFFFFFA55A1234, mem.displacement());
-	/// assert_eq!(MemorySize::UInt32, mem.memory_size());
-	/// assert_eq!(OpAccess::ReadWrite, mem.access());
+	/// assert_eq!(mem.segment(), Register::DS);
+	/// assert_eq!(mem.base(), Register::RDI);
+	/// assert_eq!(mem.index(), Register::R12);
+	/// assert_eq!(mem.scale(), 8);
+	/// assert_eq!(mem.displacement(), 0xFFFFFFFFA55A1234);
+	/// assert_eq!(mem.memory_size(), MemorySize::UInt32);
+	/// assert_eq!(mem.access(), OpAccess::ReadWrite);
 	///
 	/// let regs = info.used_registers();
-	/// assert_eq!(3, regs.len());
-	/// assert_eq!(Register::RDI, regs[0].register());
-	/// assert_eq!(OpAccess::Read, regs[0].access());
-	/// assert_eq!(Register::R12, regs[1].register());
-	/// assert_eq!(OpAccess::Read, regs[1].access());
-	/// assert_eq!(Register::ESI, regs[2].register());
-	/// assert_eq!(OpAccess::Read, regs[2].access());
+	/// assert_eq!(regs.len(), 3);
+	/// assert_eq!(regs[0].register(), Register::RDI);
+	/// assert_eq!(regs[0].access(), OpAccess::Read);
+	/// assert_eq!(regs[1].register(), Register::R12);
+	/// assert_eq!(regs[1].access(), OpAccess::Read);
+	/// assert_eq!(regs[2].register(), Register::ESI);
+	/// assert_eq!(regs[2].access(), OpAccess::Read);
 	/// ```
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn info(&mut self, instruction: &Instruction) -> &InstructionInfo {
 		Self::create(&mut self.info, instruction, InstructionInfoOptions::NONE)
@@ -181,7 +163,7 @@ impl InstructionInfoFactory {
 	/// * `options`: Options, see [`InstructionInfoOptions`]
 	///
 	/// [`InstructionInfoOptions`]: struct.InstructionInfoOptions.html
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn info_options(&mut self, instruction: &Instruction, options: u32) -> &InstructionInfo {
 		Self::create(&mut self.info, instruction, options)
@@ -192,8 +174,11 @@ impl InstructionInfoFactory {
 		info.used_memory_locations.clear();
 
 		let index = (instruction.code() as usize) << 1;
-		let flags1 = unsafe { *super::info_table::TABLE.get_unchecked(index) };
-		let flags2 = unsafe { *super::info_table::TABLE.get_unchecked(index + 1) };
+		// SAFETY: For all Code values c, c * 2 + 1 is a valid index into this table
+		let flags1 = unsafe { *crate::info::info_table::TABLE.get_unchecked(index) };
+		let flags2 = unsafe { *crate::info::info_table::TABLE.get_unchecked(index + 1) };
+
+		// SAFETY: the transmutes on the generated data (flags1,flags2) are safe
 
 		info.cpuid_feature_internal = ((flags2 >> InfoFlags2::CPUID_FEATURE_INTERNAL_SHIFT) & InfoFlags2::CPUID_FEATURE_INTERNAL_MASK) as usize;
 		info.flow_control = unsafe { mem::transmute(((flags2 >> InfoFlags2::FLOW_CONTROL_SHIFT) & InfoFlags2::FLOW_CONTROL_MASK) as u8) };
@@ -201,14 +186,14 @@ impl InstructionInfoFactory {
 		info.rflags_info = ((flags1 >> InfoFlags1::RFLAGS_INFO_SHIFT) & InfoFlags1::RFLAGS_INFO_MASK) as usize;
 
 		const FLAGS_SHIFT: u32 = 12;
-		const_assert_eq!(IIFlags::SAVE_RESTORE as u32, InfoFlags2::SAVE_RESTORE >> FLAGS_SHIFT);
-		const_assert_eq!(IIFlags::STACK_INSTRUCTION as u32, InfoFlags2::STACK_INSTRUCTION >> FLAGS_SHIFT);
-		const_assert_eq!(IIFlags::PRIVILEGED as u32, InfoFlags2::PRIVILEGED >> FLAGS_SHIFT);
+		const_assert_eq!(InfoFlags2::SAVE_RESTORE >> FLAGS_SHIFT, IIFlags::SAVE_RESTORE as u32);
+		const_assert_eq!(InfoFlags2::STACK_INSTRUCTION >> FLAGS_SHIFT, IIFlags::STACK_INSTRUCTION as u32);
+		const_assert_eq!(InfoFlags2::PRIVILEGED >> FLAGS_SHIFT, IIFlags::PRIVILEGED as u32);
 		info.flags = (flags2 >> FLAGS_SHIFT) as u8;
 
 		let code_size = instruction.code_size();
-		const_assert_eq!(Flags::NO_MEMORY_USAGE, InstructionInfoOptions::NO_MEMORY_USAGE);
-		const_assert_eq!(Flags::NO_REGISTER_USAGE, InstructionInfoOptions::NO_REGISTER_USAGE);
+		const_assert_eq!(InstructionInfoOptions::NO_MEMORY_USAGE, Flags::NO_MEMORY_USAGE);
+		const_assert_eq!(InstructionInfoOptions::NO_REGISTER_USAGE, Flags::NO_REGISTER_USAGE);
 		let mut flags = options & (Flags::NO_MEMORY_USAGE | Flags::NO_REGISTER_USAGE);
 		if code_size == CodeSize::Code64 || code_size == CodeSize::Unknown {
 			flags |= Flags::IS_64BIT;
@@ -287,7 +272,7 @@ impl InstructionInfoFactory {
 			OpInfo0::NoMemAccess => OpAccess::NoMemAccess,
 
 			OpInfo0::WriteMem_ReadWriteReg => {
-				if super::super::instruction_internal::internal_op0_is_not_reg_or_op1_is_not_reg(instruction) {
+				if instruction_internal::internal_op0_is_not_reg_or_op1_is_not_reg(instruction) {
 					OpAccess::Write
 				} else {
 					OpAccess::ReadWrite
@@ -298,23 +283,25 @@ impl InstructionInfoFactory {
 		debug_assert!(instruction.op_count() as usize <= IcedConstants::MAX_OP_COUNT);
 		info.op_accesses[0] = op0_access;
 		let op1_info = ((flags1 >> InfoFlags1::OP_INFO1_SHIFT) & InfoFlags1::OP_INFO1_MASK) as usize;
+		// SAFETY: all generated indexes are valid
 		info.op_accesses[1] = unsafe { *OP_ACCESS_1.get_unchecked(op1_info) };
 		info.op_accesses[2] = unsafe { *OP_ACCESS_2.get_unchecked(((flags1 >> InfoFlags1::OP_INFO2_SHIFT) & InfoFlags1::OP_INFO2_MASK) as usize) };
 		info.op_accesses[3] = if (flags1 & ((InfoFlags1::OP_INFO3_MASK) << InfoFlags1::OP_INFO3_SHIFT)) != 0 {
-			const_assert_eq!(2, InstrInfoConstants::OP_INFO3_COUNT);
+			const_assert_eq!(InstrInfoConstants::OP_INFO3_COUNT, 2);
 			OpAccess::Read
 		} else {
 			OpAccess::None
 		};
 		info.op_accesses[4] = if (flags1 & ((InfoFlags1::OP_INFO4_MASK) << InfoFlags1::OP_INFO4_SHIFT)) != 0 {
-			const_assert_eq!(2, InstrInfoConstants::OP_INFO4_COUNT);
+			const_assert_eq!(InstrInfoConstants::OP_INFO4_COUNT, 2);
 			OpAccess::Read
 		} else {
 			OpAccess::None
 		};
-		const_assert_eq!(5, IcedConstants::MAX_OP_COUNT);
+		const_assert_eq!(IcedConstants::MAX_OP_COUNT, 5);
 
 		for i in 0..(instruction.op_count() as usize) {
+			// SAFETY: valid index since i < instruction.op_count() (<= MAX_OP_COUNT) and op_accesses.len() (== MAX_OP_COUNT)
 			let mut access = unsafe { *info.op_accesses.get_unchecked(i) };
 			if access == OpAccess::None {
 				continue;
@@ -324,6 +311,7 @@ impl InstructionInfoFactory {
 				OpKind::Register => {
 					if access == OpAccess::NoMemAccess {
 						access = OpAccess::Read;
+						// SAFETY: valid index since i < instruction.op_count() (<= MAX_OP_COUNT) and op_accesses.len() (== MAX_OP_COUNT)
 						unsafe { *info.op_accesses.get_unchecked_mut(i) = OpAccess::Read };
 					}
 					if (flags & Flags::NO_REGISTER_USAGE) == 0 {
@@ -331,6 +319,7 @@ impl InstructionInfoFactory {
 							let reg = instruction.op0_register();
 							Self::add_register(flags, info, reg, access);
 							if Register::K0 <= reg && reg <= Register::K7 {
+								// SAFETY: transmute() creates a new valid Kx reg (K0..K7), K0-K7 are consecutive enum values
 								Self::add_register(
 									flags,
 									info,
@@ -341,6 +330,8 @@ impl InstructionInfoFactory {
 						} else if i == 1 && op1_info == OpInfo1::ReadP3 as usize {
 							let reg = instruction.op1_register();
 							if Register::XMM0 <= reg && reg <= IcedConstants::VMM_LAST {
+								// SAFETY: creates 4 consecutive vec regs with first one a multiple of 4,
+								// eg. XMM5 -> XMM4-XMM7. All vec regs enum values are consecutive from XMM0 - VMM_LAST (ZMM31).
 								let reg_base =
 									(IcedConstants::VMM_FIRST as u32).wrapping_add((reg as u32).wrapping_sub(IcedConstants::VMM_FIRST as u32) & !3);
 								for j in 0..4 {
@@ -353,29 +344,12 @@ impl InstructionInfoFactory {
 					}
 				}
 
-				OpKind::Memory64 => {
-					if (flags & Flags::NO_MEMORY_USAGE) == 0 {
-						Self::add_memory(
-							info,
-							instruction.memory_segment(),
-							Register::None,
-							Register::None,
-							1,
-							instruction.memory_address64(),
-							instruction.memory_size(),
-							access,
-							CodeSize::Code64,
-							0,
-						);
-					}
-					if (flags & Flags::NO_REGISTER_USAGE) == 0 {
-						Self::add_memory_segment_register(flags, info, instruction.memory_segment(), OpAccess::Read);
-					}
-				}
+				#[allow(deprecated)]
+				OpKind::Memory64 => {}
 
 				OpKind::Memory => {
-					const_assert_eq!(1 << 31, InfoFlags1::IGNORES_SEGMENT);
-					const_assert_eq!(0, Register::None as u32);
+					const_assert_eq!(InfoFlags1::IGNORES_SEGMENT, 1 << 31);
+					const_assert_eq!(Register::None as u32, 0);
 					let segment_register = unsafe { mem::transmute((instruction.memory_segment() as u32 & !((flags1 as i32 >> 31) as u32)) as u8) };
 					let base_register = instruction.memory_base();
 					if base_register == Register::RIP {
@@ -386,7 +360,7 @@ impl InstructionInfoFactory {
 								Register::None,
 								Register::None,
 								1,
-								instruction.next_ip().wrapping_add(instruction.memory_displacement64()),
+								instruction.memory_displacement64(),
 								instruction.memory_size(),
 								access,
 								CodeSize::Code64,
@@ -404,7 +378,7 @@ impl InstructionInfoFactory {
 								Register::None,
 								Register::None,
 								1,
-								instruction.next_ip32().wrapping_add(instruction.memory_displacement()) as u64,
+								instruction.memory_displacement32() as u64,
 								instruction.memory_size(),
 								access,
 								CodeSize::Code32,
@@ -425,7 +399,7 @@ impl InstructionInfoFactory {
 							(instruction.memory_index(), instruction.memory_index_scale())
 						};
 						if (flags & Flags::NO_MEMORY_USAGE) == 0 {
-							let addr_size_bytes = super::super::instruction_internal::get_address_size_in_bytes(
+							let addr_size_bytes = instruction_internal::get_address_size_in_bytes(
 								base_register,
 								index_register,
 								instruction.memory_displ_size(),
@@ -451,7 +425,7 @@ impl InstructionInfoFactory {
 								0
 							};
 							let displ =
-								if addr_size_bytes == 8 { instruction.memory_displacement64() } else { instruction.memory_displacement() as u64 };
+								if addr_size_bytes == 8 { instruction.memory_displacement64() } else { instruction.memory_displacement32() as u64 };
 							Self::add_memory(
 								info,
 								segment_register,
@@ -506,10 +480,10 @@ impl InstructionInfoFactory {
 		}
 	}
 
-	#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
-	#[cfg_attr(feature = "cargo-clippy", allow(clippy::unreadable_literal))]
+	#[rustfmt::skip]
+	#[allow(clippy::unreadable_literal)]
 	fn add_implied_accesses(implied_access: ImpliedAccess, instruction: &Instruction, info: &mut InstructionInfo, flags: u32) {
-		debug_assert_ne!(ImpliedAccess::None, implied_access);
+		debug_assert_ne!(implied_access, ImpliedAccess::None);
 		match implied_access {
 			// GENERATOR-BEGIN: ImpliedAccessHandler
 			// ⚠️This was generated by GENERATOR!🦹‍♂️
@@ -1857,11 +1831,31 @@ impl InstructionInfoFactory {
 					Self::add_register(flags, info, Register::RCX, OpAccess::ReadCondWrite);
 				}
 			}
+			ImpliedAccess::t_gpr16_Wgs => {
+				Self::command_last_gpr(instruction, info, flags, Register::AX);
+				if (flags & Flags::NO_REGISTER_USAGE) == 0 {
+					Self::add_register(flags, info, Register::GS, OpAccess::Write);
+				}
+			}
+			ImpliedAccess::t_Wrsp_Wcs_Wss_pop5x8 => {
+				if (flags & Flags::NO_REGISTER_USAGE) == 0 {
+					Self::add_register(flags, info, Register::RSP, OpAccess::Write);
+					Self::add_register(flags, info, Register::CS, OpAccess::Write);
+					Self::add_register(flags, info, Register::SS, OpAccess::Write);
+				}
+				Self::command_pop(instruction, info, flags, 5, 8);
+			}
+			ImpliedAccess::t_Wrsp_pop5x8 => {
+				if (flags & Flags::NO_REGISTER_USAGE) == 0 {
+					Self::add_register(flags, info, Register::RSP, OpAccess::Write);
+				}
+				Self::command_pop(instruction, info, flags, 5, 8);
+			}
 			// GENERATOR-END: ImpliedAccessHandler
 		}
 	}
 
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	fn get_a_rdi(instruction: &Instruction) -> Register {
 		match instruction.op0_kind() {
 			OpKind::MemorySegDI => Register::DI,
@@ -1870,7 +1864,7 @@ impl InstructionInfoFactory {
 		}
 	}
 
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	fn get_seg_default_ds(instruction: &Instruction) -> Register {
 		let seg = instruction.segment_prefix();
 		if seg == Register::None {
@@ -1895,7 +1889,7 @@ impl InstructionInfoFactory {
 			} else if op_size == 4 {
 				MemorySize::UInt32
 			} else {
-				debug_assert_eq!(2, op_size);
+				debug_assert_eq!(op_size, 2);
 				MemorySize::UInt16
 			};
 			let mut offset = (op_size as u64).wrapping_neg();
@@ -1921,7 +1915,7 @@ impl InstructionInfoFactory {
 			} else if op_size == 4 {
 				MemorySize::UInt32
 			} else {
-				debug_assert_eq!(2, op_size);
+				debug_assert_eq!(op_size, 2);
 				MemorySize::UInt16
 			};
 			let mut offset = 0;
@@ -1946,11 +1940,11 @@ impl InstructionInfoFactory {
 			} else if op_size == 4 {
 				MemorySize::UInt32
 			} else {
-				debug_assert_eq!(2, op_size);
+				debug_assert_eq!(op_size, 2);
 				MemorySize::UInt16
 			};
 			if instruction.op0_kind() == OpKind::Memory {
-				debug_assert_eq!(1, info.used_memory_locations.len());
+				debug_assert_eq!(info.used_memory_locations.len(), 1);
 				if instruction.memory_base() == Register::RSP || instruction.memory_base() == Register::ESP {
 					let mem = info.used_memory_locations[0];
 					let mut displ = mem.displacement().wrapping_add(op_size as u64);
@@ -1975,7 +1969,7 @@ impl InstructionInfoFactory {
 		let (displ, memory_size, base_register) = if op_size == 4 {
 			(-4i64, MemorySize::UInt32, Register::EAX)
 		} else {
-			debug_assert_eq!(2, op_size);
+			debug_assert_eq!(op_size, 2);
 			(-2i64, MemorySize::UInt16, Register::AX)
 		};
 		for i in 0..8 {
@@ -2010,7 +2004,7 @@ impl InstructionInfoFactory {
 		let (memory_size, base_register) = if op_size == 4 {
 			(MemorySize::UInt32, Register::EAX)
 		} else {
-			debug_assert_eq!(2, op_size);
+			debug_assert_eq!(op_size, 2);
 			(MemorySize::UInt16, Register::AX)
 		};
 		for i in 0..8 {
@@ -2048,14 +2042,14 @@ impl InstructionInfoFactory {
 			OpKind::MemoryESEDI => (CodeSize::Code32, Register::EDI, Register::ECX),
 			_ => (CodeSize::Code64, Register::RDI, Register::RCX),
 		};
-		if super::super::instruction_internal::internal_has_repe_or_repne_prefix(instruction) {
+		if instruction_internal::internal_has_repe_or_repne_prefix(instruction) {
 			info.op_accesses[0] = OpAccess::CondWrite;
 			info.op_accesses[1] = OpAccess::CondRead;
 			if (flags & Flags::NO_MEMORY_USAGE) == 0 {
 				Self::add_memory(info, Register::ES, rdi, Register::None, 1, 0, MemorySize::Unknown, OpAccess::CondWrite, addr_size, 0);
 			}
 			if (flags & Flags::NO_REGISTER_USAGE) == 0 {
-				debug_assert_eq!(1, info.used_registers.len());
+				debug_assert_eq!(info.used_registers.len(), 1);
 				info.used_registers[0] = UsedRegister { register: Register::DX, access: OpAccess::CondRead };
 				Self::add_register(flags, info, rcx, OpAccess::ReadCondWrite);
 				if (flags & Flags::IS_64BIT) == 0 {
@@ -2083,7 +2077,7 @@ impl InstructionInfoFactory {
 			OpKind::MemorySegESI => (CodeSize::Code32, Register::ESI, Register::ECX),
 			_ => (CodeSize::Code64, Register::RSI, Register::RCX),
 		};
-		if super::super::instruction_internal::internal_has_repe_or_repne_prefix(instruction) {
+		if instruction_internal::internal_has_repe_or_repne_prefix(instruction) {
 			info.op_accesses[0] = OpAccess::CondRead;
 			info.op_accesses[1] = OpAccess::CondRead;
 			if (flags & Flags::NO_MEMORY_USAGE) == 0 {
@@ -2101,7 +2095,7 @@ impl InstructionInfoFactory {
 				);
 			}
 			if (flags & Flags::NO_REGISTER_USAGE) == 0 {
-				debug_assert_eq!(1, info.used_registers.len());
+				debug_assert_eq!(info.used_registers.len(), 1);
 				info.used_registers[0] = UsedRegister { register: Register::DX, access: OpAccess::CondRead };
 				Self::add_register(flags, info, rcx, OpAccess::ReadCondWrite);
 				Self::add_memory_segment_register(flags, info, instruction.memory_segment(), OpAccess::CondRead);
@@ -2136,7 +2130,7 @@ impl InstructionInfoFactory {
 			OpKind::MemoryESEDI => (CodeSize::Code32, Register::ESI, Register::EDI, Register::ECX),
 			_ => (CodeSize::Code64, Register::RSI, Register::RDI, Register::RCX),
 		};
-		if super::super::instruction_internal::internal_has_repe_or_repne_prefix(instruction) {
+		if instruction_internal::internal_has_repe_or_repne_prefix(instruction) {
 			info.op_accesses[0] = OpAccess::CondWrite;
 			info.op_accesses[1] = OpAccess::CondRead;
 			if (flags & Flags::NO_MEMORY_USAGE) == 0 {
@@ -2200,7 +2194,7 @@ impl InstructionInfoFactory {
 			OpKind::MemorySegESI => (CodeSize::Code32, Register::ESI, Register::EDI, Register::ECX),
 			_ => (CodeSize::Code64, Register::RSI, Register::RDI, Register::RCX),
 		};
-		if super::super::instruction_internal::internal_has_repe_or_repne_prefix(instruction) {
+		if instruction_internal::internal_has_repe_or_repne_prefix(instruction) {
 			info.op_accesses[0] = OpAccess::CondRead;
 			info.op_accesses[1] = OpAccess::CondRead;
 			if (flags & Flags::NO_MEMORY_USAGE) == 0 {
@@ -2262,14 +2256,14 @@ impl InstructionInfoFactory {
 			OpKind::MemoryESEDI => (CodeSize::Code32, Register::EDI, Register::ECX),
 			_ => (CodeSize::Code64, Register::RDI, Register::RCX),
 		};
-		if super::super::instruction_internal::internal_has_repe_or_repne_prefix(instruction) {
+		if instruction_internal::internal_has_repe_or_repne_prefix(instruction) {
 			info.op_accesses[0] = OpAccess::CondWrite;
 			info.op_accesses[1] = OpAccess::CondRead;
 			if (flags & Flags::NO_MEMORY_USAGE) == 0 {
 				Self::add_memory(info, Register::ES, rdi, Register::None, 1, 0, MemorySize::Unknown, OpAccess::CondWrite, addr_size, 0);
 			}
 			if (flags & Flags::NO_REGISTER_USAGE) == 0 {
-				debug_assert_eq!(1, info.used_registers.len());
+				debug_assert_eq!(info.used_registers.len(), 1);
 				info.used_registers[0] = UsedRegister { register: info.used_registers[0].register(), access: OpAccess::CondRead };
 				Self::add_register(flags, info, rcx, OpAccess::ReadCondWrite);
 				if (flags & Flags::IS_64BIT) == 0 {
@@ -2297,7 +2291,7 @@ impl InstructionInfoFactory {
 			OpKind::MemorySegESI => (CodeSize::Code32, Register::ESI, Register::ECX),
 			_ => (CodeSize::Code64, Register::RSI, Register::RCX),
 		};
-		if super::super::instruction_internal::internal_has_repe_or_repne_prefix(instruction) {
+		if instruction_internal::internal_has_repe_or_repne_prefix(instruction) {
 			info.op_accesses[0] = OpAccess::CondWrite;
 			info.op_accesses[1] = OpAccess::CondRead;
 			if (flags & Flags::NO_MEMORY_USAGE) == 0 {
@@ -2315,7 +2309,7 @@ impl InstructionInfoFactory {
 				);
 			}
 			if (flags & Flags::NO_REGISTER_USAGE) == 0 {
-				debug_assert_eq!(1, info.used_registers.len());
+				debug_assert_eq!(info.used_registers.len(), 1);
 				info.used_registers[0] = UsedRegister { register: info.used_registers[0].register(), access: OpAccess::CondWrite };
 				Self::add_register(flags, info, rcx, OpAccess::ReadCondWrite);
 				Self::add_memory_segment_register(flags, info, instruction.memory_segment(), OpAccess::CondRead);
@@ -2350,14 +2344,14 @@ impl InstructionInfoFactory {
 			OpKind::MemoryESEDI => (CodeSize::Code32, Register::EDI, Register::ECX),
 			_ => (CodeSize::Code64, Register::RDI, Register::RCX),
 		};
-		if super::super::instruction_internal::internal_has_repe_or_repne_prefix(instruction) {
+		if instruction_internal::internal_has_repe_or_repne_prefix(instruction) {
 			info.op_accesses[0] = OpAccess::CondRead;
 			info.op_accesses[1] = OpAccess::CondRead;
 			if (flags & Flags::NO_MEMORY_USAGE) == 0 {
 				Self::add_memory(info, Register::ES, rdi, Register::None, 1, 0, MemorySize::Unknown, OpAccess::CondRead, addr_size, 0);
 			}
 			if (flags & Flags::NO_REGISTER_USAGE) == 0 {
-				debug_assert_eq!(1, info.used_registers.len());
+				debug_assert_eq!(info.used_registers.len(), 1);
 				info.used_registers[0] = UsedRegister { register: info.used_registers[0].register(), access: OpAccess::CondRead };
 				Self::add_register(flags, info, rcx, OpAccess::ReadCondWrite);
 				if (flags & Flags::IS_64BIT) == 0 {
@@ -2385,12 +2379,12 @@ impl InstructionInfoFactory {
 			4 => (CodeSize::Code32, Register::EDI, Register::ECX),
 			_ => (CodeSize::Code64, Register::RDI, Register::RCX),
 		};
-		if super::super::instruction_internal::internal_has_repe_or_repne_prefix(instruction) {
+		if instruction_internal::internal_has_repe_or_repne_prefix(instruction) {
 			if (flags & Flags::NO_MEMORY_USAGE) == 0 {
 				Self::add_memory(info, Register::ES, rdi, Register::None, 1, 0, MemorySize::Unknown, OpAccess::CondWrite, addr_size, 0);
 			}
 			if (flags & Flags::NO_REGISTER_USAGE) == 0 {
-				debug_assert_eq!(0, info.used_registers.len());
+				debug_assert_eq!(info.used_registers.len(), 0);
 				Self::add_register(flags, info, rcx, OpAccess::ReadCondWrite);
 				if (flags & Flags::IS_64BIT) == 0 {
 					Self::add_register(flags, info, Register::ES, OpAccess::CondRead);
@@ -2429,7 +2423,7 @@ impl InstructionInfoFactory {
 		} else if op_size == 4 {
 			(MemorySize::UInt32, Register::ESP)
 		} else {
-			debug_assert_eq!(2, op_size);
+			debug_assert_eq!(op_size, 2);
 			(MemorySize::UInt16, Register::SP)
 		};
 
@@ -2527,7 +2521,7 @@ impl InstructionInfoFactory {
 				}
 			}
 		} else {
-			debug_assert_eq!(2, op_size);
+			debug_assert_eq!(op_size, 2);
 			if (flags & Flags::NO_MEMORY_USAGE) == 0 {
 				Self::add_memory(
 					info,
@@ -2570,7 +2564,7 @@ impl InstructionInfoFactory {
 				} else if info.rflags_info == RflagsInfo::R_c_W_c_U_o as usize {
 					info.rflags_info = RflagsInfo::R_c_W_co as usize;
 				} else {
-					debug_assert_eq!(RflagsInfo::W_cpsz_U_ao as usize, info.rflags_info);
+					debug_assert_eq!(info.rflags_info, RflagsInfo::W_cpsz_U_ao as usize);
 					info.rflags_info = RflagsInfo::W_copsz_U_a as usize;
 				}
 			}
@@ -2585,7 +2579,7 @@ impl InstructionInfoFactory {
 		{
 			info.op_accesses[0] = OpAccess::Write;
 			info.op_accesses[1] = OpAccess::None;
-			if instruction.code().mnemonic() == Mnemonic::Xor {
+			if instruction.mnemonic() == Mnemonic::Xor {
 				info.rflags_info = RflagsInfo::C_cos_S_pz_U_a as usize;
 			} else {
 				info.rflags_info = RflagsInfo::C_acos_S_pz as usize;
@@ -2616,8 +2610,8 @@ impl InstructionInfoFactory {
 			info.op_accesses[2] = OpAccess::None;
 			if (flags & Flags::NO_REGISTER_USAGE) == 0 {
 				debug_assert!(info.used_registers.len() == 3 || info.used_registers.len() == 4);
-				debug_assert_eq!(instruction.op1_register(), info.used_registers[info.used_registers.len() - 2].register());
-				debug_assert_eq!(instruction.op2_register(), info.used_registers[info.used_registers.len() - 1].register());
+				debug_assert_eq!(info.used_registers[info.used_registers.len() - 2].register(), instruction.op1_register());
+				debug_assert_eq!(info.used_registers[info.used_registers.len() - 1].register(), instruction.op2_register());
 				let new_size_tmp = info.used_registers.len() - 2;
 				info.used_registers.truncate(new_size_tmp);
 			}
@@ -2653,7 +2647,7 @@ impl InstructionInfoFactory {
 					instruction.try_op_register(op_index).unwrap_or_default(),
 					info.used_registers[info.used_registers.len() - N].register()
 				);
-				debug_assert_eq!(OpAccess::Read, info.used_registers[info.used_registers.len() - N].access());
+				debug_assert_eq!(info.used_registers[info.used_registers.len() - N].access(), OpAccess::Read);
 				let mut index = Self::try_get_gpr_16_32_64_index(instruction.try_op_register(op_index).unwrap_or_default());
 				if index >= 4 && base_reg == Register::AL {
 					index += 4; // Skip AH, CH, DH, BH
@@ -2672,7 +2666,7 @@ impl InstructionInfoFactory {
 	fn command_lea(instruction: &Instruction, info: &mut InstructionInfo, flags: u32) {
 		if (flags & Flags::NO_REGISTER_USAGE) == 0 {
 			debug_assert!(!info.used_registers.is_empty());
-			debug_assert_eq!(OpKind::Register, instruction.op0_kind());
+			debug_assert_eq!(instruction.op0_kind(), OpKind::Register);
 			let reg = instruction.op0_register();
 			for reg_info in info.used_registers.iter_mut().skip(1) {
 				if reg >= Register::EAX && reg <= Register::R15D {
@@ -2709,7 +2703,7 @@ impl InstructionInfoFactory {
 		}
 	}
 
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	fn try_get_gpr_16_32_64_index(register: Register) -> i32 {
 		let mut index;
 		let reg = register as u32;
@@ -2729,7 +2723,7 @@ impl InstructionInfoFactory {
 		}
 	}
 
-	#[cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
+	#[allow(clippy::too_many_arguments)]
 	#[inline(always)]
 	fn add_memory(
 		info: &mut InstructionInfo, segment_register: Register, base_register: Register, index_register: Register, scale: u32, displ: u64,
@@ -2774,11 +2768,11 @@ impl InstructionInfoFactory {
 
 		let mut write_reg = reg;
 		if (flags & (Flags::IS_64BIT | Flags::ZERO_EXT_VEC_REGS)) != 0 {
-			const_assert_eq!(OpAccess::CondWrite as u32, OpAccess::Write as u32 + 1);
-			const_assert_eq!(OpAccess::ReadWrite as u32, OpAccess::Write as u32 + 2);
-			const_assert_eq!(OpAccess::ReadCondWrite as u32, OpAccess::Write as u32 + 3);
+			const_assert_eq!(OpAccess::Write as u32 + 1, OpAccess::CondWrite as u32);
+			const_assert_eq!(OpAccess::Write as u32 + 2, OpAccess::ReadWrite as u32);
+			const_assert_eq!(OpAccess::Write as u32 + 3, OpAccess::ReadCondWrite as u32);
 			if (access as u32).wrapping_sub(OpAccess::Write as u32) <= 3 {
-				const_assert_eq!(Register::ZMM0 as u32, IcedConstants::VMM_FIRST as u32);
+				const_assert_eq!(IcedConstants::VMM_FIRST as u32, Register::ZMM0 as u32);
 				let mut index = (reg as u32).wrapping_sub(Register::EAX as u32);
 				if (flags & Flags::IS_64BIT) != 0 && index <= (Register::R15D as u32 - Register::EAX as u32) {
 					write_reg = unsafe { mem::transmute((Register::RAX as u32).wrapping_add(index) as u8) };

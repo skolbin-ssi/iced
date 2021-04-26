@@ -1,35 +1,12 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::instr::*;
-use super::*;
-#[cfg(any(has_alloc, not(feature = "std")))]
+use crate::block_enc::instr::*;
+use crate::block_enc::*;
+use crate::iced_error::IcedError;
 use alloc::rc::Rc;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::cell::RefCell;
-#[cfg(all(not(has_alloc), feature = "std"))]
-use std::rc::Rc;
 
 pub(super) struct Block {
 	pub(super) encoder: Encoder,
@@ -43,9 +20,9 @@ pub(super) struct Block {
 }
 
 impl Block {
-	pub(super) fn new(block_encoder: &BlockEncoder, rip: u64, reloc_infos: Option<Vec<RelocInfo>>) -> Self {
-		Self {
-			encoder: Encoder::new(block_encoder.bitness()),
+	pub(super) fn new(block_encoder: &BlockEncoder, rip: u64, reloc_infos: Option<Vec<RelocInfo>>) -> Result<Self, IcedError> {
+		Ok(Self {
+			encoder: Encoder::try_new(block_encoder.bitness())?,
 			rip,
 			reloc_infos,
 			data_vec: Vec::new(),
@@ -53,7 +30,7 @@ impl Block {
 			valid_data: Vec::new(),
 			valid_data_address: 0,
 			valid_data_address_aligned: 0,
-		}
+		})
 	}
 
 	pub(super) fn alloc_pointer_location(&mut self) -> Rc<RefCell<BlockData>> {
@@ -62,7 +39,7 @@ impl Block {
 		data
 	}
 
-	pub(super) fn initialize_data(&mut self, instructions: &[Rc<RefCell<Instr>>]) {
+	pub(super) fn initialize_data(&mut self, instructions: &[Rc<RefCell<dyn Instr>>]) {
 		let base_addr = match instructions.last() {
 			Some(instr) => instr.borrow().ip().wrapping_add(instr.borrow().size() as u64),
 			None => self.rip,
@@ -82,9 +59,9 @@ impl Block {
 		}
 	}
 
-	pub(super) fn write_data(&mut self) {
+	pub(super) fn write_data(&mut self) -> Result<(), IcedError> {
 		if self.valid_data.is_empty() {
-			return;
+			return Ok(());
 		}
 		for _ in 0..self.valid_data_address_aligned - self.valid_data_address {
 			self.encoder.write_byte_internal(0xCC);
@@ -94,7 +71,7 @@ impl Block {
 				for data in &self.valid_data {
 					let data = data.borrow();
 					if let Some(ref mut reloc_infos) = self.reloc_infos {
-						reloc_infos.push(RelocInfo::new(RelocKind::Offset64, data.address()));
+						reloc_infos.push(RelocInfo::new(RelocKind::Offset64, data.address()?));
 					}
 					let d64 = data.data;
 					let mut d = d64 as u32;
@@ -112,6 +89,8 @@ impl Block {
 
 			_ => unreachable!(),
 		}
+
+		Ok(())
 	}
 
 	pub(super) fn buffer_pos(&self) -> usize {
@@ -154,8 +133,11 @@ pub(super) struct BlockData {
 }
 
 impl BlockData {
-	pub(super) fn address(&self) -> u64 {
-		assert!(self.is_valid && self.address_initd);
-		self.address
+	pub(super) fn address(&self) -> Result<u64, IcedError> {
+		if self.is_valid && self.address_initd {
+			Ok(self.address)
+		} else {
+			Err(IcedError::new("Internal error"))
+		}
 	}
 }

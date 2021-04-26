@@ -1,29 +1,9 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::super::*;
-#[cfg(not(feature = "std"))]
+use crate::encoder::*;
 use alloc::vec::Vec;
+use lazy_static::lazy_static;
 
 pub(crate) fn get_tests() -> Vec<(u32, &'static str, Instruction)> {
 	let mut v = Vec::with_capacity(INFOS16.len() + INFOS32.len() + INFOS64.len());
@@ -66,7 +46,7 @@ fn c64(mut instruction: Instruction) -> Instruction {
 
 lazy_static! {
 	static ref INFOS16: Vec<(&'static str, Instruction)> = {
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+		#[rustfmt::skip]
 		let array = [
 			("0F", c16(Instruction::with_reg(Code::Popw_CS, Register::CS))),
 			("9B D9 30", c16(Instruction::with_mem(Code::Fstenv_m14byte, MemoryOperand::new(Register::BX, Register::SI, 1, 0, 0, false, Register::None)))),
@@ -93,7 +73,7 @@ lazy_static! {
 		#[cfg(not(feature = "db"))]
 		let array_db: [(&'static str, Instruction); 0] = [];
 		#[cfg(feature = "db")]
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+		#[rustfmt::skip]
 		let array_db = [
 			("77", c16(Instruction::try_with_declare_byte_1(0x77).unwrap())),
 			("77 A9", c16(Instruction::try_with_declare_byte_2(0x77, 0xA9).unwrap())),
@@ -132,7 +112,7 @@ lazy_static! {
 
 lazy_static! {
 	static ref INFOS32: Vec<(&'static str, Instruction)> = {
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+		#[rustfmt::skip]
 		let array = [
 			("66 0F", c32(Instruction::with_reg(Code::Popw_CS, Register::CS))),
 			("9B 66 D9 30", c32(Instruction::with_mem(Code::Fstenv_m14byte, MemoryOperand::new(Register::EAX, Register::None, 1, 0, 0, false, Register::None)))),
@@ -159,7 +139,7 @@ lazy_static! {
 		#[cfg(not(feature = "db"))]
 		let array_db: [(&'static str, Instruction); 0] = [];
 		#[cfg(feature = "db")]
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+		#[rustfmt::skip]
 		let array_db = [
 			("77", c32(Instruction::try_with_declare_byte_1(0x77).unwrap())),
 			("77 A9", c32(Instruction::try_with_declare_byte_2(0x77, 0xA9).unwrap())),
@@ -198,7 +178,7 @@ lazy_static! {
 
 lazy_static! {
 	static ref INFOS64: Vec<(&'static str, Instruction)> = {
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+		#[rustfmt::skip]
 		let array = [
 			("9B 66 D9 30", c64(Instruction::with_mem(Code::Fstenv_m14byte, MemoryOperand::new(Register::RAX, Register::None, 1, 0, 0, false, Register::None)))),
 			("9B 64 66 D9 30", c64(Instruction::with_mem(Code::Fstenv_m14byte, MemoryOperand::new(Register::RAX, Register::None, 1, 0, 0, false, Register::FS)))),
@@ -222,7 +202,7 @@ lazy_static! {
 		#[cfg(not(feature = "db"))]
 		let array_db: [(&'static str, Instruction); 0] = [];
 		#[cfg(feature = "db")]
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+		#[rustfmt::skip]
 		let array_db = [
 			("77", c64(Instruction::try_with_declare_byte_1(0x77).unwrap())),
 			("77 A9", c64(Instruction::try_with_declare_byte_2(0x77, 0xA9).unwrap())),

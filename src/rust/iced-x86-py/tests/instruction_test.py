@@ -1,25 +1,5 @@
-#
-# Copyright (C) 2018-2019 de4dot@gmail.com
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2018-present iced project and contributors
 
 import copy
 import pytest
@@ -33,10 +13,8 @@ def test_ctor():
 	assert instr.ip == 0
 
 def test_eq_ne_hash():
-	decodera = Decoder(64, b"\xC4\xE3\x49\x48\x10\x41" b"\xC4\xE3\x49\x48\x10\x42")
-	decoderb = Decoder(64, b"\xC4\xE3\x49\x48\x10\x41")
-	decodera.ip = 0x1234_5678_9ABC_DEF1
-	decoderb.ip = 0xABCD_EF01_1234_5678
+	decodera = Decoder(64, b"\xC4\xE3\x49\x48\x10\x41" b"\xC4\xE3\x49\x48\x10\x42", ip=0x1234_5678_9ABC_DEF1)
+	decoderb = Decoder(64, b"\xC4\xE3\x49\x48\x10\x41", ip=0xABCD_EF01_1234_5678)
 	instr1 = decodera.decode()
 	instr2 = decodera.decode()
 	instr3 = decoderb.decode()
@@ -74,11 +52,10 @@ def test_invalid():
 @pytest.mark.parametrize("copy_instr", [
 	lambda instr: copy.copy(instr),
 	lambda instr: copy.deepcopy(instr),
-	lambda instr: instr.clone(),
+	lambda instr: instr.copy(),
 ])
-def test_copy_deepcopy_clone(copy_instr):
-	decoder = Decoder(64, b"\xC4\xE3\x49\x48\x10\x41")
-	decoder.ip = 0x1234_5678_9ABC_DEF1
+def test_copy_deepcopy_mcopy(copy_instr):
+	decoder = Decoder(64, b"\xC4\xE3\x49\x48\x10\x41", ip=0x1234_5678_9ABC_DEF1)
 	instr = decoder.decode()
 	instr2 = copy_instr(instr)
 	assert instr is not instr2
@@ -98,8 +75,7 @@ def test_copy_deepcopy_clone(copy_instr):
 	assert hash(instr) == hash(instr2)
 
 def test_some_props1():
-	decoder = Decoder(64, b"\xC4\xE3\x49\x48\x10\x41")
-	decoder.ip = 0x1234_5678_9ABC_DEF1
+	decoder = Decoder(64, b"\xC4\xE3\x49\x48\x10\x41", ip=0x1234_5678_9ABC_DEF1)
 	instr = decoder.decode()
 
 	assert instr.len == 6
@@ -179,8 +155,7 @@ def test_some_props1():
 	assert len(instr) == 1
 
 def test_some_props2():
-	decoder = Decoder(64, b"\x00\xCE")
-	decoder.ip = 0x1234_5678_9ABC_DEF1
+	decoder = Decoder(64, b"\x00\xCE", ip=0x1234_5678_9ABC_DEF1)
 	instr = decoder.decode()
 
 	assert not instr.has_xacquire_prefix
@@ -247,8 +222,7 @@ def test_code_size(bitness, code_size, data):
 		assert instr.code_size == new_size
 
 def test_op_kind():
-	decoder = Decoder(64, b"\xC4\xE3\x49\x48\x10\x41")
-	decoder.ip = 0x1234_5678_9ABC_DEF1
+	decoder = Decoder(64, b"\xC4\xE3\x49\x48\x10\x41", ip=0x1234_5678_9ABC_DEF1)
 	instr = decoder.decode()
 
 	assert instr.op0_kind == OpKind.REGISTER
@@ -302,8 +276,7 @@ def test_op_kind():
 	assert instr.op4_kind == instr.op_kind(4)
 
 def test_op_register():
-	decoder = Decoder(64, b"\xC4\xE3\x49\x48\xD3\x40")
-	decoder.ip = 0x1234_5678_9ABC_DEF1
+	decoder = Decoder(64, b"\xC4\xE3\x49\x48\xD3\x40", ip=0x1234_5678_9ABC_DEF1)
 	instr = decoder.decode()
 	assert instr.op0_kind == OpKind.REGISTER
 	assert instr.op1_kind == OpKind.REGISTER
@@ -364,8 +337,7 @@ def test_op_register():
 	assert instr.op_register(4) == Register.NONE
 
 def test_mem():
-	decoder = Decoder(64, b"\xC4\xE3\x49\x48\x10\x41")
-	decoder.ip = 0x1234_5678_9ABC_DEF1
+	decoder = Decoder(64, b"\xC4\xE3\x49\x48\x10\x41", ip=0x1234_5678_9ABC_DEF1)
 	instr = decoder.decode()
 
 	assert not instr.has_segment_prefix
@@ -405,12 +377,10 @@ def test_mem():
 	assert instr.memory_index_scale == 1
 
 	assert instr.memory_displacement == 0
-	instr.memory_displacement = 0xFEDC_BA98
-	assert instr.memory_displacement == 0xFEDC_BA98
-	assert instr.memory_displacement64 == 0xFFFF_FFFF_FEDC_BA98
-	instr.memory_displacement = 0x1234_5678
-	assert instr.memory_displacement == 0x1234_5678
-	assert instr.memory_displacement64 == 0x1234_5678
+	instr.memory_displacement = 0xFEDC_BA98_7654_3210
+	assert instr.memory_displacement == 0xFEDC_BA98_7654_3210
+	instr.memory_displacement = 0x1234_5678_9ABC_DEF1
+	assert instr.memory_displacement == 0x1234_5678_9ABC_DEF1
 
 	assert instr.memory_base == Register.RAX
 	instr.memory_base = Register.R15D
@@ -419,11 +389,6 @@ def test_mem():
 	assert instr.memory_index == Register.NONE
 	instr.memory_index = Register.XMM13
 	assert instr.memory_index == Register.XMM13
-
-	instr.memory_address64 = 0x1234_5678_9ABC_DEF1
-	assert instr.memory_address64 == 0x1234_5678_9ABC_DEF1
-	instr.memory_address64 = 0x9ABC_DEF0_1234_5678
-	assert instr.memory_address64 == 0x9ABC_DEF0_1234_5678
 
 def test_imm8():
 	instr = Instruction()
@@ -814,8 +779,7 @@ def test_vsib(bitness, data, vsib):
 		raise ValueError(f"Invalid vsib value: {vsib}")
 
 def test_ip_rel_addr():
-	decoder = Decoder(64, b"\x00\x00" b"\x01\x35\x34\x12\x5A\xA5" b"\x67\x01\x35\x34\x12\x5A\xA5")
-	decoder.ip = 0x1234_5678_9ABC_DEF0
+	decoder = Decoder(64, b"\x00\x00" b"\x01\x35\x34\x12\x5A\xA5" b"\x67\x01\x35\x34\x12\x5A\xA5", ip=0x1234_5678_9ABC_DEF0)
 
 	instr = decoder.decode()
 	assert not instr.is_ip_rel_memory_operand
@@ -969,8 +933,7 @@ def test_repr_str():
 	assert str(instr) == "add rax,0FFFFFFFF82345AA5h"
 
 def test_format():
-	decoder = Decoder(64, b"\x48\x05\xA5\x5A\x34\x82" b"\x48\x8B\x05\x88\xA9\xCB\xED" b"\x70\x00")
-	decoder.ip = 0x1234_5678_9ABC_DEF0
+	decoder = Decoder(64, b"\x48\x05\xA5\x5A\x34\x82" b"\x48\x8B\x05\x88\xA9\xCB\xED" b"\x70\x00", ip=0x1234_5678_9ABC_DEF0)
 
 	instr = decoder.decode()
 	assert f"{instr}" == "add rax,0FFFFFFFF82345AA5h"
@@ -1041,7 +1004,6 @@ def test_immediate_raise():
 		OpKind.MEMORY_ESDI,
 		OpKind.MEMORY_ESEDI,
 		OpKind.MEMORY_ESRDI,
-		OpKind.MEMORY64,
 		OpKind.MEMORY,
 	]
 

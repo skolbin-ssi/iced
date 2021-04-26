@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 #if DECODER
 using System;
@@ -1291,7 +1271,7 @@ namespace Iced.Intel.DecoderInternal {
 			}
 			var extraRegisterBase = state.extraRegisterBase;
 			// LOCK MOV CR0 is supported by some AMD CPUs
-			if (baseReg == Register.CR0 && extraRegisterBase == 0 && instruction.HasLockPrefix && (decoder.options & DecoderOptions.NoLockMovCR) == 0) {
+			if (baseReg == Register.CR0 && extraRegisterBase == 0 && instruction.HasLockPrefix && (decoder.options & DecoderOptions.AMD) != 0) {
 				extraRegisterBase = 8;
 				instruction.InternalClearHasLockPrefix();
 				state.flags &= ~StateFlags.Lock;
@@ -1343,7 +1323,7 @@ namespace Iced.Intel.DecoderInternal {
 			}
 			var extraRegisterBase = state.extraRegisterBase;
 			// LOCK MOV CR0 is supported by some AMD CPUs
-			if (baseReg == Register.CR0 && extraRegisterBase == 0 && instruction.HasLockPrefix && (decoder.options & DecoderOptions.NoLockMovCR) == 0) {
+			if (baseReg == Register.CR0 && extraRegisterBase == 0 && instruction.HasLockPrefix && (decoder.options & DecoderOptions.AMD) != 0) {
 				extraRegisterBase = 8;
 				instruction.InternalClearHasLockPrefix();
 				state.flags &= ~StateFlags.Lock;
@@ -3416,13 +3396,16 @@ namespace Iced.Intel.DecoderInternal {
 			if (state.addressSize == OpSize.Size64) {
 				instruction.InternalSetMemoryDisplSize(4);
 				state.flags |= StateFlags.Addr64;
-				instruction.InternalMemoryAddress64_lo = decoder.ReadUInt32();
-				instruction.InternalMemoryAddress64_hi = decoder.ReadUInt32();
-				instruction.InternalOp1Kind = OpKind.Memory64;
+				instruction.InternalMemoryDisplacement64_lo = decoder.ReadUInt32();
+				instruction.InternalMemoryDisplacement64_hi = decoder.ReadUInt32();
+				//instruction.InternalMemoryIndexScale = 0;
+				//instruction.InternalMemoryBase = Register.None;
+				//instruction.InternalMemoryIndex = Register.None;
+				instruction.InternalOp1Kind = OpKind.Memory;
 			}
 			else if (state.addressSize == OpSize.Size32) {
 				instruction.InternalSetMemoryDisplSize(3);
-				instruction.MemoryDisplacement = decoder.ReadUInt32();
+				instruction.InternalMemoryDisplacement64_lo = decoder.ReadUInt32();
 				//instruction.InternalMemoryIndexScale = 0;
 				//instruction.InternalMemoryBase = Register.None;
 				//instruction.InternalMemoryIndex = Register.None;
@@ -3430,7 +3413,7 @@ namespace Iced.Intel.DecoderInternal {
 			}
 			else {
 				instruction.InternalSetMemoryDisplSize(2);
-				instruction.MemoryDisplacement = decoder.ReadUInt16();
+				instruction.InternalMemoryDisplacement64_lo = decoder.ReadUInt16();
 				//instruction.InternalMemoryIndexScale = 0;
 				//instruction.InternalMemoryBase = Register.None;
 				//instruction.InternalMemoryIndex = Register.None;
@@ -3456,13 +3439,16 @@ namespace Iced.Intel.DecoderInternal {
 			if (state.addressSize == OpSize.Size64) {
 				instruction.InternalSetMemoryDisplSize(4);
 				state.flags |= StateFlags.Addr64;
-				instruction.InternalMemoryAddress64_lo = decoder.ReadUInt32();
-				instruction.InternalMemoryAddress64_hi = decoder.ReadUInt32();
-				instruction.InternalOp0Kind = OpKind.Memory64;
+				instruction.InternalMemoryDisplacement64_lo = decoder.ReadUInt32();
+				instruction.InternalMemoryDisplacement64_hi = decoder.ReadUInt32();
+				//instruction.InternalMemoryIndexScale = 0;
+				//instruction.InternalMemoryBase = Register.None;
+				//instruction.InternalMemoryIndex = Register.None;
+				instruction.InternalOp0Kind = OpKind.Memory;
 			}
 			else if (state.addressSize == OpSize.Size32) {
 				instruction.InternalSetMemoryDisplSize(3);
-				instruction.MemoryDisplacement = decoder.ReadUInt32();
+				instruction.InternalMemoryDisplacement64_lo = decoder.ReadUInt32();
 				//instruction.InternalMemoryIndexScale = 0;
 				//instruction.InternalMemoryBase = Register.None;
 				//instruction.InternalMemoryIndex = Register.None;
@@ -3470,7 +3456,7 @@ namespace Iced.Intel.DecoderInternal {
 			}
 			else {
 				instruction.InternalSetMemoryDisplSize(2);
-				instruction.MemoryDisplacement = decoder.ReadUInt16();
+				instruction.InternalMemoryDisplacement64_lo = decoder.ReadUInt16();
 				//instruction.InternalMemoryIndexScale = 0;
 				//instruction.InternalMemoryBase = Register.None;
 				//instruction.InternalMemoryIndex = Register.None;
@@ -3500,13 +3486,16 @@ namespace Iced.Intel.DecoderInternal {
 			if (state.addressSize == OpSize.Size64) {
 				instruction.InternalSetMemoryDisplSize(4);
 				state.flags |= StateFlags.Addr64;
-				instruction.InternalMemoryAddress64_lo = decoder.ReadUInt32();
-				instruction.InternalMemoryAddress64_hi = decoder.ReadUInt32();
-				instruction.InternalOp1Kind = OpKind.Memory64;
+				instruction.InternalMemoryDisplacement64_lo = decoder.ReadUInt32();
+				instruction.InternalMemoryDisplacement64_hi = decoder.ReadUInt32();
+				//instruction.InternalMemoryIndexScale = 0;
+				//instruction.InternalMemoryBase = Register.None;
+				//instruction.InternalMemoryIndex = Register.None;
+				instruction.InternalOp1Kind = OpKind.Memory;
 			}
 			else if (state.addressSize == OpSize.Size32) {
 				instruction.InternalSetMemoryDisplSize(3);
-				instruction.MemoryDisplacement = decoder.ReadUInt32();
+				instruction.InternalMemoryDisplacement64_lo = decoder.ReadUInt32();
 				//instruction.InternalMemoryIndexScale = 0;
 				//instruction.InternalMemoryBase = Register.None;
 				//instruction.InternalMemoryIndex = Register.None;
@@ -3514,7 +3503,7 @@ namespace Iced.Intel.DecoderInternal {
 			}
 			else {
 				instruction.InternalSetMemoryDisplSize(2);
-				instruction.MemoryDisplacement = decoder.ReadUInt16();
+				instruction.InternalMemoryDisplacement64_lo = decoder.ReadUInt16();
 				//instruction.InternalMemoryIndexScale = 0;
 				//instruction.InternalMemoryBase = Register.None;
 				//instruction.InternalMemoryIndex = Register.None;
@@ -3559,13 +3548,16 @@ namespace Iced.Intel.DecoderInternal {
 			if (state.addressSize == OpSize.Size64) {
 				instruction.InternalSetMemoryDisplSize(4);
 				state.flags |= StateFlags.Addr64;
-				instruction.InternalMemoryAddress64_lo = decoder.ReadUInt32();
-				instruction.InternalMemoryAddress64_hi = decoder.ReadUInt32();
-				instruction.InternalOp0Kind = OpKind.Memory64;
+				instruction.InternalMemoryDisplacement64_lo = decoder.ReadUInt32();
+				instruction.InternalMemoryDisplacement64_hi = decoder.ReadUInt32();
+				//instruction.InternalMemoryIndexScale = 0;
+				//instruction.InternalMemoryBase = Register.None;
+				//instruction.InternalMemoryIndex = Register.None;
+				instruction.InternalOp0Kind = OpKind.Memory;
 			}
 			else if (state.addressSize == OpSize.Size32) {
 				instruction.InternalSetMemoryDisplSize(3);
-				instruction.MemoryDisplacement = decoder.ReadUInt32();
+				instruction.InternalMemoryDisplacement64_lo = decoder.ReadUInt32();
 				//instruction.InternalMemoryIndexScale = 0;
 				//instruction.InternalMemoryBase = Register.None;
 				//instruction.InternalMemoryIndex = Register.None;
@@ -3573,7 +3565,7 @@ namespace Iced.Intel.DecoderInternal {
 			}
 			else {
 				instruction.InternalSetMemoryDisplSize(2);
-				instruction.MemoryDisplacement = decoder.ReadUInt16();
+				instruction.InternalMemoryDisplacement64_lo = decoder.ReadUInt16();
 				//instruction.InternalMemoryIndexScale = 0;
 				//instruction.InternalMemoryBase = Register.None;
 				//instruction.InternalMemoryIndex = Register.None;
@@ -4088,7 +4080,7 @@ namespace Iced.Intel.DecoderInternal {
 			ref var state = ref decoder.state;
 			Debug.Assert(state.Encoding == EncodingKind.Legacy);
 			instruction.InternalCode = code;
-			//instruction.MemoryDisplacement = 0;
+			//instruction.MemoryDisplacement64 = 0;
 			//instruction.InternalMemoryIndexScale = 0;
 			//instruction.InternalSetMemoryDisplSize(0);
 			if (state.addressSize == OpSize.Size64)

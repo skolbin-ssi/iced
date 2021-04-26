@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 using System;
 using System.Diagnostics;
@@ -176,39 +156,29 @@ namespace Iced.Intel {
 				}
 				break;
 
+#pragma warning disable CS0618 // Type or member is obsolete
 			case OpKind.Memory64:
-				if (registerValueProvider.TryGetRegisterValue(MemorySegment, 0, 0, out seg)) {
-					result = seg + MemoryAddress64;
-					return true;
-				}
+#pragma warning restore CS0618 // Type or member is obsolete
 				break;
 
 			case OpKind.Memory:
 				var baseReg = MemoryBase;
 				var indexReg = MemoryIndex;
 				int addrSize = InstructionUtils.GetAddressSizeInBytes(baseReg, indexReg, MemoryDisplSize, CodeSize);
-				ulong offset = MemoryDisplacement;
+				ulong offset = MemoryDisplacement64;
 				ulong offsetMask;
-				if (addrSize == 8) {
-					offset = (ulong)(int)offset;
+				if (addrSize == 8)
 					offsetMask = ulong.MaxValue;
-				}
 				else if (addrSize == 4)
 					offsetMask = uint.MaxValue;
 				else {
 					Debug.Assert(addrSize == 2);
 					offsetMask = ushort.MaxValue;
 				}
-				if (baseReg != Register.None) {
-					if (baseReg == Register.RIP)
-						offset += NextIP;
-					else if (baseReg == Register.EIP)
-						offset += NextIP32;
-					else {
-						if (!registerValueProvider.TryGetRegisterValue(baseReg, 0, 0, out @base))
-							break;
-						offset += @base;
-					}
+				if (baseReg != Register.None && baseReg != Register.RIP && baseReg != Register.EIP) {
+					if (!registerValueProvider.TryGetRegisterValue(baseReg, 0, 0, out @base))
+						break;
+					offset += @base;
 				}
 				var code = Code;
 				if (indexReg != Register.None && !code.IgnoresIndex() && !code.IsTileStrideIndex()) {

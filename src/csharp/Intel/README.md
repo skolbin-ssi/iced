@@ -1,17 +1,15 @@
-# Iced [![NuGet](https://img.shields.io/nuget/v/Iced.svg)](https://www.nuget.org/packages/Iced/) [![GitHub builds](https://github.com/0xd4d/iced/workflows/GitHub%20CI/badge.svg)](https://github.com/0xd4d/iced/actions) [![codecov](https://codecov.io/gh/0xd4d/iced/branch/master/graph/badge.svg)](https://codecov.io/gh/0xd4d/iced)
+# iced [![NuGet](https://img.shields.io/nuget/v/iced.svg)](https://www.nuget.org/packages/iced/) [![GitHub builds](https://github.com/icedland/iced/workflows/GitHub%20CI/badge.svg)](https://github.com/icedland/iced/actions) [![codecov](https://codecov.io/gh/icedland/iced/branch/master/graph/badge.svg)](https://codecov.io/gh/icedland/iced)
 
 <img align="right" width="160px" height="160px" src="../../../logo.png">
 
-Iced is a high performance and correct x86 (16/32/64-bit) instruction decoder, disassembler and assembler written in C#.
-
-It can be used for static analysis of x86/x64 binaries, to rewrite code (eg. remove garbage instructions), to relocate code or as a disassembler.
+iced is a blazing fast and correct x86 (16/32/64-bit) instruction decoder, disassembler and assembler written in C#.
 
 - ✔️Supports all Intel and AMD instructions
 - ✔️Correct: All instructions are tested and iced has been tested against other disassemblers/assemblers (xed, gas, objdump, masm, dumpbin, nasm, ndisasm) and fuzzed
 - ✔️100% C# code
 - ✔️The formatter supports masm, nasm, gas (AT&T), Intel (XED) and there are many options to customize the output
-- ✔️The decoder is 2x+ faster than other similar libraries and doesn't allocate any memory
-- ✔️Small decoded instructions, only 32 bytes
+- ✔️The decoder decodes >90 MB/s
+- ✔️Small decoded instructions, only 40 bytes and the decoder doesn't allocate any memory
 - ✔️High level [Assembler](#assemble-instructions) providing a simple and lean syntax (e.g `asm.mov(eax, edx)`))
 - ✔️The encoder can be used to re-encode decoded instructions at any address
 - ✔️API to get instruction info, eg. read/written registers, memory and rflags bits; CPUID feature flag, control flow info, etc
@@ -29,7 +27,6 @@ Decoder:
 - `CodeReader`
     - `ByteArrayCodeReader`
     - `StreamCodeReader`
-- `InstructionList`
 - `ConstantOffsets`
 - `IcedFeatures.Initialize()`
 
@@ -85,6 +82,7 @@ Instruction info:
 
 ```C#
 using System;
+using System.Collections.Generic;
 using Iced.Intel;
 
 static class HowTo_Disassemble {
@@ -113,15 +111,9 @@ static class HowTo_Disassemble {
         decoder.IP = exampleCodeRIP;
         ulong endRip = decoder.IP + (uint)codeBytes.Length;
 
-        // This list is faster than List<Instruction> since it uses refs to the Instructions
-        // instead of copying them (each Instruction is 32 bytes in size). It has a ref indexer,
-        // and a ref iterator. Add() uses 'in' (ref readonly).
-        var instructions = new InstructionList();
-        while (decoder.IP < endRip) {
-            // The method allocates an uninitialized element at the end of the list and
-            // returns a reference to it which is initialized by Decode().
-            decoder.Decode(out instructions.AllocUninitializedElement());
-        }
+        var instructions = new List<Instruction>();
+        while (decoder.IP < endRip)
+            instructions.Add(decoder.Decode());
 
         // Formatters: Masm*, Nasm*, Gas* (AT&T) and Intel* (XED).
         // There's also `FastFormatter` which is ~2x faster. Use it if formatting speed is more
@@ -130,8 +122,7 @@ static class HowTo_Disassemble {
         formatter.Options.DigitSeparator = "`";
         formatter.Options.FirstOperandCharIndex = 10;
         var output = new StringOutput();
-        // Use InstructionList's ref iterator (C# 7.3) to prevent copying 32 bytes every iteration
-        foreach (ref var instr in instructions) {
+        foreach (var instr in instructions) {
             // Don't use instr.ToString(), it allocates more, uses masm syntax and default options
             formatter.Format(instr, output);
             Console.Write(instr.IP.ToString("X16"));
@@ -450,7 +441,7 @@ Moved code:
         // In 32-bit mode, a normal JMP is just 5 bytes
         const uint requiredBytes = 10 + 2;
         uint totalBytes = 0;
-        var origInstructions = new InstructionList();
+        var origInstructions = new List<Instruction>();
         while (codeReader.CanReadByte) {
             decoder.Decode(out var instr);
             origInstructions.Add(instr);
@@ -489,7 +480,7 @@ Moved code:
         Debug.Assert(origInstructions.Count > 0);
         // Create a JMP instruction that branches to the original code, except those instructions
         // that we'll re-encode. We don't need to do it if it already ends in 'ret'
-        ref readonly var lastInstr = ref origInstructions[origInstructions.Count - 1];
+        var lastInstr = origInstructions[origInstructions.Count - 1];
         if (lastInstr.FlowControl != FlowControl.Return)
             origInstructions.Add(Instruction.CreateBranch(Code.Jmp_rel32_64, lastInstr.NextIP));
 
@@ -863,7 +854,7 @@ static class HowTo_InstructionInfo {
                 Console.WriteLine($"    RFLAGS Modified: {instr.RflagsModified}");
             for (int i = 0; i < instr.OpCount; i++) {
                 var opKind = instr.GetOpKind(i);
-                if (opKind == OpKind.Memory || opKind == OpKind.Memory64) {
+                if (opKind == OpKind.Memory) {
                     int size = instr.MemorySize.GetSize();
                     if (size != 0)
                         Console.WriteLine($"    Memory size: {size}");
@@ -907,6 +898,7 @@ static class HowTo_GetVirtualAddress {
         var decoder = Decoder.Create(64, reader);
         var instr = decoder.Decode();
 
+        // There's also a TryGetVirtualAddress() method
         var va = instr.GetVirtualAddress(0, 0, (register, elementIndex, elementSize) => {
             switch (register) {
             // The base address of ES, CS, SS and DS is always 0 in 64-bit mode

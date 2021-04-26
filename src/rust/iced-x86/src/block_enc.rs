@@ -1,25 +1,5 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
 mod block;
 mod enums;
@@ -27,15 +7,13 @@ mod instr;
 #[cfg(test)]
 mod tests;
 
-use self::block::*;
-pub use self::enums::*;
-use self::instr::*;
-use super::iced_constants::IcedConstants;
-use super::iced_error::IcedError;
-use super::*;
-#[cfg(any(has_alloc, not(feature = "std")))]
+use crate::block_enc::block::*;
+pub use crate::block_enc::enums::*;
+use crate::block_enc::instr::*;
+use crate::iced_constants::IcedConstants;
+use crate::iced_error::IcedError;
+use crate::*;
 use alloc::rc::Rc;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::cell::RefCell;
 use core::{mem, u32};
@@ -43,8 +21,6 @@ use core::{mem, u32};
 use hashbrown::HashMap;
 #[cfg(feature = "std")]
 use std::collections::HashMap;
-#[cfg(all(not(has_alloc), feature = "std"))]
-use std::rc::Rc;
 
 /// Relocation info
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -63,7 +39,7 @@ impl RelocInfo {
 	///
 	/// * `kind`: Relocation kind
 	/// * `address`: Address
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn new(kind: RelocKind, address: u64) -> Self {
 		Self { address, kind }
@@ -86,7 +62,7 @@ impl<'a> InstructionBlock<'a> {
 	///
 	/// * `instructions`: All instructions
 	/// * `rip`: Base IP of all encoded instructions
-	#[cfg_attr(has_must_use, must_use)]
+	#[must_use]
 	#[inline]
 	pub fn new(instructions: &'a [Instruction], rip: u64) -> Self {
 		Self { instructions, rip }
@@ -136,9 +112,9 @@ pub struct BlockEncoder {
 	options: u32, // BlockEncoderOptions
 	// .1 is 'instructions' and is barely used by Block. Had to move
 	// it here because of borrowck.
-	blocks: Vec<(Rc<RefCell<Block>>, Vec<Rc<RefCell<Instr>>>)>,
+	blocks: Vec<(Rc<RefCell<Block>>, Vec<Rc<RefCell<dyn Instr>>>)>,
 	null_encoder: Encoder,
-	to_instr: HashMap<u64, Rc<RefCell<Instr>>>,
+	to_instr: HashMap<u64, Rc<RefCell<dyn Instr>>>,
 	has_multiple_zero_ip_instrs: bool,
 }
 
@@ -151,7 +127,7 @@ impl BlockEncoder {
 		(self.options & BlockEncoderOptions::DONT_FIX_BRANCHES) == 0
 	}
 
-	fn new<'a, 'b: 'a>(bitness: u32, instr_blocks: &'a [InstructionBlock<'b>], options: u32) -> Result<Self, IcedError> {
+	fn new(bitness: u32, instr_blocks: &[InstructionBlock<'_>], options: u32) -> Result<Self, IcedError> {
 		if bitness != 16 && bitness != 32 && bitness != 64 {
 			return Err(IcedError::new("Invalid bitness"));
 		}
@@ -159,7 +135,7 @@ impl BlockEncoder {
 			bitness,
 			options,
 			blocks: Vec::with_capacity(instr_blocks.len()),
-			null_encoder: Encoder::new(bitness),
+			null_encoder: Encoder::try_new(bitness)?,
 			to_instr: HashMap::new(),
 			has_multiple_zero_ip_instrs: false,
 		};
@@ -171,7 +147,7 @@ impl BlockEncoder {
 				&this,
 				instr_block.rip,
 				if (options & BlockEncoderOptions::RETURN_RELOC_INFOS) != 0 { Some(Vec::new()) } else { None },
-			)));
+			)?));
 			let mut instrs = Vec::with_capacity(instructions.len());
 			let mut ip = instr_block.rip;
 			for instruction in instructions {
@@ -235,11 +211,7 @@ impl BlockEncoder {
 	///
 	/// # Errors
 	///
-	/// Returns an error message on failure.
-	///
-	/// # Panics
-	///
-	/// Panics if `bitness` is not one of 16, 32, 64.
+	/// Returns an error if it failed to encode one or more instructions.
 	///
 	/// # Arguments
 	///
@@ -256,8 +228,7 @@ impl BlockEncoder {
 	/// // add dh,cl
 	/// // sbb r9d,ebx
 	/// let bytes = b"\x75\xFC\x00\xCE\x41\x19\xD9";
-	/// let mut decoder = Decoder::new(64, bytes, DecoderOptions::NONE);
-	/// decoder.set_ip(0x1234_5678_9ABC_DEF0);
+	/// let mut decoder = Decoder::with_ip(64, bytes, 0x1234_5678_9ABC_DEF0, DecoderOptions::NONE);
 	/// let instructions: Vec<_> = decoder.into_iter().collect();
 	///
 	/// // orig_rip + 8
@@ -266,16 +237,16 @@ impl BlockEncoder {
 	///     Err(err) => panic!("Failed: {}", err),
 	///     Ok(result) => result.code_buffer,
 	/// };
-	/// assert_eq!(vec![0x75, 0xF4, 0x00, 0xCE, 0x41, 0x19, 0xD9], bytes);
+	/// assert_eq!(bytes, vec![0x75, 0xF4, 0x00, 0xCE, 0x41, 0x19, 0xD9]);
 	/// ```
 	///
 	/// [`BlockEncoderOptions`]: struct.BlockEncoderOptions.html
 	/// [`BlockEncoderOptions::DONT_FIX_BRANCHES`]: struct.BlockEncoderOptions.html#associatedconstant.DONT_FIX_BRANCHES
 	#[inline]
-	pub fn encode(bitness: u32, block: InstructionBlock, options: u32) -> Result<BlockEncoderResult, IcedError> {
+	pub fn encode(bitness: u32, block: InstructionBlock<'_>, options: u32) -> Result<BlockEncoderResult, IcedError> {
 		match Self::encode_slice(bitness, &[block], options) {
 			Ok(ref mut result_vec) => {
-				debug_assert_eq!(1, result_vec.len());
+				debug_assert_eq!(result_vec.len(), 1);
 				Ok(result_vec.remove(0))
 			}
 			Err(err) => Err(err),
@@ -292,11 +263,7 @@ impl BlockEncoder {
 	///
 	/// # Errors
 	///
-	/// Returns an error message on failure.
-	///
-	/// # Panics
-	///
-	/// Panics if `bitness` is not one of 16, 32, 64.
+	/// Returns an error if it failed to encode one or more instructions.
 	///
 	/// # Arguments
 	///
@@ -313,14 +280,12 @@ impl BlockEncoder {
 	/// // add dh,cl
 	/// // sbb r9d,ebx
 	/// let bytes = b"\x75\xFC\x00\xCE\x41\x19\xD9";
-	/// let mut decoder = Decoder::new(64, bytes, DecoderOptions::NONE);
-	/// decoder.set_ip(0x1234_5678_9ABC_DEF0);
+	/// let mut decoder = Decoder::with_ip(64, bytes, 0x1234_5678_9ABC_DEF0, DecoderOptions::NONE);
 	/// let instructions1: Vec<_> = decoder.into_iter().collect();
 	///
 	/// // je short $
 	/// let bytes = b"\x75\xFE";
-	/// let mut decoder = Decoder::new(64, bytes, DecoderOptions::NONE);
-	/// decoder.set_ip(0x1234_5678);
+	/// let mut decoder = Decoder::with_ip(64, bytes, 0x1234_5678, DecoderOptions::NONE);
 	/// let instructions2: Vec<_> = decoder.into_iter().collect();
 	///
 	/// // orig_rip + 8
@@ -330,9 +295,9 @@ impl BlockEncoder {
 	/// let bytes = match BlockEncoder::encode_slice(64, &[block1, block2], BlockEncoderOptions::NONE) {
 	///     Err(err) => panic!("Failed: {}", err),
 	///     Ok(result) => {
-	///         assert_eq!(2, result.len());
-	///         assert_eq!(vec![0x75, 0xF4, 0x00, 0xCE, 0x41, 0x19, 0xD9], result[0].code_buffer);
-	///         assert_eq!(vec![0x75, 0xFE], result[1].code_buffer);
+	///         assert_eq!(result.len(), 2);
+	///         assert_eq!(result[0].code_buffer, vec![0x75, 0xF4, 0x00, 0xCE, 0x41, 0x19, 0xD9]);
+	///         assert_eq!(result[1].code_buffer, vec![0x75, 0xFE]);
 	///     }
 	/// };
 	/// ```
@@ -340,7 +305,7 @@ impl BlockEncoder {
 	/// [`BlockEncoderOptions`]: struct.BlockEncoderOptions.html
 	/// [`BlockEncoderOptions::DONT_FIX_BRANCHES`]: struct.BlockEncoderOptions.html#associatedconstant.DONT_FIX_BRANCHES
 	#[inline]
-	pub fn encode_slice(bitness: u32, blocks: &[InstructionBlock], options: u32) -> Result<Vec<BlockEncoderResult>, IcedError> {
+	pub fn encode_slice(bitness: u32, blocks: &[InstructionBlock<'_>], options: u32) -> Result<Vec<BlockEncoderResult>, IcedError> {
 		Self::new(bitness, blocks, options)?.encode2()
 	}
 
@@ -356,13 +321,13 @@ impl BlockEncoder {
 					if instr.optimize() {
 						let instr_size = instr.size();
 						if instr_size > old_size {
-							return Err(IcedError::new("Internal error: new size > old size"));
+							return Err(IcedError::new("Internal error"));
 						}
 						if instr_size < old_size {
 							updated = true;
 						}
 					} else if instr.size() != old_size {
-						return Err(IcedError::new("Internal error: new size != old size"));
+						return Err(IcedError::new("Internal error"));
 					}
 					ip = ip.wrapping_add(instr.size() as u64);
 				}
@@ -396,14 +361,14 @@ impl BlockEncoder {
 				};
 				let size = block.buffer_pos() - buffer_pos;
 				if size != instr.size() as usize {
-					return Err(IcedError::new("Internal error: didn't write all bytes"));
+					return Err(IcedError::new("Internal error"));
 				}
 				if (self.options & BlockEncoderOptions::RETURN_NEW_INSTRUCTION_OFFSETS) != 0 {
 					new_instruction_offsets.push(if is_original_instruction { ip.wrapping_sub(block.rip) as u32 } else { u32::MAX });
 				}
 				ip = ip.wrapping_add(size as u64);
 			}
-			block.write_data();
+			block.write_data()?;
 			result_vec.push(BlockEncoderResult {
 				rip: block.rip,
 				code_buffer: block.take_buffer(),
@@ -418,29 +383,25 @@ impl BlockEncoder {
 		if cfg!(debug_assertions) {
 			for info in &self.blocks {
 				// dispose() and other clear() calls should've removed all cyclic refs
-				assert_eq!(1, Rc::strong_count(&info.0));
+				if Rc::strong_count(&info.0) != 1 {
+					return Err(IcedError::new("Internal error"));
+				}
 			}
 		}
 
 		Ok(result_vec)
 	}
 
-	fn get_target(&self, instr: &Instr, address: u64) -> TargetInstr {
+	fn get_target(&self, instr: &dyn Instr, address: u64) -> TargetInstr {
 		if (address != 0 || !self.has_multiple_zero_ip_instrs) && instr.orig_ip() == address {
 			TargetInstr::new_owner()
 		} else {
-			match self.to_instr.get(&address) {
-				Some(instr) => TargetInstr::new_instr(Rc::clone(instr)),
-				None => TargetInstr::new_address(address),
-			}
+			self.to_instr.get(&address).map_or_else(|| TargetInstr::new_address(address), |instr| TargetInstr::new_instr(Rc::clone(instr)))
 		}
 	}
 
 	fn get_instruction_size(&mut self, instruction: &Instruction, ip: u64) -> u32 {
 		self.null_encoder.clear_buffer();
-		match self.null_encoder.encode(instruction, ip) {
-			Ok(len) => len as u32,
-			Err(_) => IcedConstants::MAX_INSTRUCTION_LENGTH as u32,
-		}
+		self.null_encoder.encode(instruction, ip).map_or_else(|_| IcedConstants::MAX_INSTRUCTION_LENGTH as u32, |len| len as u32)
 	}
 }

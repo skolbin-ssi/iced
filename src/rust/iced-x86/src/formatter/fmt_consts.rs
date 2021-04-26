@@ -1,30 +1,10 @@
-/*
-Copyright (C) 2018-2019 de4dot@gmail.com
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-use super::FormatterString;
-#[cfg(not(feature = "std"))]
+use crate::formatter::FormatterString;
 #[cfg(any(feature = "intel", feature = "nasm"))]
 use alloc::vec::Vec;
+use lazy_static::lazy_static;
 
 #[allow(dead_code)]
 pub(super) struct FormatterConstants {
@@ -202,19 +182,19 @@ pub(super) struct FormatterArrayConstants {
 	pub(super) zmmword_ptr: [&'static FormatterString; 2],
 	// GENERATOR-END: FormatterArrayConstantsDef
 	#[cfg(feature = "gas")]
-	pub(super) gas_op_size_strings: [&'static FormatterString; super::gas::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1],
+	pub(super) gas_op_size_strings: [&'static FormatterString; crate::formatter::gas::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1],
 	#[cfg(not(feature = "gas"))]
 	pub(super) gas_op_size_strings: (),
 	#[cfg(feature = "gas")]
-	pub(super) gas_addr_size_strings: [&'static FormatterString; super::gas::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1],
+	pub(super) gas_addr_size_strings: [&'static FormatterString; crate::formatter::gas::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1],
 	#[cfg(not(feature = "gas"))]
 	pub(super) gas_addr_size_strings: (),
 	#[cfg(feature = "intel")]
-	pub(super) intel_op_size_strings: [&'static FormatterString; super::intel::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1],
+	pub(super) intel_op_size_strings: [&'static FormatterString; crate::formatter::intel::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1],
 	#[cfg(not(feature = "intel"))]
 	pub(super) intel_op_size_strings: (),
 	#[cfg(feature = "intel")]
-	pub(super) intel_addr_size_strings: [&'static FormatterString; super::intel::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1],
+	pub(super) intel_addr_size_strings: [&'static FormatterString; crate::formatter::intel::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1],
 	#[cfg(not(feature = "intel"))]
 	pub(super) intel_addr_size_strings: (),
 	#[cfg(feature = "intel")]
@@ -222,7 +202,8 @@ pub(super) struct FormatterArrayConstants {
 	#[cfg(not(feature = "intel"))]
 	pub(super) intel_rc_strings: (),
 	#[cfg(feature = "intel")]
-	pub(super) intel_branch_infos: [Vec<&'static FormatterString>; super::intel::enums::InstrOpInfoFlags::BRANCH_SIZE_INFO_MASK as usize + 1],
+	pub(super) intel_branch_infos:
+		[Vec<&'static FormatterString>; crate::formatter::intel::enums::InstrOpInfoFlags::BRANCH_SIZE_INFO_MASK as usize + 1],
 	#[cfg(not(feature = "intel"))]
 	pub(super) intel_branch_infos: (),
 	#[cfg(feature = "masm")]
@@ -230,30 +211,32 @@ pub(super) struct FormatterArrayConstants {
 	#[cfg(not(feature = "masm"))]
 	pub(super) masm_rc_strings: (),
 	#[cfg(feature = "nasm")]
-	pub(super) nasm_op_size_strings: [&'static FormatterString; super::nasm::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1],
+	pub(super) nasm_op_size_strings: [&'static FormatterString; crate::formatter::nasm::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1],
 	#[cfg(not(feature = "nasm"))]
 	pub(super) nasm_op_size_strings: (),
 	#[cfg(feature = "nasm")]
-	pub(super) nasm_addr_size_strings: [&'static FormatterString; super::nasm::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1],
+	pub(super) nasm_addr_size_strings: [&'static FormatterString; crate::formatter::nasm::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1],
 	#[cfg(not(feature = "nasm"))]
 	pub(super) nasm_addr_size_strings: (),
 	#[cfg(feature = "nasm")]
-	pub(super) nasm_branch_infos: [Vec<&'static FormatterString>; super::nasm::enums::InstrOpInfoFlags::BRANCH_SIZE_INFO_MASK as usize + 1],
+	pub(super) nasm_branch_infos:
+		[Vec<&'static FormatterString>; crate::formatter::nasm::enums::InstrOpInfoFlags::BRANCH_SIZE_INFO_MASK as usize + 1],
 	#[cfg(not(feature = "nasm"))]
 	pub(super) nasm_branch_infos: (),
 	#[cfg(feature = "nasm")]
-	pub(super) nasm_mem_size_infos: [&'static FormatterString; super::nasm::enums::InstrOpInfoFlags::MEMORY_SIZE_INFO_MASK as usize + 1],
+	pub(super) nasm_mem_size_infos: [&'static FormatterString; crate::formatter::nasm::enums::InstrOpInfoFlags::MEMORY_SIZE_INFO_MASK as usize + 1],
 	#[cfg(not(feature = "nasm"))]
 	pub(super) nasm_mem_size_infos: (),
 	#[cfg(feature = "nasm")]
-	pub(super) nasm_far_mem_size_infos: [&'static FormatterString; super::nasm::enums::InstrOpInfoFlags::FAR_MEMORY_SIZE_INFO_MASK as usize + 1],
+	pub(super) nasm_far_mem_size_infos:
+		[&'static FormatterString; crate::formatter::nasm::enums::InstrOpInfoFlags::FAR_MEMORY_SIZE_INFO_MASK as usize + 1],
 	#[cfg(not(feature = "nasm"))]
 	pub(super) nasm_far_mem_size_infos: (),
 }
 
 lazy_static! {
 	pub(super) static ref ARRAY_CONSTS: FormatterArrayConstants = {
-		#![cfg_attr(feature = "cargo-clippy", allow(clippy::let_unit_value))]
+		#![allow(clippy::let_unit_value)]
 		let c = &*FORMATTER_CONSTANTS;
 		let nothing: [&'static FormatterString; 0] = [];
 		// GENERATOR-BEGIN: FormatterArrayConstantsCreate
@@ -278,8 +261,8 @@ lazy_static! {
 		let zmmword_ptr: [&'static FormatterString; 2] = [&c.zmmword, &c.ptr];
 		// GENERATOR-END: FormatterArrayConstantsCreate
 		#[cfg(feature = "gas")]
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
-		let gas_op_size_strings: [&'static FormatterString; super::gas::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1] = [
+		#[rustfmt::skip]
+		let gas_op_size_strings: [&'static FormatterString; crate::formatter::gas::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1] = [
 			&c.empty,
 			&c.data16,
 			&c.data32,
@@ -288,8 +271,8 @@ lazy_static! {
 		#[cfg(not(feature = "gas"))]
 		let gas_op_size_strings = ();
 		#[cfg(feature = "gas")]
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
-		let gas_addr_size_strings: [&'static FormatterString; super::gas::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1] = [
+		#[rustfmt::skip]
+		let gas_addr_size_strings: [&'static FormatterString; crate::formatter::gas::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1] = [
 			&c.empty,
 			&c.addr16,
 			&c.addr32,
@@ -298,8 +281,8 @@ lazy_static! {
 		#[cfg(not(feature = "gas"))]
 		let gas_addr_size_strings = ();
 		#[cfg(feature = "intel")]
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
-		let intel_op_size_strings: [&'static FormatterString; super::intel::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1] = [
+		#[rustfmt::skip]
+		let intel_op_size_strings: [&'static FormatterString; crate::formatter::intel::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1] = [
 			&c.empty,
 			&c.data16,
 			&c.data32,
@@ -308,8 +291,8 @@ lazy_static! {
 		#[cfg(not(feature = "intel"))]
 		let intel_op_size_strings = ();
 		#[cfg(feature = "intel")]
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
-		let intel_addr_size_strings: [&'static FormatterString; super::intel::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1] = [
+		#[rustfmt::skip]
+		let intel_addr_size_strings: [&'static FormatterString; crate::formatter::intel::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1] = [
 			&c.empty,
 			&c.addr16,
 			&c.addr32,
@@ -318,7 +301,7 @@ lazy_static! {
 		#[cfg(not(feature = "intel"))]
 		let intel_addr_size_strings = ();
 		#[cfg(feature = "intel")]
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+		#[rustfmt::skip]
 		let intel_rc_strings: [&'static FormatterString; 4] = [
 			&c.rne_sae,
 			&c.rd_sae,
@@ -328,15 +311,15 @@ lazy_static! {
 		#[cfg(not(feature = "intel"))]
 		let intel_rc_strings = ();
 		#[cfg(feature = "intel")]
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
-		let intel_branch_infos: [Vec<&'static FormatterString>; super::intel::enums::InstrOpInfoFlags::BRANCH_SIZE_INFO_MASK as usize + 1] = [
+		#[rustfmt::skip]
+		let intel_branch_infos: [Vec<&'static FormatterString>; crate::formatter::intel::enums::InstrOpInfoFlags::BRANCH_SIZE_INFO_MASK as usize + 1] = [
 			vec![],
 			vec![&c.short],
 		];
 		#[cfg(not(feature = "intel"))]
 		let intel_branch_infos = ();
 		#[cfg(feature = "masm")]
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
+		#[rustfmt::skip]
 		let masm_rc_strings: [&'static FormatterString; 4] = [
 			&c.rn_sae,
 			&c.rd_sae,
@@ -346,8 +329,8 @@ lazy_static! {
 		#[cfg(not(feature = "masm"))]
 		let masm_rc_strings = ();
 		#[cfg(feature = "nasm")]
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
-		let nasm_op_size_strings: [&'static FormatterString; super::nasm::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1] = [
+		#[rustfmt::skip]
+		let nasm_op_size_strings: [&'static FormatterString; crate::formatter::nasm::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1] = [
 			&c.empty,
 			&c.o16,
 			&c.o32,
@@ -356,8 +339,8 @@ lazy_static! {
 		#[cfg(not(feature = "nasm"))]
 		let nasm_op_size_strings = ();
 		#[cfg(feature = "nasm")]
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
-		let nasm_addr_size_strings: [&'static FormatterString; super::nasm::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1] = [
+		#[rustfmt::skip]
+		let nasm_addr_size_strings: [&'static FormatterString; crate::formatter::nasm::enums::InstrOpInfoFlags::SIZE_OVERRIDE_MASK as usize + 1] = [
 			&c.empty,
 			&c.a16,
 			&c.a32,
@@ -366,8 +349,8 @@ lazy_static! {
 		#[cfg(not(feature = "nasm"))]
 		let nasm_addr_size_strings = ();
 		#[cfg(feature = "nasm")]
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
-		let nasm_branch_infos: [Vec<&'static FormatterString>; super::nasm::enums::InstrOpInfoFlags::BRANCH_SIZE_INFO_MASK as usize + 1] = [
+		#[rustfmt::skip]
+		let nasm_branch_infos: [Vec<&'static FormatterString>; crate::formatter::nasm::enums::InstrOpInfoFlags::BRANCH_SIZE_INFO_MASK as usize + 1] = [
 			vec![],
 			vec![&c.near],
 			vec![&c.near, &c.word],
@@ -380,8 +363,8 @@ lazy_static! {
 		#[cfg(not(feature = "nasm"))]
 		let nasm_branch_infos = ();
 		#[cfg(feature = "nasm")]
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
-		let nasm_mem_size_infos: [&'static FormatterString; super::nasm::enums::InstrOpInfoFlags::MEMORY_SIZE_INFO_MASK as usize + 1] = [
+		#[rustfmt::skip]
+		let nasm_mem_size_infos: [&'static FormatterString; crate::formatter::nasm::enums::InstrOpInfoFlags::MEMORY_SIZE_INFO_MASK as usize + 1] = [
 			&c.empty,
 			&c.word,
 			&c.dword,
@@ -390,8 +373,8 @@ lazy_static! {
 		#[cfg(not(feature = "nasm"))]
 		let nasm_mem_size_infos = ();
 		#[cfg(feature = "nasm")]
-		#[cfg_attr(feature = "cargo-fmt", rustfmt::skip)]
-		let nasm_far_mem_size_infos: [&'static FormatterString; super::nasm::enums::InstrOpInfoFlags::FAR_MEMORY_SIZE_INFO_MASK as usize + 1] = [
+		#[rustfmt::skip]
+		let nasm_far_mem_size_infos: [&'static FormatterString; crate::formatter::nasm::enums::InstrOpInfoFlags::FAR_MEMORY_SIZE_INFO_MASK as usize + 1] = [
 			&c.empty,
 			&c.word,
 			&c.dword,

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2018-present iced project and contributors
+
 #if NETFRAMEWORK || NETSTANDARD2_0
 namespace System.Diagnostics.CodeAnalysis {
 	[AttributeUsage(AttributeTargets.Parameter, Inherited = false)]
