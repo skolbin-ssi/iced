@@ -28,14 +28,14 @@
 //!
 //! ```toml
 //! [dependencies]
-//! iced-x86 = "1.11.1"
+//! iced-x86 = "1.11.2"
 //! ```
 //!
 //! Or to customize which features to use:
 //!
 //! ```toml
 //! [dependencies.iced-x86]
-//! version = "1.11.1"
+//! version = "1.11.2"
 //! default-features = false
 //! # See below for all features
 //! features = ["std", "decoder", "masm"]
@@ -1175,7 +1175,7 @@
 //! Bumping the minimum supported version of `rustc` is considered a minor breaking change. The minor version of iced-x86 will be incremented.
 
 #![doc(html_logo_url = "https://raw.githubusercontent.com/icedland/iced/master/logo.png")]
-#![doc(html_root_url = "https://docs.rs/iced-x86/1.11.1")]
+#![doc(html_root_url = "https://docs.rs/iced-x86/1.11.2")]
 #![allow(unknown_lints)]
 #![warn(absolute_paths_not_starting_with_crate)]
 #![warn(anonymous_parameters)]
@@ -1209,7 +1209,6 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::upper_case_acronyms)]
 #![allow(clippy::wrong_self_convention)]
-#![warn(clippy::clone_on_ref_ptr)]
 #![warn(clippy::dbg_macro)]
 #![warn(clippy::debug_assert_with_mut_call)]
 #![warn(clippy::default_trait_access)]

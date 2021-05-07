@@ -27,10 +27,41 @@ use core::iter::FusedIterator;
 use core::{cmp, fmt, mem, ptr, u32};
 use static_assertions::{const_assert, const_assert_eq};
 
-// 26,2E,36,3E,64,65,66,67,F0,F2,F3
-static PREFIXES1632: [u32; 8] = [0x0000_0000, 0x4040_4040, 0x0000_0000, 0x0000_00F0, 0x0000_0000, 0x0000_0000, 0x0000_0000, 0x000D_0000];
-// 26,2E,36,3E,64,65,66,67,F0,F2,F3 and 40-4F
-static PREFIXES64: [u32; 8] = [0x0000_0000, 0x4040_4040, 0x0000_FFFF, 0x0000_00F0, 0x0000_0000, 0x0000_0000, 0x0000_0000, 0x000D_0000];
+#[rustfmt::skip]
+#[cfg(any(feature = "__internal_mem_vsib", not(feature = "no_evex"), not(feature = "no_vex"), not(feature = "no_xop")))]
+static READ_OP_MEM_VSIB_FNS: [fn(&mut Decoder<'_>, &mut Instruction, Register, TupleType, bool) -> bool; 0x18] = [
+	decoder_read_op_mem_vsib_0,
+	decoder_read_op_mem_vsib_0,
+	decoder_read_op_mem_vsib_0,
+	decoder_read_op_mem_vsib_0,
+	decoder_read_op_mem_vsib_0_4,
+	decoder_read_op_mem_vsib_0_5,
+	decoder_read_op_mem_vsib_0,
+	decoder_read_op_mem_vsib_0,
+
+	decoder_read_op_mem_vsib_1,
+	decoder_read_op_mem_vsib_1,
+	decoder_read_op_mem_vsib_1,
+	decoder_read_op_mem_vsib_1,
+	decoder_read_op_mem_vsib_1_4,
+	decoder_read_op_mem_vsib_1,
+	decoder_read_op_mem_vsib_1,
+	decoder_read_op_mem_vsib_1,
+
+	decoder_read_op_mem_vsib_2,
+	decoder_read_op_mem_vsib_2,
+	decoder_read_op_mem_vsib_2,
+	decoder_read_op_mem_vsib_2,
+	decoder_read_op_mem_vsib_2_4,
+	decoder_read_op_mem_vsib_2,
+	decoder_read_op_mem_vsib_2,
+	decoder_read_op_mem_vsib_2,
+];
+
+// 0F,26,2E,36,3E,64,65,66,67,F0,F2,F3
+static PREFIXES1632: [u32; 8] = [0x0000_8000, 0x4040_4040, 0x0000_0000, 0x0000_00F0, 0x0000_0000, 0x0000_0000, 0x0000_0000, 0x000D_0000];
+// 0F,26,2E,36,3E,64,65,66,67,F0,F2,F3 and 40-4F
+static PREFIXES64: [u32; 8] = [0x0000_8000, 0x4040_4040, 0x0000_FFFF, 0x0000_00F0, 0x0000_0000, 0x0000_0000, 0x0000_0000, 0x000D_0000];
 
 static MEM_REGS_16: [(Register, Register); 8] = [
 	(Register::BX, Register::SI),
@@ -184,9 +215,9 @@ impl DecoderOptions {
 	pub const OLD_FPU: u32 = 0x0000_0040;
 	/// Decode `PCOMMIT`
 	pub const PCOMMIT: u32 = 0x0000_0080;
-	/// Decode 286 `LOADALL` (`0F04` and `0F05`)
+	/// Decode 286 `STOREALL`/`LOADALL` (`0F04` and `0F05`)
 	pub const LOADALL286: u32 = 0x0000_0100;
-	/// Decode `LOADALL386`
+	/// Decode 386 `LOADALL`
 	pub const LOADALL386: u32 = 0x0000_0200;
 	/// Decode `CL1INVMB`
 	pub const CL1INVMB: u32 = 0x0000_0400;
@@ -257,29 +288,33 @@ impl StateFlags {
 // GENERATOR-END: StateFlags
 
 macro_rules! mk_read_value {
-	($slf:ident, $mem_ty:ty, $from_le:path) => {
+	($slf:ident, $mem_ty:ty, $from_le:path, $ret_ty:ty) => {
 		const SIZE: usize = mem::size_of::<$mem_ty>();
 		const_assert!(SIZE >= 1);
 		const_assert!(SIZE <= Decoder::MAX_READ_SIZE);
 		let data_ptr = $slf.data_ptr;
 		// This doesn't overflow data_ptr (verified in ctor since SIZE <= MAX_READ_SIZE)
-		if data_ptr + SIZE - 1 < $slf.max_data_ptr {
-			// SAFETY:
-			// - cast: It's OK to cast to an unaligned `*const uXX` since we call read_unaligned()
-			// - ptr::read_unaligned: ptr is readable and data (u8 slice) is initialized
-			let result = $from_le(unsafe { ptr::read_unaligned(data_ptr as *const $mem_ty) }) as usize;
-			// - data_ptr + SIZE doesn't overflow (verified in ctor since SIZE <= MAX_READ_SIZE)
-			// - data_ptr + SIZE <= self.max_data_ptr (see `if` check above)
-			$slf.data_ptr = data_ptr + SIZE;
-			result
-		} else {
-			$slf.state.flags |= StateFlags::IS_INVALID | StateFlags::NO_MORE_BYTES;
-			0
+		#[allow(trivial_numeric_casts)]
+		{
+			if data_ptr + SIZE - 1 < $slf.max_data_ptr {
+				// SAFETY:
+				// - cast: It's OK to cast to an unaligned `*const uXX` since we call read_unaligned()
+				// - ptr::read_unaligned: ptr is readable and data (u8 slice) is initialized
+				let result = $from_le(unsafe { ptr::read_unaligned(data_ptr as *const $mem_ty) }) as $ret_ty;
+				// - data_ptr + SIZE doesn't overflow (verified in ctor since SIZE <= MAX_READ_SIZE)
+				// - data_ptr + SIZE <= self.max_data_ptr (see `if` check above)
+				$slf.data_ptr = data_ptr + SIZE;
+				result
+			} else {
+				$slf.state.flags |= StateFlags::IS_INVALID | StateFlags::NO_MORE_BYTES;
+				0
+			}
 		}
 	};
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
+#[allow(dead_code)]
 struct State {
 	modrm: u32, // 0-0xFF
 	mod_: u32,  // 0-3
@@ -294,9 +329,10 @@ struct State {
 	extra_index_register_base_vsib: u32,
 	flags: u32, // StateFlags
 	mandatory_prefix: u32,
-	// ***************************
-	vvvv: u32,               // V`vvvv. Not stored in inverted form. If 16/32-bit, bits [4:3] are cleared
+
+	vvvv: u32,               // V`vvvv. Not stored in inverted form. If 16/32-bit mode, bits [4:3] are cleared
 	vvvv_invalid_check: u32, // vvvv bits, even in 16/32-bit mode.
+	// ***************************
 	aaa: u32,
 	extra_register_base_evex: u32,      // EVEX.R' << 4
 	extra_base_register_base_evex: u32, // EVEX.XB << 3
@@ -357,65 +393,51 @@ where
 	instr_start_data_ptr: usize,
 
 	handlers_xx: &'static [&'static OpCodeHandler; 0x100],
+	handlers_0fxx: &'static [&'static OpCodeHandler; 0x100],
 	#[cfg(not(feature = "no_vex"))]
-	handlers_vex_0fxx: &'static [&'static OpCodeHandler; 0x100],
-	#[cfg(not(feature = "no_vex"))]
-	handlers_vex_0f38xx: &'static [&'static OpCodeHandler; 0x100],
-	#[cfg(not(feature = "no_vex"))]
-	handlers_vex_0f3axx: &'static [&'static OpCodeHandler; 0x100],
+	handlers_vex: [&'static [&'static OpCodeHandler; 0x100]; 3],
 	#[cfg(not(feature = "no_evex"))]
-	handlers_evex_0fxx: &'static [&'static OpCodeHandler; 0x100],
-	#[cfg(not(feature = "no_evex"))]
-	handlers_evex_0f38xx: &'static [&'static OpCodeHandler; 0x100],
-	#[cfg(not(feature = "no_evex"))]
-	handlers_evex_0f3axx: &'static [&'static OpCodeHandler; 0x100],
+	handlers_evex: [&'static [&'static OpCodeHandler; 0x100]; 3],
 	#[cfg(not(feature = "no_xop"))]
-	handlers_xop8: &'static [&'static OpCodeHandler; 0x100],
-	#[cfg(not(feature = "no_xop"))]
-	handlers_xop9: &'static [&'static OpCodeHandler; 0x100],
-	#[cfg(not(feature = "no_xop"))]
-	handlers_xopa: &'static [&'static OpCodeHandler; 0x100],
+	handlers_xop: [&'static [&'static OpCodeHandler; 0x100]; 3],
+
 	#[cfg(feature = "no_vex")]
-	handlers_vex_0fxx: (),
-	#[cfg(feature = "no_vex")]
-	handlers_vex_0f38xx: (),
-	#[cfg(feature = "no_vex")]
-	handlers_vex_0f3axx: (),
+	handlers_vex: [(); 3],
 	#[cfg(feature = "no_evex")]
-	handlers_evex_0fxx: (),
-	#[cfg(feature = "no_evex")]
-	handlers_evex_0f38xx: (),
-	#[cfg(feature = "no_evex")]
-	handlers_evex_0f3axx: (),
+	handlers_evex: [(); 3],
 	#[cfg(feature = "no_xop")]
-	handlers_xop8: (),
-	#[cfg(feature = "no_xop")]
-	handlers_xop9: (),
-	#[cfg(feature = "no_xop")]
-	handlers_xopa: (),
+	handlers_xop: [(); 3],
+
+	#[cfg(not(feature = "__internal_mem_vsib"))]
+	read_op_mem_fns: [fn(&mut Decoder<'a>, &mut Instruction) -> bool; 0x18],
+	#[cfg(feature = "__internal_mem_vsib")]
+	read_op_mem_fns: (),
 
 	state: State,
 	// DecoderOptions
 	options: u32,
 	// All 1s if we should check for invalid instructions, else 0
 	invalid_check_mask: u32,
-	// StateFlags::W if 64-bit, 0 if 16/32-bit
-	is64_mode_and_w: u32,
+	// StateFlags::W if 64-bit mode, 0 if 16/32-bit mode
+	is64b_mode_and_w: u32,
 	// 7 in 16/32-bit mode, 15 in 64-bit mode
 	reg15_mask: u32,
+	// 0 in 16/32-bit mode, 0E0h in 64-bit mode
+	mask_e0: u32,
 	bitness: u32,
 	default_operand_size: OpSize,
 	default_address_size: OpSize,
 	default_inverted_operand_size: OpSize,
 	default_inverted_address_size: OpSize,
-	is64_mode: bool,
+	// true if 64-bit mode, false if 16/32-bit mode
+	is64b_mode: bool,
 	default_code_size: CodeSize,
 	// Offset of displacement in the instruction. Only used by get_constant_offsets() to return the offset of the displ
 	displ_index: u8,
 }
 
 impl<'a> Decoder<'a> {
-	const MAX_READ_SIZE: usize = 4;
+	const MAX_READ_SIZE: usize = 8;
 
 	/// Creates a decoder
 	///
@@ -689,7 +711,7 @@ impl<'a> Decoder<'a> {
 	#[allow(trivial_casts)]
 	pub fn try_with_ip(bitness: u32, data: &'a [u8], ip: u64, options: u32) -> Result<Decoder<'a>, IcedError> {
 		let prefixes;
-		let is64_mode;
+		let is64b_mode;
 		let default_code_size;
 		let default_operand_size;
 		let default_inverted_operand_size;
@@ -697,7 +719,7 @@ impl<'a> Decoder<'a> {
 		let default_inverted_address_size;
 		match bitness {
 			64 => {
-				is64_mode = true;
+				is64b_mode = true;
 				default_code_size = CodeSize::Code64;
 				default_operand_size = OpSize::Size32;
 				default_inverted_operand_size = OpSize::Size16;
@@ -706,7 +728,7 @@ impl<'a> Decoder<'a> {
 				prefixes = &PREFIXES64;
 			}
 			32 => {
-				is64_mode = false;
+				is64b_mode = false;
 				default_code_size = CodeSize::Code32;
 				default_operand_size = OpSize::Size32;
 				default_inverted_operand_size = OpSize::Size16;
@@ -715,7 +737,7 @@ impl<'a> Decoder<'a> {
 				prefixes = &PREFIXES1632;
 			}
 			16 => {
-				is64_mode = false;
+				is64b_mode = false;
 				default_code_size = CodeSize::Code16;
 				default_operand_size = OpSize::Size16;
 				default_inverted_operand_size = OpSize::Size32;
@@ -762,6 +784,39 @@ impl<'a> Decoder<'a> {
 		mk_handlers_local!(handlers_xop9, "no_xop");
 		mk_handlers_local!(handlers_xopa, "no_xop");
 
+		#[rustfmt::skip]
+		#[cfg(not(feature = "__internal_mem_vsib"))]
+		let read_op_mem_fns = [
+			Decoder::read_op_mem_0,
+			Decoder::read_op_mem_0,
+			Decoder::read_op_mem_0,
+			Decoder::read_op_mem_0,
+			Decoder::read_op_mem_0_4,
+			Decoder::read_op_mem_0_5,
+			Decoder::read_op_mem_0,
+			Decoder::read_op_mem_0,
+
+			Decoder::read_op_mem_1,
+			Decoder::read_op_mem_1,
+			Decoder::read_op_mem_1,
+			Decoder::read_op_mem_1,
+			Decoder::read_op_mem_1_4,
+			Decoder::read_op_mem_1,
+			Decoder::read_op_mem_1,
+			Decoder::read_op_mem_1,
+
+			Decoder::read_op_mem_2,
+			Decoder::read_op_mem_2,
+			Decoder::read_op_mem_2,
+			Decoder::read_op_mem_2,
+			Decoder::read_op_mem_2_4,
+			Decoder::read_op_mem_2,
+			Decoder::read_op_mem_2,
+			Decoder::read_op_mem_2,
+		];
+		#[cfg(feature = "__internal_mem_vsib")]
+		let read_op_mem_fns = ();
+
 		debug_assert_eq!(prefixes.len() * mem::size_of_val(&prefixes[0]) * 8, 256);
 		Ok(Decoder {
 			ip,
@@ -772,26 +827,23 @@ impl<'a> Decoder<'a> {
 			max_data_ptr: data.as_ptr() as usize,
 			instr_start_data_ptr: data.as_ptr() as usize,
 			handlers_xx: get_handlers(&tables.handlers_xx),
-			handlers_vex_0fxx,
-			handlers_vex_0f38xx,
-			handlers_vex_0f3axx,
-			handlers_evex_0fxx,
-			handlers_evex_0f38xx,
-			handlers_evex_0f3axx,
-			handlers_xop8,
-			handlers_xop9,
-			handlers_xopa,
+			handlers_0fxx: get_handlers(&tables.handlers_0fxx),
+			handlers_vex: [handlers_vex_0fxx, handlers_vex_0f38xx, handlers_vex_0f3axx],
+			handlers_evex: [handlers_evex_0fxx, handlers_evex_0f38xx, handlers_evex_0f3axx],
+			handlers_xop: [handlers_xop8, handlers_xop9, handlers_xopa],
+			read_op_mem_fns,
 			state: State::default(),
 			options,
 			invalid_check_mask: if (options & DecoderOptions::NO_INVALID_CHECK) == 0 { u32::MAX } else { 0 },
-			is64_mode_and_w: if is64_mode { StateFlags::W } else { 0 },
-			reg15_mask: if is64_mode { 0xF } else { 0x7 },
+			is64b_mode_and_w: if is64b_mode { StateFlags::W } else { 0 },
+			reg15_mask: if is64b_mode { 0xF } else { 0x7 },
+			mask_e0: if is64b_mode { 0xE0 } else { 0 },
 			bitness,
 			default_operand_size,
 			default_address_size,
 			default_inverted_operand_size,
 			default_inverted_address_size,
-			is64_mode,
+			is64b_mode,
 			default_code_size,
 			displ_index: 0,
 		})
@@ -1031,17 +1083,22 @@ impl<'a> Decoder<'a> {
 
 	#[must_use]
 	fn read_u8(&mut self) -> usize {
-		mk_read_value! {self, u8, u8::from_le}
+		mk_read_value! {self, u8, u8::from_le, usize}
 	}
 
 	#[must_use]
 	fn read_u16(&mut self) -> usize {
-		mk_read_value! {self, u16, u16::from_le}
+		mk_read_value! {self, u16, u16::from_le, usize}
 	}
 
 	#[must_use]
 	fn read_u32(&mut self) -> usize {
-		mk_read_value! {self, u32, u32::from_le}
+		mk_read_value! {self, u32, u32::from_le, usize}
+	}
+
+	#[must_use]
+	fn read_u64(&mut self) -> u64 {
+		mk_read_value! {self, u64, u64::from_le, u64}
 	}
 
 	/// Gets the last decoder error. Unless you need to know the reason it failed,
@@ -1173,6 +1230,10 @@ impl<'a> Decoder<'a> {
 		self.state.extra_index_register_base_vsib = 0;
 		self.state.flags = 0;
 		self.state.mandatory_prefix = 0;
+		// These don't need to be cleared, but they're here so the compiler can re-use the
+		// same XMM reg to clear the previous 2 u32s (including these 2 u32s).
+		self.state.vvvv = 0;
+		self.state.vvvv_invalid_check = 0;
 
 		self.state.operand_size = self.default_operand_size;
 		self.state.address_size = self.default_address_size;
@@ -1183,81 +1244,92 @@ impl<'a> Decoder<'a> {
 		// The calculated usize is a valid pointer in `self.data` slice or at most 1 byte past the last valid byte.
 		self.max_data_ptr = cmp::min(data_ptr + IcedConstants::MAX_INSTRUCTION_LENGTH, self.data_ptr_end);
 
+		let mut table = self.handlers_xx;
 		let mut b = self.read_u8();
 		if (((self.prefixes[b / 32]) >> (b & 31)) & 1) != 0 {
 			let mut default_ds_segment = Register::DS;
-			let mut rex_prefix: usize;
+			let mut rex_prefix: usize = 0;
 			loop {
-				match b {
-					0x26 => {
-						if !self.is64_mode || default_ds_segment < Register::FS {
-							instruction.set_segment_prefix(Register::ES);
-							default_ds_segment = Register::ES;
+				// Test binary: xul.dll 64-bit
+				// 52.01% of all instructions have at least one prefix
+				// REX = 92.50%
+				//  66 =  4.41%
+				//  F3 =  1.80%
+				//  F2 =  0.65%
+				//  F0 =  0.51%
+				//  65 =  0.10%
+				// We need to check for 0Fh before REX prefix since the compiler generates worse
+				// code if we check it after the REX prefix.
+				if b == 0x0F {
+					b = self.read_u8();
+					table = self.handlers_0fxx;
+					break;
+				} else if ((b as u32) >> 4) == 4 {
+					debug_assert!(self.is64b_mode);
+					rex_prefix = b;
+				} else if b == 0x66 {
+					self.state.flags |= StateFlags::HAS66;
+					self.state.operand_size = self.default_inverted_operand_size;
+					if self.state.mandatory_prefix == MandatoryPrefixByte::None as u32 {
+						self.state.mandatory_prefix = MandatoryPrefixByte::P66 as u32;
+					}
+					rex_prefix = 0;
+				} else if b == 0xF3 {
+					instruction_internal::internal_set_has_repe_prefix(instruction);
+					self.state.mandatory_prefix = MandatoryPrefixByte::PF3 as u32;
+					rex_prefix = 0;
+				} else if b == 0xF2 {
+					instruction_internal::internal_set_has_repne_prefix(instruction);
+					self.state.mandatory_prefix = MandatoryPrefixByte::PF2 as u32;
+					rex_prefix = 0;
+				} else if b == 0xF0 {
+					instruction_internal::internal_set_has_lock_prefix(instruction);
+					self.state.flags |= StateFlags::LOCK;
+					rex_prefix = 0;
+				} else {
+					match b {
+						0x2E => {
+							if !self.is64b_mode || default_ds_segment < Register::FS {
+								instruction.set_segment_prefix(Register::CS);
+								default_ds_segment = Register::CS;
+							}
+							rex_prefix = 0;
 						}
-						rex_prefix = 0;
-					}
-					0x2E => {
-						if !self.is64_mode || default_ds_segment < Register::FS {
-							instruction.set_segment_prefix(Register::CS);
-							default_ds_segment = Register::CS;
+						0x36 => {
+							if !self.is64b_mode || default_ds_segment < Register::FS {
+								instruction.set_segment_prefix(Register::SS);
+								default_ds_segment = Register::SS;
+							}
+							rex_prefix = 0;
 						}
-						rex_prefix = 0;
-					}
-					0x36 => {
-						if !self.is64_mode || default_ds_segment < Register::FS {
-							instruction.set_segment_prefix(Register::SS);
-							default_ds_segment = Register::SS;
+						0x3E => {
+							if !self.is64b_mode || default_ds_segment < Register::FS {
+								instruction.set_segment_prefix(Register::DS);
+								default_ds_segment = Register::DS;
+							}
+							rex_prefix = 0;
 						}
-						rex_prefix = 0;
-					}
-					0x3E => {
-						if !self.is64_mode || default_ds_segment < Register::FS {
-							instruction.set_segment_prefix(Register::DS);
-							default_ds_segment = Register::DS;
+						0x64 => {
+							instruction.set_segment_prefix(Register::FS);
+							default_ds_segment = Register::FS;
+							rex_prefix = 0;
 						}
-						rex_prefix = 0;
-					}
-					0x64 => {
-						instruction.set_segment_prefix(Register::FS);
-						default_ds_segment = Register::FS;
-						rex_prefix = 0;
-					}
-					0x65 => {
-						instruction.set_segment_prefix(Register::GS);
-						default_ds_segment = Register::GS;
-						rex_prefix = 0;
-					}
-					0x66 => {
-						self.state.flags |= StateFlags::HAS66;
-						self.state.operand_size = self.default_inverted_operand_size;
-						if self.state.mandatory_prefix == MandatoryPrefixByte::None as u32 {
-							self.state.mandatory_prefix = MandatoryPrefixByte::P66 as u32;
+						0x65 => {
+							instruction.set_segment_prefix(Register::GS);
+							default_ds_segment = Register::GS;
+							rex_prefix = 0;
 						}
-						rex_prefix = 0;
-					}
-					0x67 => {
-						self.state.address_size = self.default_inverted_address_size;
-						rex_prefix = 0;
-					}
-					0xF0 => {
-						instruction_internal::internal_set_has_lock_prefix(instruction);
-						self.state.flags |= StateFlags::LOCK;
-						rex_prefix = 0;
-					}
-					0xF2 => {
-						instruction_internal::internal_set_has_repne_prefix(instruction);
-						self.state.mandatory_prefix = MandatoryPrefixByte::PF2 as u32;
-						rex_prefix = 0;
-					}
-					0xF3 => {
-						instruction_internal::internal_set_has_repe_prefix(instruction);
-						self.state.mandatory_prefix = MandatoryPrefixByte::PF3 as u32;
-						rex_prefix = 0;
-					}
-					_ => {
-						debug_assert!(self.is64_mode);
-						debug_assert!(0x40 <= b && b <= 0x4F);
-						rex_prefix = b;
+						0x67 => {
+							self.state.address_size = self.default_inverted_address_size;
+							rex_prefix = 0;
+						}
+						_ => {
+							if !self.is64b_mode || default_ds_segment < Register::FS {
+								instruction.set_segment_prefix(Register::ES);
+								default_ds_segment = Register::ES;
+							}
+							rex_prefix = 0;
+						}
 					}
 				}
 				b = self.read_u8();
@@ -1266,18 +1338,17 @@ impl<'a> Decoder<'a> {
 				}
 			}
 			if rex_prefix != 0 {
+				self.state.flags |= StateFlags::HAS_REX;
 				if (rex_prefix & 8) != 0 {
+					self.state.flags |= StateFlags::W;
 					self.state.operand_size = OpSize::Size64;
-					self.state.flags |= StateFlags::HAS_REX | StateFlags::W;
-				} else {
-					self.state.flags |= StateFlags::HAS_REX;
 				}
 				self.state.extra_register_base = (rex_prefix as u32 & 4) << 1;
 				self.state.extra_index_register_base = (rex_prefix as u32 & 2) << 2;
 				self.state.extra_base_register_base = (rex_prefix as u32 & 1) << 3;
 			}
 		}
-		self.decode_table2(self.handlers_xx[b], instruction);
+		self.decode_table2(table[b], instruction);
 
 		debug_assert_eq!(data_ptr, self.instr_start_data_ptr);
 		let instr_len = self.data_ptr as u32 - data_ptr as u32;
@@ -1297,6 +1368,11 @@ impl<'a> Decoder<'a> {
 					instruction.set_memory_displacement64(addr);
 				} else {
 					instruction_internal::internal_set_memory_displacement64_lo(instruction, addr as u32);
+				}
+
+				// RIP rel ops are common, but invalid/lock bits are usually never set, so exit early if possible
+				if (flags & (StateFlags::IS_INVALID | StateFlags::LOCK)) == 0 {
+					return;
 				}
 			}
 
@@ -1371,10 +1447,8 @@ impl<'a> Decoder<'a> {
 				}
 			}
 			Decoder::PF3 => {
-				if (flags & HandlerFlags::XRELEASE) != 0 {
-					self.clear_mandatory_prefix_f3(instruction);
-					instruction_internal::internal_set_has_xrelease_prefix(instruction);
-				}
+				self.clear_mandatory_prefix_f3(instruction);
+				instruction_internal::internal_set_has_xrelease_prefix(instruction);
 			}
 			_ => {}
 		}
@@ -1446,7 +1520,6 @@ impl<'a> Decoder<'a> {
 		}
 
 		let mut b = self.state.modrm;
-		self.state.extra_register_base = ((b >> 4) ^ 8) & 8;
 
 		const_assert_eq!(VectorLength::L128 as u32, 0);
 		const_assert_eq!(VectorLength::L256 as u32, 1);
@@ -1458,12 +1531,15 @@ impl<'a> Decoder<'a> {
 		const_assert_eq!(MandatoryPrefixByte::PF2 as u32, 3);
 		self.state.mandatory_prefix = b & 3;
 
+		b = !b;
+		self.state.extra_register_base = (b >> 4) & 8;
+
 		// Bit 6 can only be 1 if it's 16/32-bit mode, so we don't need to change the mask
-		b = (!b >> 3) & 0x0F;
+		b = (b >> 3) & 0x0F;
 		self.state.vvvv = b;
 		self.state.vvvv_invalid_check = b;
 
-		self.decode_table(self.handlers_vex_0fxx, instruction);
+		self.decode_table(self.handlers_vex[0], instruction);
 	}
 
 	#[cfg(feature = "no_vex")]
@@ -1483,8 +1559,7 @@ impl<'a> Decoder<'a> {
 			self.state.flags |= EncodingKind::VEX as u32;
 		}
 
-		let b1 = self.state.modrm;
-		let mut b2 = self.read_u8() as u32;
+		let b2 = self.read_u16() as u32;
 
 		const_assert_eq!(StateFlags::W, 0x80);
 		self.state.flags |= b2 & 0x80;
@@ -1499,29 +1574,21 @@ impl<'a> Decoder<'a> {
 		const_assert_eq!(MandatoryPrefixByte::PF2 as u32, 3);
 		self.state.mandatory_prefix = b2 & 3;
 
-		b2 = (!b2 >> 3) & 0x0F;
-		if self.is64_mode {
-			self.state.vvvv = b2;
-			self.state.vvvv_invalid_check = b2;
-			let b1x = !b1;
-			self.state.extra_register_base = (b1x >> 4) & 8;
-			self.state.extra_index_register_base = (b1x >> 3) & 8;
-			self.state.extra_base_register_base = (b1x >> 2) & 8;
-		} else {
-			self.state.vvvv_invalid_check = b2;
-			self.state.vvvv = b2 & 0x07;
-		}
+		let b = (!b2 >> 3) & 0x0F;
+		self.state.vvvv_invalid_check = b;
+		self.state.vvvv = b & self.reg15_mask;
+		let b1 = self.state.modrm;
+		let b1x = !b1 & self.mask_e0;
+		self.state.extra_register_base = (b1x >> 4) & 8;
+		self.state.extra_index_register_base = (b1x >> 3) & 8;
+		self.state.extra_base_register_base = (b1x >> 2) & 8;
 
-		let table = match b1 & 0x1F {
-			1 => self.handlers_vex_0fxx,
-			2 => self.handlers_vex_0f38xx,
-			3 => self.handlers_vex_0f3axx,
-			_ => {
-				self.set_invalid_instruction();
-				return;
-			}
-		};
-		self.decode_table(table, instruction);
+		if let Some(&table) = self.handlers_vex.get(((b1 & 0x1F) as usize).wrapping_sub(1)) {
+			// SAFETY: b >> 8 == 0..0xFF and within bounds
+			self.decode_table2(unsafe { table.get_unchecked((b2 >> 8) as usize) }, instruction);
+		} else {
+			self.set_invalid_instruction();
+		}
 	}
 
 	#[cfg(feature = "no_xop")]
@@ -1541,8 +1608,7 @@ impl<'a> Decoder<'a> {
 			self.state.flags |= EncodingKind::XOP as u32;
 		}
 
-		let b1 = self.state.modrm;
-		let mut b2 = self.read_u8() as u32;
+		let b2 = self.read_u16() as u32;
 
 		const_assert_eq!(StateFlags::W, 0x80);
 		self.state.flags |= b2 & 0x80;
@@ -1557,29 +1623,21 @@ impl<'a> Decoder<'a> {
 		const_assert_eq!(MandatoryPrefixByte::PF2 as u32, 3);
 		self.state.mandatory_prefix = b2 & 3;
 
-		b2 = (!b2 >> 3) & 0x0F;
-		if self.is64_mode {
-			self.state.vvvv = b2;
-			self.state.vvvv_invalid_check = b2;
-			let b1x = !b1;
-			self.state.extra_register_base = (b1x >> 4) & 8;
-			self.state.extra_index_register_base = (b1x >> 3) & 8;
-			self.state.extra_base_register_base = (b1x >> 2) & 8;
-		} else {
-			self.state.vvvv_invalid_check = b2;
-			self.state.vvvv = b2 & 0x07;
-		}
+		let b = (!b2 >> 3) & 0x0F;
+		self.state.vvvv_invalid_check = b;
+		self.state.vvvv = b & self.reg15_mask;
+		let b1 = self.state.modrm;
+		let b1x = !b1 & self.mask_e0;
+		self.state.extra_register_base = (b1x >> 4) & 8;
+		self.state.extra_index_register_base = (b1x >> 3) & 8;
+		self.state.extra_base_register_base = (b1x >> 2) & 8;
 
-		let table = match b1 & 0x1F {
-			8 => self.handlers_xop8,
-			9 => self.handlers_xop9,
-			10 => self.handlers_xopa,
-			_ => {
-				self.set_invalid_instruction();
-				return;
-			}
-		};
-		self.decode_table(table, instruction);
+		if let Some(&table) = self.handlers_xop.get(((b1 & 0x1F) as usize).wrapping_sub(8)) {
+			// SAFETY: b >> 8 == 0..0xFF and within bounds
+			self.decode_table2(unsafe { table.get_unchecked((b2 >> 8) as usize) }, instruction);
+		} else {
+			self.set_invalid_instruction();
+		}
 	}
 
 	#[cfg(feature = "no_evex")]
@@ -1595,12 +1653,11 @@ impl<'a> Decoder<'a> {
 		// Undo what decode_out() did if it got a REX prefix
 		self.state.flags &= !StateFlags::W;
 
-		let p0 = self.state.modrm;
-		let mut p1 = self.read_u16() as u32;
-		let p2 = p1 >> 8;
-		p1 = p1 as u8 as u32;
+		let d = self.read_u32() as u32;
+		let p2 = d >> 8;
 
-		if (p1 & 4) != 0 {
+		let p0 = self.state.modrm;
+		if (d & 4) != 0 {
 			if (p0 & 0x0C) == 0 {
 				if cfg!(debug_assertions) {
 					self.state.flags |= EncodingKind::EVEX as u32;
@@ -1610,10 +1667,10 @@ impl<'a> Decoder<'a> {
 				const_assert_eq!(MandatoryPrefixByte::P66 as u32, 1);
 				const_assert_eq!(MandatoryPrefixByte::PF3 as u32, 2);
 				const_assert_eq!(MandatoryPrefixByte::PF2 as u32, 3);
-				self.state.mandatory_prefix = p1 & 3;
+				self.state.mandatory_prefix = d & 3;
 
 				const_assert_eq!(StateFlags::W, 0x80);
-				self.state.flags |= p1 & 0x80;
+				self.state.flags |= d & 0x80;
 
 				let aaa = p2 & 7;
 				self.state.aaa = aaa;
@@ -1636,8 +1693,8 @@ impl<'a> Decoder<'a> {
 				const_assert_eq!(VectorLength::Unknown as u32, 3);
 				self.state.vector_length = (p2 >> 5) & 3;
 
-				p1 = (!p1 >> 3) & 0x0F;
-				if self.is64_mode {
+				let p1 = (!d >> 3) & 0x0F;
+				if self.is64b_mode {
 					let mut tmp = (!p2 & 8) << 1;
 					self.state.extra_index_register_base_vsib = tmp;
 					tmp += p1;
@@ -1657,28 +1714,24 @@ impl<'a> Decoder<'a> {
 					self.state.flags |= (!p2 & 8) << 3;
 				}
 
-				let table = match p0 & 3 {
-					1 => self.handlers_evex_0fxx,
-					2 => self.handlers_evex_0f38xx,
-					3 => self.handlers_evex_0f3axx,
-					_ => {
+				if let Some(&table) = self.handlers_evex.get(((p0 & 3) as usize).wrapping_sub(1)) {
+					// SAFETY: table has exactly 0x100 elements
+					let handler = unsafe { *table.get_unchecked((d >> 16) as u8 as usize) };
+					debug_assert!(handler.has_modrm);
+					let m = d >> 24;
+					self.state.modrm = m;
+					self.state.mod_ = m >> 6;
+					self.state.reg = (m >> 3) & 7;
+					self.state.rm = m & 7;
+					// Invalid if LL=3 and no rc
+					const_assert!(StateFlags::B > 3);
+					if (((self.state.flags & StateFlags::B) | self.state.vector_length) & self.invalid_check_mask) == 3 {
 						self.set_invalid_instruction();
-						return;
 					}
-				};
-				let handler = table[self.read_u8()];
-				debug_assert!(handler.has_modrm);
-				let m = self.read_u8() as u32;
-				self.state.modrm = m;
-				self.state.mod_ = m >> 6;
-				self.state.reg = (m >> 3) & 7;
-				self.state.rm = m & 7;
-				// Invalid if LL=3 and no rc
-				const_assert!(StateFlags::B > 3);
-				if (((self.state.flags & StateFlags::B) | self.state.vector_length) & self.invalid_check_mask) == 3 {
+					(handler.decode)(handler, self, instruction);
+				} else {
 					self.set_invalid_instruction();
 				}
-				(handler.decode)(handler, self, instruction);
 			} else {
 				self.set_invalid_instruction();
 			}
@@ -1730,7 +1783,7 @@ impl<'a> Decoder<'a> {
 	#[inline(always)]
 	fn read_op_mem_mpx(&mut self, instruction: &mut Instruction) {
 		debug_assert_ne!(self.state.encoding(), EncodingKind::EVEX);
-		if self.is64_mode {
+		if self.is64b_mode {
 			self.state.address_size = OpSize::Size64;
 			let _ = self.read_op_mem_32_or_64(instruction);
 		} else if self.state.address_size != OpSize::Size16 {
@@ -1749,7 +1802,7 @@ impl<'a> Decoder<'a> {
 		debug_assert_eq!(self.state.encoding(), EncodingKind::EVEX);
 		if self.state.address_size != OpSize::Size16 {
 			let index_reg = if self.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
-			let _ = self.read_op_mem_32_or_64_vsib(instruction, index_reg, tuple_type, false);
+			let _ = decoder_read_op_mem_32_or_64_vsib(self, instruction, index_reg, tuple_type, false);
 		} else {
 			self.read_op_mem_16(instruction, tuple_type);
 		}
@@ -1759,7 +1812,7 @@ impl<'a> Decoder<'a> {
 	#[cfg(any(not(feature = "no_evex"), not(feature = "no_vex"), not(feature = "no_xop")))]
 	fn read_op_mem_vsib(&mut self, instruction: &mut Instruction, vsib_index: Register, tuple_type: TupleType) {
 		let is_valid = if self.state.address_size != OpSize::Size16 {
-			self.read_op_mem_32_or_64_vsib(instruction, vsib_index, tuple_type, true)
+			decoder_read_op_mem_32_or_64_vsib(self, instruction, vsib_index, tuple_type, true)
 		} else {
 			self.read_op_mem_16(instruction, tuple_type);
 			false
@@ -1792,14 +1845,10 @@ impl<'a> Decoder<'a> {
 				instruction_internal::internal_set_memory_displ_size(instruction, 1);
 				self.displ_index = self.data_ptr as u8;
 				let b = self.read_u8();
-				if tuple_type == TupleType::N1 {
-					instruction_internal::internal_set_memory_displacement64_lo(instruction, b as i8 as u16 as u32);
-				} else {
-					instruction_internal::internal_set_memory_displacement64_lo(
-						instruction,
-						self.disp8n(tuple_type).wrapping_mul(b as i8 as u32) as u16 as u32,
-					);
-				}
+				instruction_internal::internal_set_memory_displacement64_lo(
+					instruction,
+					self.disp8n(tuple_type).wrapping_mul(b as i8 as u32) as u16 as u32,
+				);
 			}
 			_ => {
 				debug_assert_eq!(self.state.mod_, 2);
@@ -1816,274 +1865,163 @@ impl<'a> Decoder<'a> {
 	#[cfg(feature = "__internal_mem_vsib")]
 	fn read_op_mem_32_or_64(&mut self, instruction: &mut Instruction) -> bool {
 		let base_reg = if self.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
-		self.read_op_mem_32_or_64_vsib(instruction, base_reg, TupleType::N1, false)
+		decoder_read_op_mem_32_or_64_vsib(self, instruction, base_reg, TupleType::N1, false)
 	}
 
 	// Returns `true` if the SIB byte was read
 	// This is a specialized version of read_op_mem_32_or_64_vsib() which takes less arguments. Keep them in sync.
 	#[must_use]
 	#[cfg(not(feature = "__internal_mem_vsib"))]
+	#[inline(always)]
 	fn read_op_mem_32_or_64(&mut self, instruction: &mut Instruction) -> bool {
 		debug_assert!(self.state.address_size == OpSize::Size32 || self.state.address_size == OpSize::Size64);
-		let sib: u32;
-		let displ_size_scale: u32;
-		let displ: u32;
-		match self.state.mod_ {
-			0 => match self.state.rm {
-				4 => {
-					sib = self.read_u8() as u32;
-					displ_size_scale = 0;
-					displ = 0;
-				}
-				5 => {
-					self.displ_index = self.data_ptr as u8;
-					let d = self.read_u32();
-					if self.is64_mode {
-						self.state.flags |= StateFlags::IP_REL;
-						if self.state.address_size == OpSize::Size64 {
-							instruction.set_memory_displacement64(d as i32 as u64);
-							instruction_internal::internal_set_memory_displ_size(instruction, 4);
-							instruction_internal::internal_set_memory_base(instruction, Register::RIP);
-						} else {
-							instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
-							instruction_internal::internal_set_memory_displ_size(instruction, 3);
-							instruction_internal::internal_set_memory_base(instruction, Register::EIP);
-						}
-					} else {
-						if self.state.address_size == OpSize::Size64 {
-							instruction.set_memory_displacement64(d as i32 as u64);
-							instruction_internal::internal_set_memory_displ_size(instruction, 4);
-						} else {
-							instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
-							instruction_internal::internal_set_memory_displ_size(instruction, 3);
-						}
-					}
-					return false;
-				}
-				_ => {
-					debug_assert!(self.state.rm <= 7 && self.state.rm != 4 && self.state.rm != 5);
-					let base_reg = if self.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
-					instruction_internal::internal_set_memory_base_u32(
-						instruction,
-						self.state.extra_base_register_base + self.state.rm + base_reg as u32,
-					);
-					return false;
-				}
-			},
-			1 => {
-				let b = self.read_u8();
-				if self.state.rm == 4 {
-					sib = b as u32;
-					displ_size_scale = 1;
-					self.displ_index = self.data_ptr as u8;
-					displ = self.read_u8() as i8 as u32;
-				} else {
-					debug_assert!(self.state.rm <= 7 && self.state.rm != 4);
-					instruction_internal::internal_set_memory_displ_size(instruction, 1);
-					self.displ_index = self.data_ptr.wrapping_sub(1) as u8;
-					if self.state.address_size == OpSize::Size64 {
-						instruction.set_memory_displacement64(b as i8 as u64);
-						instruction_internal::internal_set_memory_base_u32(
-							instruction,
-							self.state.extra_base_register_base + self.state.rm + Register::RAX as u32,
-						);
-					} else {
-						instruction_internal::internal_set_memory_displacement64_lo(instruction, b as i8 as u32);
-						instruction_internal::internal_set_memory_base_u32(
-							instruction,
-							self.state.extra_base_register_base + self.state.rm + Register::EAX as u32,
-						);
-					}
-					return false;
-				}
-			}
-			_ => {
-				debug_assert_eq!(self.state.mod_, 2);
-				if self.state.rm == 4 {
-					sib = self.read_u8() as u32;
-					displ_size_scale = if self.state.address_size == OpSize::Size64 { 4 } else { 3 };
-					self.displ_index = self.data_ptr as u8;
-					displ = self.read_u32() as u32;
-				} else {
-					debug_assert!(self.state.rm <= 7 && self.state.rm != 4);
-					self.displ_index = self.data_ptr as u8;
-					let d = self.read_u32();
-					if self.state.address_size == OpSize::Size64 {
-						instruction.set_memory_displacement64(d as i32 as u64);
-						instruction_internal::internal_set_memory_displ_size(instruction, 4);
-						instruction_internal::internal_set_memory_base_u32(
-							instruction,
-							self.state.extra_base_register_base + self.state.rm + Register::RAX as u32,
-						);
-					} else {
-						instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
-						instruction_internal::internal_set_memory_displ_size(instruction, 3);
-						instruction_internal::internal_set_memory_base_u32(
-							instruction,
-							self.state.extra_base_register_base + self.state.rm + Register::EAX as u32,
-						);
-					}
-					return false;
-				}
-			}
+
+		let index = ((self.state.mod_ << 3) | self.state.rm) as usize;
+		debug_assert!(self.state.mod_ <= 2);
+		debug_assert!(self.state.rm <= 7);
+		debug_assert!(index < self.read_op_mem_fns.len());
+		// SAFETY: index is valid because modrm.mod = 0-2 (never 3 if we're here) so index will always be 0-10_111 (17h)
+		unsafe { (self.read_op_mem_fns.get_unchecked(index))(self, instruction) }
+	}
+
+	#[cfg(not(feature = "__internal_mem_vsib"))]
+	fn read_op_mem_1(&mut self, instruction: &mut Instruction) -> bool {
+		instruction_internal::internal_set_memory_displ_size(instruction, 1);
+		self.displ_index = self.data_ptr as u8;
+		let b = self.read_u8();
+		if self.state.address_size == OpSize::Size64 {
+			instruction.set_memory_displacement64(b as i8 as u64);
+			instruction_internal::internal_set_memory_base_u32(
+				instruction,
+				self.state.extra_base_register_base + self.state.rm + Register::RAX as u32,
+			);
+		} else {
+			instruction_internal::internal_set_memory_displacement64_lo(instruction, b as i8 as u32);
+			instruction_internal::internal_set_memory_base_u32(
+				instruction,
+				self.state.extra_base_register_base + self.state.rm + Register::EAX as u32,
+			);
 		}
 
-		let index = ((sib >> 3) & 7) + self.state.extra_index_register_base;
-		let base = sib & 7;
+		false
+	}
 
-		instruction_internal::internal_set_memory_index_scale(instruction, sib >> 6);
+	#[cfg(not(feature = "__internal_mem_vsib"))]
+	fn read_op_mem_1_4(&mut self, instruction: &mut Instruction) -> bool {
+		instruction_internal::internal_set_memory_displ_size(instruction, 1);
+
+		self.displ_index = self.data_ptr.wrapping_add(1) as u8;
+		let sib = self.read_u16() as u32;
+
+		instruction_internal::internal_set_memory_index_scale(instruction, (sib >> 6) & 3);
+		let index = ((sib >> 3) & 7) + self.state.extra_index_register_base;
 		let base_reg = if self.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
 		if index != 4 {
 			instruction_internal::internal_set_memory_index_u32(instruction, index + base_reg as u32);
 		}
 
-		if base == 5 && self.state.mod_ == 0 {
-			self.displ_index = self.data_ptr as u8;
-			let d = self.read_u32();
-			if self.state.address_size == OpSize::Size64 {
-				instruction.set_memory_displacement64(d as i32 as u64);
-				instruction_internal::internal_set_memory_displ_size(instruction, 4);
-			} else {
-				instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
-				instruction_internal::internal_set_memory_displ_size(instruction, 3);
-			}
+		instruction_internal::internal_set_memory_base_u32(instruction, (sib & 7) + self.state.extra_base_register_base + base_reg as u32);
+		let displ = (sib >> 8) as i8 as u32;
+		if self.state.address_size == OpSize::Size64 {
+			instruction.set_memory_displacement64(displ as i32 as u64);
 		} else {
-			instruction_internal::internal_set_memory_base_u32(instruction, base + self.state.extra_base_register_base + base_reg as u32);
-			instruction_internal::internal_set_memory_displ_size(instruction, displ_size_scale);
-			if self.state.address_size == OpSize::Size64 {
-				instruction.set_memory_displacement64(displ as i32 as u64);
-			} else {
-				instruction_internal::internal_set_memory_displacement64_lo(instruction, displ);
-			}
+			instruction_internal::internal_set_memory_displacement64_lo(instruction, displ);
 		}
+
 		true
 	}
 
-	// Returns `true` if the SIB byte was read
-	// Same as read_op_mem_32_or_64() except it works with vsib memory operands. Keep them in sync.
-	#[must_use]
-	#[cfg(any(feature = "__internal_mem_vsib", not(feature = "no_evex"), not(feature = "no_vex"), not(feature = "no_xop")))]
-	fn read_op_mem_32_or_64_vsib(&mut self, instruction: &mut Instruction, index_reg: Register, tuple_type: TupleType, is_vsib: bool) -> bool {
-		debug_assert!(self.state.address_size == OpSize::Size32 || self.state.address_size == OpSize::Size64);
-		let sib: u32;
-		let displ_size_scale: u32;
-		let displ: u32;
+	#[cfg(not(feature = "__internal_mem_vsib"))]
+	fn read_op_mem_0(&mut self, instruction: &mut Instruction) -> bool {
 		let base_reg = if self.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
-		match self.state.mod_ {
-			0 => match self.state.rm {
-				4 => {
-					sib = self.read_u8() as u32;
-					displ_size_scale = 0;
-					displ = 0;
-				}
-				5 => {
-					self.displ_index = self.data_ptr as u8;
-					let d = self.read_u32();
-					if self.state.address_size == OpSize::Size64 {
-						instruction.set_memory_displacement64(d as i32 as u64);
-						instruction_internal::internal_set_memory_displ_size(instruction, 4);
-					} else {
-						instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
-						instruction_internal::internal_set_memory_displ_size(instruction, 3);
-					}
-					if self.is64_mode {
-						self.state.flags |= StateFlags::IP_REL;
-						if self.state.address_size == OpSize::Size64 {
-							instruction_internal::internal_set_memory_base(instruction, Register::RIP);
-						} else {
-							instruction_internal::internal_set_memory_base(instruction, Register::EIP);
-						}
-					}
-					return false;
-				}
-				_ => {
-					debug_assert!(self.state.rm <= 7 && self.state.rm != 4 && self.state.rm != 5);
-					instruction_internal::internal_set_memory_base_u32(
-						instruction,
-						self.state.extra_base_register_base + self.state.rm + base_reg as u32,
-					);
-					return false;
-				}
-			},
-			1 => {
-				let b = self.read_u8();
-				if self.state.rm == 4 {
-					sib = b as u32;
-					displ_size_scale = 1;
-					self.displ_index = self.data_ptr as u8;
-					let b = self.read_u8();
-					if tuple_type == TupleType::N1 {
-						displ = b as i8 as u32;
-					} else {
-						displ = self.disp8n(tuple_type).wrapping_mul(b as i8 as u32);
-					}
-				} else {
-					debug_assert!(self.state.rm <= 7 && self.state.rm != 4);
-					instruction_internal::internal_set_memory_displ_size(instruction, 1);
-					self.displ_index = self.data_ptr.wrapping_sub(1) as u8;
-					if self.state.address_size == OpSize::Size64 {
-						if tuple_type == TupleType::N1 {
-							instruction.set_memory_displacement64(b as i8 as u64);
-						} else {
-							instruction.set_memory_displacement64((self.disp8n(tuple_type) as u64).wrapping_mul(b as i8 as u64));
-						}
-					} else {
-						if tuple_type == TupleType::N1 {
-							instruction_internal::internal_set_memory_displacement64_lo(instruction, b as i8 as u32);
-						} else {
-							instruction_internal::internal_set_memory_displacement64_lo(
-								instruction,
-								self.disp8n(tuple_type).wrapping_mul(b as i8 as u32),
-							);
-						}
-					}
-					instruction_internal::internal_set_memory_base_u32(
-						instruction,
-						self.state.extra_base_register_base + self.state.rm + base_reg as u32,
-					);
-					return false;
-				}
-			}
-			_ => {
-				debug_assert_eq!(self.state.mod_, 2);
-				if self.state.rm == 4 {
-					sib = self.read_u8() as u32;
-					displ_size_scale = if self.state.address_size == OpSize::Size64 { 4 } else { 3 };
-					self.displ_index = self.data_ptr as u8;
-					displ = self.read_u32() as u32;
-				} else {
-					debug_assert!(self.state.rm <= 7 && self.state.rm != 4);
-					self.displ_index = self.data_ptr as u8;
-					let d = self.read_u32();
-					if self.state.address_size == OpSize::Size64 {
-						instruction.set_memory_displacement64(d as i32 as u64);
-						instruction_internal::internal_set_memory_displ_size(instruction, 4);
-					} else {
-						instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
-						instruction_internal::internal_set_memory_displ_size(instruction, 3);
-					}
-					instruction_internal::internal_set_memory_base_u32(
-						instruction,
-						self.state.extra_base_register_base + self.state.rm + base_reg as u32,
-					);
-					return false;
-				}
-			}
-		}
+		instruction_internal::internal_set_memory_base_u32(instruction, self.state.extra_base_register_base + self.state.rm + base_reg as u32);
 
-		let index = ((sib >> 3) & 7) + self.state.extra_index_register_base;
-		let base = sib & 7;
+		false
+	}
 
-		instruction_internal::internal_set_memory_index_scale(instruction, sib >> 6);
-		if !is_vsib {
-			if index != 4 {
-				instruction_internal::internal_set_memory_index_u32(instruction, index + index_reg as u32);
+	#[cfg(not(feature = "__internal_mem_vsib"))]
+	fn read_op_mem_0_5(&mut self, instruction: &mut Instruction) -> bool {
+		self.displ_index = self.data_ptr as u8;
+		let d = self.read_u32();
+		if self.is64b_mode {
+			self.state.flags |= StateFlags::IP_REL;
+			if self.state.address_size == OpSize::Size64 {
+				instruction.set_memory_displacement64(d as i32 as u64);
+				instruction_internal::internal_set_memory_displ_size(instruction, 4);
+				instruction_internal::internal_set_memory_base(instruction, Register::RIP);
+			} else {
+				instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
+				instruction_internal::internal_set_memory_displ_size(instruction, 3);
+				instruction_internal::internal_set_memory_base(instruction, Register::EIP);
 			}
 		} else {
-			instruction_internal::internal_set_memory_index_u32(instruction, index + self.state.extra_index_register_base_vsib + index_reg as u32);
+			instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
+			instruction_internal::internal_set_memory_displ_size(instruction, 3);
 		}
 
-		if base == 5 && self.state.mod_ == 0 {
+		false
+	}
+
+	#[cfg(not(feature = "__internal_mem_vsib"))]
+	fn read_op_mem_2_4(&mut self, instruction: &mut Instruction) -> bool {
+		let sib = self.read_u8() as u32;
+		self.displ_index = self.data_ptr as u8;
+		let displ = self.read_u32() as u32;
+
+		instruction_internal::internal_set_memory_index_scale(instruction, sib >> 6);
+		let index = ((sib >> 3) & 7) + self.state.extra_index_register_base;
+		let base_reg = if self.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
+		if index != 4 {
+			instruction_internal::internal_set_memory_index_u32(instruction, index + base_reg as u32);
+		}
+
+		instruction_internal::internal_set_memory_base_u32(instruction, (sib & 7) + self.state.extra_base_register_base + base_reg as u32);
+		if self.state.address_size == OpSize::Size64 {
+			instruction_internal::internal_set_memory_displ_size(instruction, 4);
+			instruction.set_memory_displacement64(displ as i32 as u64);
+		} else {
+			instruction_internal::internal_set_memory_displ_size(instruction, 3);
+			instruction_internal::internal_set_memory_displacement64_lo(instruction, displ);
+		}
+
+		true
+	}
+
+	#[cfg(not(feature = "__internal_mem_vsib"))]
+	fn read_op_mem_2(&mut self, instruction: &mut Instruction) -> bool {
+		self.displ_index = self.data_ptr as u8;
+		let d = self.read_u32();
+		if self.state.address_size == OpSize::Size64 {
+			instruction.set_memory_displacement64(d as i32 as u64);
+			instruction_internal::internal_set_memory_displ_size(instruction, 4);
+			instruction_internal::internal_set_memory_base_u32(
+				instruction,
+				self.state.extra_base_register_base + self.state.rm + Register::RAX as u32,
+			);
+		} else {
+			instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
+			instruction_internal::internal_set_memory_displ_size(instruction, 3);
+			instruction_internal::internal_set_memory_base_u32(
+				instruction,
+				self.state.extra_base_register_base + self.state.rm + Register::EAX as u32,
+			);
+		}
+
+		false
+	}
+
+	#[cfg(not(feature = "__internal_mem_vsib"))]
+	fn read_op_mem_0_4(&mut self, instruction: &mut Instruction) -> bool {
+		let sib = self.read_u8() as u32;
+		instruction_internal::internal_set_memory_index_scale(instruction, sib >> 6);
+		let index = ((sib >> 3) & 7) + self.state.extra_index_register_base;
+		let base_reg = if self.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
+		if index != 4 {
+			instruction_internal::internal_set_memory_index_u32(instruction, index + base_reg as u32);
+		}
+
+		let base = sib & 7;
+		if base == 5 {
 			self.displ_index = self.data_ptr as u8;
 			let d = self.read_u32();
 			if self.state.address_size == OpSize::Size64 {
@@ -2095,13 +2033,14 @@ impl<'a> Decoder<'a> {
 			}
 		} else {
 			instruction_internal::internal_set_memory_base_u32(instruction, base + self.state.extra_base_register_base + base_reg as u32);
-			instruction_internal::internal_set_memory_displ_size(instruction, displ_size_scale);
+			instruction_internal::internal_set_memory_displ_size(instruction, 0);
 			if self.state.address_size == OpSize::Size64 {
-				instruction.set_memory_displacement64(displ as i32 as u64);
+				instruction.set_memory_displacement64(0);
 			} else {
-				instruction_internal::internal_set_memory_displacement64_lo(instruction, displ);
+				instruction_internal::internal_set_memory_displacement64_lo(instruction, 0);
 			}
 		}
+
 		true
 	}
 
@@ -2252,6 +2191,203 @@ impl<'a> Decoder<'a> {
 
 		constant_offsets
 	}
+}
+
+// These are referenced from a static and I couldn't get it to work when they were inside an `impl` block
+// so they're here instead of where they really belong.
+
+// Returns `true` if the SIB byte was read
+// Same as read_op_mem_32_or_64() except it works with vsib memory operands. Keep them in sync.
+#[must_use]
+#[cfg(any(feature = "__internal_mem_vsib", not(feature = "no_evex"), not(feature = "no_vex"), not(feature = "no_xop")))]
+#[inline(always)]
+fn decoder_read_op_mem_32_or_64_vsib(
+	this: &mut Decoder<'_>, instruction: &mut Instruction, index_reg: Register, tuple_type: TupleType, is_vsib: bool,
+) -> bool {
+	debug_assert!(this.state.address_size == OpSize::Size32 || this.state.address_size == OpSize::Size64);
+
+	let index = ((this.state.mod_ << 3) | this.state.rm) as usize;
+	debug_assert!(this.state.mod_ <= 2);
+	debug_assert!(this.state.rm <= 7);
+	debug_assert!(index < READ_OP_MEM_VSIB_FNS.len());
+	// SAFETY: index is valid because modrm.mod = 0-2 (never 3 if we're here) so index will always be 0-10_111 (17h)
+	unsafe { (READ_OP_MEM_VSIB_FNS.get_unchecked(index))(this, instruction, index_reg, tuple_type, is_vsib) }
+}
+
+#[cfg(any(feature = "__internal_mem_vsib", not(feature = "no_evex"), not(feature = "no_vex"), not(feature = "no_xop")))]
+fn decoder_read_op_mem_vsib_1(
+	this: &mut Decoder<'_>, instruction: &mut Instruction, _index_reg: Register, tuple_type: TupleType, _is_vsib: bool,
+) -> bool {
+	instruction_internal::internal_set_memory_displ_size(instruction, 1);
+	this.displ_index = this.data_ptr as u8;
+	let b = this.read_u8();
+	if this.state.address_size == OpSize::Size64 {
+		instruction_internal::internal_set_memory_base_u32(instruction, this.state.extra_base_register_base + this.state.rm + Register::RAX as u32);
+		instruction.set_memory_displacement64((this.disp8n(tuple_type) as u64).wrapping_mul(b as i8 as u64));
+	} else {
+		instruction_internal::internal_set_memory_base_u32(instruction, this.state.extra_base_register_base + this.state.rm + Register::EAX as u32);
+		instruction_internal::internal_set_memory_displacement64_lo(instruction, this.disp8n(tuple_type).wrapping_mul(b as i8 as u32));
+	}
+
+	false
+}
+
+#[cfg(any(feature = "__internal_mem_vsib", not(feature = "no_evex"), not(feature = "no_vex"), not(feature = "no_xop")))]
+fn decoder_read_op_mem_vsib_1_4(
+	this: &mut Decoder<'_>, instruction: &mut Instruction, index_reg: Register, tuple_type: TupleType, is_vsib: bool,
+) -> bool {
+	instruction_internal::internal_set_memory_displ_size(instruction, 1);
+
+	this.displ_index = this.data_ptr.wrapping_add(1) as u8;
+	let sib = this.read_u16() as u32;
+	let index = ((sib >> 3) & 7) + this.state.extra_index_register_base;
+	if !is_vsib {
+		if index != 4 {
+			instruction_internal::internal_set_memory_index_u32(instruction, index + index_reg as u32);
+		}
+	} else {
+		instruction_internal::internal_set_memory_index_u32(instruction, index + this.state.extra_index_register_base_vsib + index_reg as u32);
+	}
+
+	instruction_internal::internal_set_memory_index_scale(instruction, (sib >> 6) & 3);
+	let base_reg = if this.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
+	instruction_internal::internal_set_memory_base_u32(instruction, (sib & 7) + this.state.extra_base_register_base + base_reg as u32);
+
+	let b = (sib >> 8) as i8 as u32;
+	let displ = this.disp8n(tuple_type).wrapping_mul(b);
+	if this.state.address_size == OpSize::Size64 {
+		instruction.set_memory_displacement64(displ as i32 as u64);
+	} else {
+		instruction_internal::internal_set_memory_displacement64_lo(instruction, displ);
+	}
+
+	true
+}
+
+#[cfg(any(feature = "__internal_mem_vsib", not(feature = "no_evex"), not(feature = "no_vex"), not(feature = "no_xop")))]
+fn decoder_read_op_mem_vsib_0(
+	this: &mut Decoder<'_>, instruction: &mut Instruction, _index_reg: Register, _tuple_type: TupleType, _is_vsib: bool,
+) -> bool {
+	let base_reg = if this.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
+	instruction_internal::internal_set_memory_base_u32(instruction, this.state.extra_base_register_base + this.state.rm + base_reg as u32);
+
+	false
+}
+
+#[cfg(any(feature = "__internal_mem_vsib", not(feature = "no_evex"), not(feature = "no_vex"), not(feature = "no_xop")))]
+fn decoder_read_op_mem_vsib_0_5(
+	this: &mut Decoder<'_>, instruction: &mut Instruction, _index_reg: Register, _tuple_type: TupleType, _is_vsib: bool,
+) -> bool {
+	this.displ_index = this.data_ptr as u8;
+	let d = this.read_u32();
+	if this.is64b_mode {
+		this.state.flags |= StateFlags::IP_REL;
+		if this.state.address_size == OpSize::Size64 {
+			instruction.set_memory_displacement64(d as i32 as u64);
+			instruction_internal::internal_set_memory_displ_size(instruction, 4);
+			instruction_internal::internal_set_memory_base(instruction, Register::RIP);
+		} else {
+			instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
+			instruction_internal::internal_set_memory_displ_size(instruction, 3);
+			instruction_internal::internal_set_memory_base(instruction, Register::EIP);
+		}
+	} else {
+		instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
+		instruction_internal::internal_set_memory_displ_size(instruction, 3);
+	}
+
+	false
+}
+
+#[cfg(any(feature = "__internal_mem_vsib", not(feature = "no_evex"), not(feature = "no_vex"), not(feature = "no_xop")))]
+fn decoder_read_op_mem_vsib_2_4(
+	this: &mut Decoder<'_>, instruction: &mut Instruction, index_reg: Register, _tuple_type: TupleType, is_vsib: bool,
+) -> bool {
+	let sib = this.read_u8() as u32;
+	this.displ_index = this.data_ptr as u8;
+
+	let index = ((sib >> 3) & 7) + this.state.extra_index_register_base;
+	if !is_vsib {
+		if index != 4 {
+			instruction_internal::internal_set_memory_index_u32(instruction, index + index_reg as u32);
+		}
+	} else {
+		instruction_internal::internal_set_memory_index_u32(instruction, index + this.state.extra_index_register_base_vsib + index_reg as u32);
+	}
+
+	instruction_internal::internal_set_memory_index_scale(instruction, sib >> 6);
+
+	let base_reg = if this.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
+	instruction_internal::internal_set_memory_base_u32(instruction, (sib & 7) + this.state.extra_base_register_base + base_reg as u32);
+	let displ = this.read_u32() as u32;
+	if this.state.address_size == OpSize::Size64 {
+		instruction_internal::internal_set_memory_displ_size(instruction, 4);
+		instruction.set_memory_displacement64(displ as i32 as u64);
+	} else {
+		instruction_internal::internal_set_memory_displ_size(instruction, 3);
+		instruction_internal::internal_set_memory_displacement64_lo(instruction, displ);
+	}
+
+	true
+}
+
+#[cfg(any(feature = "__internal_mem_vsib", not(feature = "no_evex"), not(feature = "no_vex"), not(feature = "no_xop")))]
+fn decoder_read_op_mem_vsib_2(
+	this: &mut Decoder<'_>, instruction: &mut Instruction, _index_reg: Register, _tuple_type: TupleType, _is_vsib: bool,
+) -> bool {
+	let base_reg = if this.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
+	instruction_internal::internal_set_memory_base_u32(instruction, this.state.extra_base_register_base + this.state.rm + base_reg as u32);
+	this.displ_index = this.data_ptr as u8;
+	let d = this.read_u32();
+	if this.state.address_size == OpSize::Size64 {
+		instruction.set_memory_displacement64(d as i32 as u64);
+		instruction_internal::internal_set_memory_displ_size(instruction, 4);
+	} else {
+		instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
+		instruction_internal::internal_set_memory_displ_size(instruction, 3);
+	}
+
+	false
+}
+
+#[cfg(any(feature = "__internal_mem_vsib", not(feature = "no_evex"), not(feature = "no_vex"), not(feature = "no_xop")))]
+fn decoder_read_op_mem_vsib_0_4(
+	this: &mut Decoder<'_>, instruction: &mut Instruction, index_reg: Register, _tuple_type: TupleType, is_vsib: bool,
+) -> bool {
+	let sib = this.read_u8() as u32;
+	instruction_internal::internal_set_memory_index_scale(instruction, sib >> 6);
+	let index = ((sib >> 3) & 7) + this.state.extra_index_register_base;
+	if !is_vsib {
+		if index != 4 {
+			instruction_internal::internal_set_memory_index_u32(instruction, index + index_reg as u32);
+		}
+	} else {
+		instruction_internal::internal_set_memory_index_u32(instruction, index + this.state.extra_index_register_base_vsib + index_reg as u32);
+	}
+
+	let base = sib & 7;
+	if base == 5 {
+		this.displ_index = this.data_ptr as u8;
+		let d = this.read_u32();
+		if this.state.address_size == OpSize::Size64 {
+			instruction.set_memory_displacement64(d as i32 as u64);
+			instruction_internal::internal_set_memory_displ_size(instruction, 4);
+		} else {
+			instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
+			instruction_internal::internal_set_memory_displ_size(instruction, 3);
+		}
+	} else {
+		let base_reg = if this.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
+		instruction_internal::internal_set_memory_base_u32(instruction, base + this.state.extra_base_register_base + base_reg as u32);
+		instruction_internal::internal_set_memory_displ_size(instruction, 0);
+		if this.state.address_size == OpSize::Size64 {
+			instruction.set_memory_displacement64(0);
+		} else {
+			instruction_internal::internal_set_memory_displacement64_lo(instruction, 0);
+		}
+	}
+
+	true
 }
 
 #[doc(hidden)]

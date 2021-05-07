@@ -50,6 +50,7 @@ namespace Iced.Intel {
 		readonly uint[] prefixes;
 		readonly RegInfo2[] memRegs16;
 		readonly OpCodeHandler[] handlers_XX;
+		readonly OpCodeHandler[] handlers_0FXX;
 #if !NO_VEX
 		readonly OpCodeHandler[] handlers_VEX_0FXX;
 		readonly OpCodeHandler[] handlers_VEX_0F38XX;
@@ -69,14 +70,14 @@ namespace Iced.Intel {
 		internal uint displIndex;
 		internal readonly DecoderOptions options;
 		internal readonly uint invalidCheckMask;// All 1s if we should check for invalid instructions, else 0
-		internal readonly uint is64Mode_and_W;// StateFlags.W if 64-bit, 0 if 16/32-bit
+		internal readonly uint is64bMode_and_W;// StateFlags.W if 64-bit mode, 0 if 16/32-bit mode
 		internal readonly uint reg15Mask;// 7 in 16/32-bit mode, 15 in 64-bit mode
 		internal readonly CodeSize defaultCodeSize;
 		readonly OpSize defaultOperandSize;
 		readonly OpSize defaultAddressSize;
 		readonly OpSize defaultInvertedOperandSize;
 		readonly OpSize defaultInvertedAddressSize;
-		internal readonly bool is64Mode;
+		internal readonly bool is64bMode;
 
 		internal struct State {
 			public uint modrm, mod, reg, rm;
@@ -87,7 +88,7 @@ namespace Iced.Intel {
 			public uint extraIndexRegisterBaseVSIB;
 			public StateFlags flags;
 			public MandatoryPrefixByte mandatoryPrefix;
-			public uint vvvv;// V`vvvv. Not stored in inverted form. If 16/32-bit, bits [4:3] are cleared
+			public uint vvvv;// V`vvvv. Not stored in inverted form. If 16/32-bit mode, bits [4:3] are cleared
 			public uint vvvv_invalidCheck;// vvvv bits, even in 16/32-bit mode.
 			public uint aaa;
 			public uint extraRegisterBaseEVEX;		// EVEX.R' << 4
@@ -114,14 +115,14 @@ namespace Iced.Intel {
 		/// </summary>
 		public int Bitness { get; }
 
-		// 26,2E,36,3E,64,65,66,67,F0,F2,F3
+		// 0F,26,2E,36,3E,64,65,66,67,F0,F2,F3
 		static readonly uint[] prefixes1632 = new uint[8] {
-			0x00000000, 0x40404040, 0x00000000, 0x000000F0,
+			0x00008000, 0x40404040, 0x00000000, 0x000000F0,
 			0x00000000, 0x00000000, 0x00000000, 0x000D0000,
 		};
-		// 26,2E,36,3E,64,65,66,67,F0,F2,F3 and 40-4F
+		// 0F,26,2E,36,3E,64,65,66,67,F0,F2,F3 and 40-4F
 		static readonly uint[] prefixes64 = new uint[8] {
-			0x00000000, 0x40404040, 0x0000FFFF, 0x000000F0,
+			0x00008000, 0x40404040, 0x0000FFFF, 0x000000F0,
 			0x00000000, 0x00000000, 0x00000000, 0x000D0000,
 		};
 
@@ -157,7 +158,7 @@ namespace Iced.Intel {
 			memRegs16 = s_memRegs16;
 			Bitness = bitness;
 			if (bitness == 64) {
-				is64Mode = true;
+				is64bMode = true;
 				defaultCodeSize = CodeSize.Code64;
 				defaultOperandSize = OpSize.Size32;
 				defaultInvertedOperandSize = OpSize.Size16;
@@ -166,7 +167,7 @@ namespace Iced.Intel {
 				prefixes = prefixes64;
 			}
 			else if (bitness == 32) {
-				is64Mode = false;
+				is64bMode = false;
 				defaultCodeSize = CodeSize.Code32;
 				defaultOperandSize = OpSize.Size32;
 				defaultInvertedOperandSize = OpSize.Size16;
@@ -176,7 +177,7 @@ namespace Iced.Intel {
 			}
 			else {
 				Debug.Assert(bitness == 16);
-				is64Mode = false;
+				is64bMode = false;
 				defaultCodeSize = CodeSize.Code16;
 				defaultOperandSize = OpSize.Size16;
 				defaultInvertedOperandSize = OpSize.Size32;
@@ -184,9 +185,10 @@ namespace Iced.Intel {
 				defaultInvertedAddressSize = OpSize.Size32;
 				prefixes = prefixes1632;
 			}
-			is64Mode_and_W = is64Mode ? (uint)StateFlags.W : 0;
-			reg15Mask = is64Mode ? 0xFU : 0x7;
+			is64bMode_and_W = is64bMode ? (uint)StateFlags.W : 0;
+			reg15Mask = is64bMode ? 0xFU : 0x7;
 			handlers_XX = OpCodeHandlersTables_Legacy.OneByteHandlers;
+			handlers_0FXX = OpCodeHandlersTables_Legacy.TwoByteHandlers_0FXX;
 #if !NO_VEX
 			handlers_VEX_0FXX = OpCodeHandlersTables_VEX.TwoByteHandlers_0FXX;
 			handlers_VEX_0F38XX = OpCodeHandlersTables_VEX.ThreeByteHandlers_0F38XX;
@@ -318,6 +320,7 @@ namespace Iced.Intel {
 #endif
 			state.operandSize = defaultOperandSize;
 			state.addressSize = defaultAddressSize;
+			var table = handlers_XX;
 			var defaultDsSegment = (byte)Register.DS;
 			uint rexPrefix = 0;
 			uint b;
@@ -329,8 +332,13 @@ namespace Iced.Intel {
 				// Converting these prefixes to opcode handlers instead of a switch results in slightly worse perf
 				// with JIT32, and about the same speed with 64-bit RyuJIT.
 				switch (b) {
+				case 0x0F:
+					b = ReadByte();
+					table = handlers_0FXX;
+					goto afterPrefixLoop;
+
 				case 0x26:
-					if (!is64Mode || defaultDsSegment < (byte)Register.FS) {
+					if (!is64bMode || defaultDsSegment < (byte)Register.FS) {
 						instruction.SegmentPrefix = Register.ES;
 						defaultDsSegment = (byte)Register.ES;
 					}
@@ -338,7 +346,7 @@ namespace Iced.Intel {
 					break;
 
 				case 0x2E:
-					if (!is64Mode || defaultDsSegment < (byte)Register.FS) {
+					if (!is64bMode || defaultDsSegment < (byte)Register.FS) {
 						instruction.SegmentPrefix = Register.CS;
 						defaultDsSegment = (byte)Register.CS;
 					}
@@ -346,7 +354,7 @@ namespace Iced.Intel {
 					break;
 
 				case 0x36:
-					if (!is64Mode || defaultDsSegment < (byte)Register.FS) {
+					if (!is64bMode || defaultDsSegment < (byte)Register.FS) {
 						instruction.SegmentPrefix = Register.SS;
 						defaultDsSegment = (byte)Register.SS;
 					}
@@ -354,7 +362,7 @@ namespace Iced.Intel {
 					break;
 
 				case 0x3E:
-					if (!is64Mode || defaultDsSegment < (byte)Register.FS) {
+					if (!is64bMode || defaultDsSegment < (byte)Register.FS) {
 						instruction.SegmentPrefix = Register.DS;
 						defaultDsSegment = (byte)Register.DS;
 					}
@@ -405,12 +413,13 @@ namespace Iced.Intel {
 					break;
 
 				default:
-					Debug.Assert(is64Mode);
+					Debug.Assert(is64bMode);
 					Debug.Assert(0x40 <= b && b <= 0x4F);
 					rexPrefix = b;
 					break;
 				}
 			}
+afterPrefixLoop:
 			if (rexPrefix != 0) {
 				if ((rexPrefix & 8) != 0) {
 					state.operandSize = OpSize.Size64;
@@ -422,7 +431,7 @@ namespace Iced.Intel {
 				state.extraIndexRegisterBase = (rexPrefix & 2) << 2;
 				state.extraBaseRegisterBase = (rexPrefix & 1) << 3;
 			}
-			DecodeTable(handlers_XX[b], ref instruction);
+			DecodeTable(table[b], ref instruction);
 			var flags = state.flags;
 			if ((flags & (StateFlags.IsInvalid | StateFlags.Lock)) != 0) {
 				if ((flags & StateFlags.IsInvalid) != 0 ||
@@ -591,7 +600,7 @@ namespace Iced.Intel {
 			state.mandatoryPrefix = (MandatoryPrefixByte)(b2 & 3);
 
 			b2 = (~b2 >> 3) & 0x0F;
-			if (is64Mode) {
+			if (is64bMode) {
 				state.vvvv = b2;
 				state.vvvv_invalidCheck = b2;
 				uint b1x = ~b1;
@@ -645,7 +654,7 @@ namespace Iced.Intel {
 			state.mandatoryPrefix = (MandatoryPrefixByte)(b2 & 3);
 
 			b2 = (~b2 >> 3) & 0x0F;
-			if (is64Mode) {
+			if (is64bMode) {
 				state.vvvv = b2;
 				state.vvvv_invalidCheck = b2;
 				uint b1x = ~b1;
@@ -719,7 +728,7 @@ namespace Iced.Intel {
 					state.vectorLength = (p2 >> 5) & 3;
 
 					p1 = (~p1 >> 3) & 0x0F;
-					if (is64Mode) {
+					if (is64bMode) {
 						uint tmp = (~p2 & 8) << 1;
 						state.extraIndexRegisterBaseVSIB = tmp;
 						tmp += p1;
@@ -819,7 +828,7 @@ namespace Iced.Intel {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		internal void ReadOpMem_MPX(ref Instruction instruction) {
 			Debug.Assert(state.Encoding != EncodingKind.EVEX);
-			if (is64Mode) {
+			if (is64bMode) {
 				state.addressSize = OpSize.Size64;
 				ReadOpMem32Or64(ref instruction, Register.RAX, Register.RAX, TupleType.N1, false);
 			}
@@ -938,7 +947,7 @@ namespace Iced.Intel {
 						instruction.InternalMemoryDisplacement64_lo = ReadUInt32();
 						instruction.InternalSetMemoryDisplSize(3);
 					}
-					if (is64Mode) {
+					if (is64bMode) {
 						state.flags |= StateFlags.IpRel;
 						if (state.addressSize == OpSize.Size64)
 							instruction.InternalMemoryBase = Register.RIP;

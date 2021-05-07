@@ -832,12 +832,13 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 			}
 		}
 
-		let prefix_seg = instruction.segment_prefix();
+		let prefix_seg = instruction_internal::internal_segment_prefix_raw(instruction);
 		const_assert_eq!(Register::None as u32, 0);
-		if ((prefix_seg as u32) | instruction_internal::internal_has_any_of_xacquire_xrelease_lock_rep_repne_prefix(instruction)) != 0 {
-			let has_notrack_prefix = prefix_seg == Register::DS && is_notrack_prefix_branch(code);
-			if !has_notrack_prefix && prefix_seg != Register::None && SpecializedFormatter::<TraitOptions>::show_segment_prefix(instruction, op_count)
-			{
+		if prefix_seg < 6 || instruction_internal::internal_has_any_of_xacquire_xrelease_lock_rep_repne_prefix(instruction) != 0 {
+			const DS_REG: u32 = 3;
+			let has_notrack_prefix = prefix_seg == DS_REG && is_notrack_prefix_branch(code);
+			if !has_notrack_prefix && prefix_seg < 6 && SpecializedFormatter::<TraitOptions>::show_segment_prefix(instruction, op_count) {
+				let prefix_seg = unsafe { mem::transmute((Register::ES as u32 + prefix_seg) as u8) };
 				call_format_register!(self, dst, dst_next_p, prefix_seg);
 				write_fast_ascii_char_lit!(dst, dst_next_p, ' ', true);
 			}
@@ -914,16 +915,8 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 		if op_count > 0 {
 			write_fast_ascii_char_lit!(dst, dst_next_p, ' ', true);
 
-			for operand in 0..op_count {
-				if operand > 0 {
-					if TraitOptions::space_after_operand_separator(&self.d.options) {
-						const FAST_STR: FastString4 = mk_const_fast_str!(FastString4, "\x02,   ");
-						write_fast_str!(dst, dst_next_p, FastString4, FAST_STR);
-					} else {
-						write_fast_ascii_char_lit!(dst, dst_next_p, ',', true);
-					}
-				}
-
+			let mut operand = 0;
+			loop {
 				let imm8;
 				let imm16;
 				let imm32;
@@ -1042,7 +1035,7 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 				}
 				macro_rules! fmt_register {
 					() => {{
-						call_format_register!(self, dst, dst_next_p, instruction.try_op_register(operand).unwrap_or_default())
+						call_format_register!(self, dst, dst_next_p, instruction_internal::internal_op_register(instruction, operand))
 					}};
 				}
 				macro_rules! fmt_far_br_16_32 {
@@ -1421,6 +1414,18 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 						const FAST_STR: FastString4 = mk_const_fast_str!(FastString4, "\x03{z} ");
 						write_fast_str!(dst, dst_next_p, FastString4, FAST_STR);
 					}
+				}
+
+				operand += 1;
+				if operand >= op_count {
+					break;
+				}
+
+				if TraitOptions::space_after_operand_separator(&self.d.options) {
+					const FAST_STR: FastString4 = mk_const_fast_str!(FastString4, "\x02,   ");
+					write_fast_str!(dst, dst_next_p, FastString4, FAST_STR);
+				} else {
+					write_fast_ascii_char_lit!(dst, dst_next_p, ',', true);
 				}
 			}
 			if instruction_internal::internal_has_rounding_control_or_sae(instruction) {

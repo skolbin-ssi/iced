@@ -88,10 +88,7 @@ pub struct Instruction {
 	pub(crate) memory_flags: u16, // MemoryFlags
 	pub(crate) mem_base_reg: u8,  // Register
 	pub(crate) mem_index_reg: u8, // Register
-	pub(crate) reg0: u8,          // Register
-	pub(crate) reg1: u8,          // Register
-	pub(crate) reg2: u8,          // Register
-	pub(crate) reg3: u8,          // Register
+	pub(crate) regs: [u8; 4],     // Register
 	#[allow(dead_code)]
 	res: [u8; 4],
 }
@@ -691,13 +688,14 @@ impl Instruction {
 	#[allow(clippy::missing_inline_in_public_items)]
 	pub fn try_op_kind(&self, operand: u32) -> Result<OpKind, IcedError> {
 		const_assert_eq!(IcedConstants::MAX_OP_COUNT, 5);
-		match operand {
-			0 => Ok(self.op0_kind()),
-			1 => Ok(self.op1_kind()),
-			2 => Ok(self.op2_kind()),
-			3 => Ok(self.op3_kind()),
-			4 => Ok(self.op4_kind()),
-			_ => Err(IcedError::new("Invalid operand")),
+		if operand <= 3 {
+			const_assert_eq!(OpKindFlags::OP1_KIND_SHIFT * 2, OpKindFlags::OP2_KIND_SHIFT);
+			const_assert_eq!(OpKindFlags::OP1_KIND_SHIFT * 3, OpKindFlags::OP3_KIND_SHIFT);
+			Ok(unsafe { mem::transmute(((self.op_kind_flags >> (OpKindFlags::OP1_KIND_SHIFT * operand)) & OpKindFlags::OP_KIND_MASK) as u8) })
+		} else if operand == 4 {
+			Ok(self.op4_kind())
+		} else {
+			Err(IcedError::new("Invalid operand"))
 		}
 	}
 
@@ -924,13 +922,14 @@ impl Instruction {
 	/// * `new_value`: New value (1, 2, 4 or 8)
 	#[allow(clippy::missing_inline_in_public_items)]
 	pub fn set_memory_index_scale(&mut self, new_value: u32) {
+		const_assert_eq!(MemoryFlags::SCALE_MASK, 3);
 		match new_value {
-			1 => self.memory_flags &= !3,
+			1 => self.memory_flags &= !(MemoryFlags::SCALE_MASK as u16),
 			2 => self.memory_flags = (self.memory_flags & !(MemoryFlags::SCALE_MASK as u16)) | 1,
 			4 => self.memory_flags = (self.memory_flags & !(MemoryFlags::SCALE_MASK as u16)) | 2,
 			_ => {
 				debug_assert_eq!(new_value, 8);
-				self.memory_flags |= 3;
+				self.memory_flags |= MemoryFlags::SCALE_MASK as u16;
 			}
 		}
 	}
@@ -1608,7 +1607,7 @@ impl Instruction {
 	#[must_use]
 	#[inline]
 	pub fn op0_register(&self) -> Register {
-		unsafe { mem::transmute(self.reg0) }
+		unsafe { mem::transmute(self.regs[0]) }
 	}
 
 	/// Sets operand #0's register value. Use this method if operand #0 ([`op0_kind()`]) has kind [`OpKind::Register`], see [`op_count()`] and [`try_op_register()`]
@@ -1624,7 +1623,7 @@ impl Instruction {
 	/// * `new_value`: New value
 	#[inline]
 	pub fn set_op0_register(&mut self, new_value: Register) {
-		self.reg0 = new_value as u8;
+		self.regs[0] = new_value as u8;
 	}
 
 	/// Gets operand #1's register value. Use this method if operand #1 ([`op0_kind()`]) has kind [`OpKind::Register`], see [`op_count()`] and [`try_op_register()`]
@@ -1637,7 +1636,7 @@ impl Instruction {
 	#[must_use]
 	#[inline]
 	pub fn op1_register(&self) -> Register {
-		unsafe { mem::transmute(self.reg1) }
+		unsafe { mem::transmute(self.regs[1]) }
 	}
 
 	/// Sets operand #1's register value. Use this method if operand #1 ([`op0_kind()`]) has kind [`OpKind::Register`], see [`op_count()`] and [`try_op_register()`]
@@ -1653,7 +1652,7 @@ impl Instruction {
 	/// * `new_value`: New value
 	#[inline]
 	pub fn set_op1_register(&mut self, new_value: Register) {
-		self.reg1 = new_value as u8;
+		self.regs[1] = new_value as u8;
 	}
 
 	/// Gets operand #2's register value. Use this method if operand #2 ([`op0_kind()`]) has kind [`OpKind::Register`], see [`op_count()`] and [`try_op_register()`]
@@ -1666,7 +1665,7 @@ impl Instruction {
 	#[must_use]
 	#[inline]
 	pub fn op2_register(&self) -> Register {
-		unsafe { mem::transmute(self.reg2) }
+		unsafe { mem::transmute(self.regs[2]) }
 	}
 
 	/// Sets operand #2's register value. Use this method if operand #2 ([`op0_kind()`]) has kind [`OpKind::Register`], see [`op_count()`] and [`try_op_register()`]
@@ -1682,7 +1681,7 @@ impl Instruction {
 	/// * `new_value`: New value
 	#[inline]
 	pub fn set_op2_register(&mut self, new_value: Register) {
-		self.reg2 = new_value as u8;
+		self.regs[2] = new_value as u8;
 	}
 
 	/// Gets operand #3's register value. Use this method if operand #3 ([`op0_kind()`]) has kind [`OpKind::Register`], see [`op_count()`] and [`try_op_register()`]
@@ -1695,7 +1694,7 @@ impl Instruction {
 	#[must_use]
 	#[inline]
 	pub fn op3_register(&self) -> Register {
-		unsafe { mem::transmute(self.reg3) }
+		unsafe { mem::transmute(self.regs[3]) }
 	}
 
 	/// Sets operand #3's register value. Use this method if operand #3 ([`op0_kind()`]) has kind [`OpKind::Register`], see [`op_count()`] and [`try_op_register()`]
@@ -1711,7 +1710,7 @@ impl Instruction {
 	/// * `new_value`: New value
 	#[inline]
 	pub fn set_op3_register(&mut self, new_value: Register) {
-		self.reg3 = new_value as u8;
+		self.regs[3] = new_value as u8;
 	}
 
 	/// Gets operand #4's register value. Use this method if operand #4 ([`op0_kind()`]) has kind [`OpKind::Register`], see [`op_count()`] and [`try_op_register()`]
@@ -1840,13 +1839,12 @@ impl Instruction {
 	#[allow(clippy::missing_inline_in_public_items)]
 	pub fn try_op_register(&self, operand: u32) -> Result<Register, IcedError> {
 		const_assert_eq!(IcedConstants::MAX_OP_COUNT, 5);
-		match operand {
-			0 => Ok(self.op0_register()),
-			1 => Ok(self.op1_register()),
-			2 => Ok(self.op2_register()),
-			3 => Ok(self.op3_register()),
-			4 => Ok(self.op4_register()),
-			_ => Err(IcedError::new("Invalid operand")),
+		if let Some(&reg) = self.regs.get(operand as usize) {
+			Ok(unsafe { mem::transmute(reg) })
+		} else if operand == 4 {
+			Ok(self.op4_register())
+		} else {
+			Err(IcedError::new("Invalid operand"))
 		}
 	}
 
@@ -2128,10 +2126,10 @@ impl Instruction {
 	pub fn try_set_declare_byte_value(&mut self, index: usize, new_value: u8) -> Result<(), IcedError> {
 		if cfg!(feature = "db") {
 			match index {
-				0 => self.reg0 = new_value,
-				1 => self.reg1 = new_value,
-				2 => self.reg2 = new_value,
-				3 => self.reg3 = new_value,
+				0 => self.regs[0] = new_value,
+				1 => self.regs[1] = new_value,
+				2 => self.regs[2] = new_value,
+				3 => self.regs[3] = new_value,
 				4 => self.immediate = (self.immediate & 0xFFFF_FF00) | new_value as u32,
 				5 => self.immediate = (self.immediate & 0xFFFF_00FF) | ((new_value as u32) << 8),
 				6 => self.immediate = (self.immediate & 0xFF00_FFFF) | ((new_value as u32) << 16),
@@ -2191,10 +2189,10 @@ impl Instruction {
 	#[allow(clippy::missing_inline_in_public_items)]
 	pub fn try_get_declare_byte_value(&self, index: usize) -> Result<u8, IcedError> {
 		Ok(match index {
-			0 => self.reg0,
-			1 => self.reg1,
-			2 => self.reg2,
-			3 => self.reg3,
+			0 => self.regs[0],
+			1 => self.regs[1],
+			2 => self.regs[2],
+			3 => self.regs[3],
 			4 => self.immediate as u8,
 			5 => (self.immediate >> 8) as u8,
 			6 => (self.immediate >> 16) as u8,
@@ -2299,12 +2297,12 @@ impl Instruction {
 		if cfg!(feature = "db") {
 			match index {
 				0 => {
-					self.reg0 = new_value as u8;
-					self.reg1 = (new_value >> 8) as u8;
+					self.regs[0] = new_value as u8;
+					self.regs[1] = (new_value >> 8) as u8;
 				}
 				1 => {
-					self.reg2 = new_value as u8;
-					self.reg3 = (new_value >> 8) as u8;
+					self.regs[2] = new_value as u8;
+					self.regs[3] = (new_value >> 8) as u8;
 				}
 				2 => self.immediate = (self.immediate & 0xFFFF_0000) | new_value as u32,
 				3 => self.immediate = self.immediate as u16 as u32 | (new_value as u32) << 16,
@@ -2362,8 +2360,8 @@ impl Instruction {
 	#[allow(clippy::missing_inline_in_public_items)]
 	pub fn try_get_declare_word_value(&self, index: usize) -> Result<u16, IcedError> {
 		Ok(match index {
-			0 => self.reg0 as u16 | ((self.reg1 as u16) << 8),
-			1 => self.reg2 as u16 | ((self.reg3 as u16) << 8),
+			0 => self.regs[0] as u16 | ((self.regs[1] as u16) << 8),
+			1 => self.regs[2] as u16 | ((self.regs[3] as u16) << 8),
 			2 => self.immediate as u16,
 			3 => (self.immediate >> 16) as u16,
 			4 => self.mem_displ as u16,
@@ -2462,10 +2460,10 @@ impl Instruction {
 		if cfg!(feature = "db") {
 			match index {
 				0 => {
-					self.reg0 = new_value as u8;
-					self.reg1 = (new_value >> 8) as u8;
-					self.reg2 = (new_value >> 16) as u8;
-					self.reg3 = (new_value >> 24) as u8;
+					self.regs[0] = new_value as u8;
+					self.regs[1] = (new_value >> 8) as u8;
+					self.regs[2] = (new_value >> 16) as u8;
+					self.regs[3] = (new_value >> 24) as u8;
 				}
 				1 => self.immediate = new_value,
 				2 => self.mem_displ = new_value,
@@ -2521,7 +2519,7 @@ impl Instruction {
 	#[allow(clippy::missing_inline_in_public_items)]
 	pub fn try_get_declare_dword_value(&self, index: usize) -> Result<u32, IcedError> {
 		Ok(match index {
-			0 => self.reg0 as u32 | ((self.reg1 as u32) << 8) | ((self.reg2 as u32) << 16) | ((self.reg3 as u32) << 24),
+			0 => self.regs[0] as u32 | ((self.regs[1] as u32) << 8) | ((self.regs[2] as u32) << 16) | ((self.regs[3] as u32) << 24),
 			1 => self.immediate,
 			2 => self.mem_displ,
 			3 => self.mem_base_reg as u32 | ((self.mem_index_reg as u32) << 8) | (self.op_kind_flags << 16),
@@ -2617,10 +2615,10 @@ impl Instruction {
 		if cfg!(feature = "db") {
 			match index {
 				0 => {
-					self.reg0 = new_value as u8;
-					self.reg1 = (new_value >> 8) as u8;
-					self.reg2 = (new_value >> 16) as u8;
-					self.reg3 = (new_value >> 24) as u8;
+					self.regs[0] = new_value as u8;
+					self.regs[1] = (new_value >> 8) as u8;
+					self.regs[2] = (new_value >> 16) as u8;
+					self.regs[3] = (new_value >> 24) as u8;
 					self.immediate = (new_value >> 32) as u32;
 				}
 				1 => {
@@ -2677,10 +2675,10 @@ impl Instruction {
 	pub fn try_get_declare_qword_value(&self, index: usize) -> Result<u64, IcedError> {
 		Ok(match index {
 			0 => {
-				self.reg0 as u64
-					| ((self.reg1 as u64) << 8)
-					| ((self.reg2 as u64) << 16)
-					| ((self.reg3 as u64) << 24)
+				self.regs[0] as u64
+					| ((self.regs[1] as u64) << 8)
+					| ((self.regs[2] as u64) << 16)
+					| ((self.regs[3] as u64) << 24)
 					| ((self.immediate as u64) << 32)
 			}
 			1 => {
@@ -10580,10 +10578,10 @@ impl PartialEq<Instruction> for Instruction {
 			&& self.memory_flags == other.memory_flags
 			&& self.mem_base_reg == other.mem_base_reg
 			&& self.mem_index_reg == other.mem_index_reg
-			&& self.reg0 == other.reg0
-			&& self.reg1 == other.reg1
-			&& self.reg2 == other.reg2
-			&& self.reg3 == other.reg3
+			&& self.regs[0] == other.regs[0]
+			&& self.regs[1] == other.regs[1]
+			&& self.regs[2] == other.regs[2]
+			&& self.regs[3] == other.regs[3]
 	}
 }
 
@@ -10598,10 +10596,10 @@ impl Hash for Instruction {
 		state.write_u16(self.memory_flags);
 		state.write_u8(self.mem_base_reg);
 		state.write_u8(self.mem_index_reg);
-		state.write_u8(self.reg0);
-		state.write_u8(self.reg1);
-		state.write_u8(self.reg2);
-		state.write_u8(self.reg3);
+		state.write_u8(self.regs[0]);
+		state.write_u8(self.regs[1]);
+		state.write_u8(self.regs[2]);
+		state.write_u8(self.regs[3]);
 	}
 }
 

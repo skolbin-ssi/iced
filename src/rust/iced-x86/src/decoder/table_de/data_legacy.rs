@@ -4210,7 +4210,7 @@ pub(super) static TBL_DATA: &[u8] = &[
 		0x0A,// Options3
 			0x02,// Invalid
 			0xA4,// Simple
-				0xE4, 0x06,// Loadallreset286
+				0xE4, 0x06,// Storeall
 			0x80, 0x02,// Loadall286
 		0x02,// Invalid
 
@@ -6469,9 +6469,7 @@ pub(super) static TBL_DATA: &[u8] = &[
 		0x02,// Invalid
 
 	// 15 = 0x0F
-	0x0D,// AnotherTable
-		0x08,// ArrayReference
-			0x52,// 0x52 = TwoByteHandlers_0FXX
+	0x02,// Invalid
 
 	// 16 = 0x10
 	0x2C,// Eb_Gb_2
@@ -7638,3 +7636,4 @@ pub(super) static TBL_DATA: &[u8] = &[
 ];
 pub(super) const MAX_ID_NAMES: usize = 84;
 pub(super) const ONE_BYTE_HANDLERS_INDEX: usize = 83;
+pub(super) const TWO_BYTE_HANDLERS_0FXX_INDEX: usize = 82;
