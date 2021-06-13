@@ -49,7 +49,7 @@ fn test_specialized_formatter_trait_options() {
 	for _ in 0..2 {
 		assert_eq!(MyTraitOptions::__IS_FAST_FORMATTER, false);
 		assert_eq!(MyTraitOptions::ENABLE_SYMBOL_RESOLVER, false);
-		assert_eq!(MyTraitOptions::ENABLE_DB_DW_DD_DQ, cfg!(feature = "db"));
+		assert_eq!(MyTraitOptions::ENABLE_DB_DW_DD_DQ, false);
 		assert_eq!(unsafe { MyTraitOptions::verify_output_has_enough_bytes_left() }, true);
 		assert_eq!(MyTraitOptions::space_after_operand_separator(options), false);
 		assert_eq!(MyTraitOptions::rip_relative_addresses(options), true);
@@ -74,7 +74,7 @@ fn test_default_specialized_formatter_trait_options() {
 	for _ in 0..2 {
 		assert_eq!(DefaultSpecializedFormatterTraitOptions::__IS_FAST_FORMATTER, false);
 		assert_eq!(DefaultSpecializedFormatterTraitOptions::ENABLE_SYMBOL_RESOLVER, false);
-		assert_eq!(DefaultSpecializedFormatterTraitOptions::ENABLE_DB_DW_DD_DQ, cfg!(feature = "db"));
+		assert_eq!(DefaultSpecializedFormatterTraitOptions::ENABLE_DB_DW_DD_DQ, false);
 		assert_eq!(unsafe { DefaultSpecializedFormatterTraitOptions::verify_output_has_enough_bytes_left() }, true);
 		assert_eq!(DefaultSpecializedFormatterTraitOptions::space_after_operand_separator(options), false);
 		assert_eq!(DefaultSpecializedFormatterTraitOptions::rip_relative_addresses(options), true);

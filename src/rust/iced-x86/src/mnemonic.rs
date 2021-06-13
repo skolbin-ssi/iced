@@ -3298,13 +3298,16 @@ impl Default for Mnemonic {
 		Mnemonic::INVALID
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type MnemonicUnderlyingType = u16;
 #[rustfmt::skip]
 impl Mnemonic {
 	/// Iterates over all `Mnemonic` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = Mnemonic> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::MNEMONIC_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u16, Mnemonic>(x as u16) })
+		(0..IcedConstants::MNEMONIC_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u16, Mnemonic>(x as u16) })
 	}
 }
 #[test]
@@ -3322,6 +3325,11 @@ fn test_mnemonic_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<Mnemonic> = Mnemonic::values().collect();
+	let mut values2: Vec<Mnemonic> = Mnemonic::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for Mnemonic {

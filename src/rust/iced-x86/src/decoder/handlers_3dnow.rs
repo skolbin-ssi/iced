@@ -3,8 +3,6 @@
 
 use crate::decoder::handlers::*;
 use crate::decoder::*;
-#[cfg(not(feature = "no_d3now"))]
-use crate::instruction_internal;
 use crate::*;
 
 #[cfg(not(feature = "no_d3now"))]
@@ -273,33 +271,32 @@ static CODE_VALUES: [Code; 0x100] = [
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub(super) struct OpCodeHandler_D3NOW {
-	decode: OpCodeHandlerDecodeFn,
 	has_modrm: bool,
+	decode: OpCodeHandlerDecodeFn,
 }
 
 #[cfg(not(feature = "no_d3now"))]
 impl OpCodeHandler_D3NOW {
 	pub(super) fn new() -> Self {
 		debug_assert_eq!(CODE_VALUES.len(), 0x100);
-		Self { decode: OpCodeHandler_D3NOW::decode, has_modrm: true }
+		Self { has_modrm: true, decode: OpCodeHandler_D3NOW::decode }
 	}
 
 	fn decode(_self_ptr: *const OpCodeHandler, decoder: &mut Decoder<'_>, instruction: &mut Instruction) {
 		debug_assert_eq!(decoder.state.encoding(), EncodingKind::Legacy);
 		const_assert_eq!(OpKind::Register as u32, 0);
-		//instruction_internal::internal_set_op0_kind(instruction, OpKind::Register);
-		instruction_internal::internal_set_op0_register_u32(instruction, decoder.state.reg + Register::MM0 as u32);
+		//instruction.set_op0_kind(OpKind::Register);
+		instruction.set_op0_register(unsafe { mem::transmute((decoder.state.reg + Register::MM0 as u32) as RegisterUnderlyingType) });
 		if decoder.state.mod_ == 3 {
 			const_assert_eq!(OpKind::Register as u32, 0);
-			//instruction_internal::internal_set_op1_kind(instruction, OpKind::Register);
-			instruction_internal::internal_set_op1_register_u32(instruction, decoder.state.rm + Register::MM0 as u32);
+			//instruction.set_op1_kind(OpKind::Register);
+			instruction.set_op1_register(unsafe { mem::transmute((decoder.state.rm + Register::MM0 as u32) as RegisterUnderlyingType) });
 		} else {
-			instruction_internal::internal_set_op1_kind(instruction, OpKind::Memory);
+			instruction.set_op1_kind(OpKind::Memory);
 			decoder.read_op_mem(instruction);
 		}
 		let ib = decoder.read_u8();
-		// SAFETY: `CODE_VALUES.len() == 256` and `0<=ib<=0xFF`
-		let mut code = unsafe { *CODE_VALUES.get_unchecked(ib) };
+		let mut code = CODE_VALUES[ib];
 		match code {
 			Code::D3NOW_Pfrcpv_mm_mmm64 | Code::D3NOW_Pfrsqrtv_mm_mmm64 => {
 				if (decoder.options & DecoderOptions::CYRIX) == 0 || decoder.bitness() == 64 {
@@ -308,7 +305,7 @@ impl OpCodeHandler_D3NOW {
 			}
 			_ => {}
 		}
-		instruction_internal::internal_set_code(instruction, code);
+		instruction.set_code(code);
 		if code == Code::INVALID {
 			decoder.set_invalid_instruction();
 		}
@@ -318,7 +315,7 @@ impl OpCodeHandler_D3NOW {
 #[cfg(feature = "no_d3now")]
 impl OpCodeHandler_D3NOW {
 	pub(super) fn new() -> Self {
-		Self { decode: OpCodeHandler_D3NOW::decode, has_modrm: true }
+		Self { has_modrm: true, decode: OpCodeHandler_D3NOW::decode }
 	}
 
 	fn decode(_self_ptr: *const OpCodeHandler, decoder: &mut Decoder<'_>, _instruction: &mut Instruction) {

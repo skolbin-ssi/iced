@@ -8293,16 +8293,16 @@ END
 # Code: Vmlaunch
 INSTRUCTION: NP 0F 01 C2 | VMLAUNCH | VMX
 	rflags: w=zc 0=osap
-	flags: cpl0 no-rm no-v86 no-cm cflow=call vmx=op intel-vm-exit tdx-non-root-ud tsx-impl-abort
 	# Continues from the next instruction on failure
+	flags: cpl0 no-rm no-v86 no-cm cflow=call vmx=op intel-vm-exit tdx-non-root-ud tsx-impl-abort
 END
 
 # This instruction is NP, the SDM is wrong
 # Code: Vmresume
 INSTRUCTION: NP 0F 01 C3 | VMRESUME | VMX
 	rflags: w=zc 0=osap
-	flags: cpl0 no-rm no-v86 no-cm cflow=call vmx=op intel-vm-exit tdx-non-root-ud tsx-impl-abort
 	# Continues from the next instruction on failure
+	flags: cpl0 no-rm no-v86 no-cm cflow=call vmx=op intel-vm-exit tdx-non-root-ud tsx-impl-abort
 END
 
 # This instruction is NP, the SDM is wrong
@@ -8327,7 +8327,7 @@ INSTRUCTION: a16 NP 0F 01 C8 | MONITOR | MONITOR
 	# Memory isn't read but it performs the same mem checks as a 1-byte read
 	implied: r=seg;ax;ecx;edx
 	code-mnemonic: monitorw
-	# Intel: MISC_FEATURE_ENABLES[1]=1 enables it in CPL0-3 and v86 mode (Knights Landing CPUs only)
+	# Intel: MISC_FEATURES_ENABLES[1]=1 (MSR=140h) enables it in CPL0-3 and v86 mode (Knights Landing CPUs only)
 	# AMD: C001_0015h[MonMwaitUserEn]=1 enables it in CPL0-3 and v86 mode
 	flags: 16 32 may-require-cpl0 intel-may-vm-exit tdx-non-root-ve amd-may-vm-exit tsx-impl-abort
 	gas: asz
@@ -8342,7 +8342,7 @@ INSTRUCTION: a32 NP 0F 01 C8 | MONITOR | MONITOR
 	# Memory isn't read but it performs the same mem checks as a 1-byte read
 	implied: r=seg;eax;ecx;edx
 	code-mnemonic: monitord
-	# Intel: MISC_FEATURE_ENABLES[1]=1 enables it in CPL0-3 and v86 mode (Knights Landing CPUs only)
+	# Intel: MISC_FEATURES_ENABLES[1]=1 (MSR=140h) enables it in CPL0-3 and v86 mode (Knights Landing CPUs only)
 	# AMD: C001_0015h[MonMwaitUserEn]=1 enables it in CPL0-3 and v86 mode
 	flags: may-require-cpl0 intel-may-vm-exit tdx-non-root-ve amd-may-vm-exit tsx-impl-abort
 	gas: asz
@@ -8357,7 +8357,7 @@ INSTRUCTION: a64 NP 0F 01 C8 | MONITOR | MONITOR
 	# Memory isn't read but it performs the same mem checks as a 1-byte read
 	implied: r=seg;rax;ecx;edx
 	code-mnemonic: monitorq
-	# Intel: MISC_FEATURE_ENABLES[1]=1 enables it in CPL0-3 and v86 mode (Knights Landing CPUs only)
+	# Intel: MISC_FEATURES_ENABLES[1]=1 (MSR=140h) enables it in CPL0-3 and v86 mode (Knights Landing CPUs only)
 	# AMD: C001_0015h[MonMwaitUserEn]=1 enables it in CPL0-3 and v86 mode
 	flags: 64 may-require-cpl0 intel-may-vm-exit tdx-non-root-ve amd-may-vm-exit tsx-impl-abort
 	gas: asz
@@ -8370,7 +8370,7 @@ END
 # Code: Mwait
 INSTRUCTION: NP 0F 01 C9 | MWAIT | MONITOR
 	implied: r=eax;ecx
-	# Intel: MISC_FEATURE_ENABLES[1]=1 enables it in CPL0-3 and v86 mode (Knights Landing CPUs only)
+	# Intel: MISC_FEATURES_ENABLES[1]=1 (MSR=140h) enables it in CPL0-3 and v86 mode (Knights Landing CPUs only)
 	# AMD: C001_0015h[MonMwaitUserEn]=1 enables it in CPL0-3 and v86 mode
 	flags: may-require-cpl0 intel-may-vm-exit tdx-non-root-ve amd-may-vm-exit tsx-impl-abort
 	masm: mwait
@@ -10882,6 +10882,7 @@ INSTRUCTION: 0F 35 | SYSEXIT | SEP
 	# AMD: no-rm no-v86 or #GP(0)
 	# #UD if CR4.FRED=1
 	flags: cpl0 cflow=ret tsx-impl-abort
+	gas: suffix=l osz-suffix-3 16 32
 END
 
 # Code: Sysexitq
@@ -10890,7 +10891,6 @@ INSTRUCTION: o64 0F 35 | SYSEXITQ | SEP
 	# Not supported by AMD in 64-bit mode but the AMD decoder should still decode it.
 	# #UD if CR4.FRED=1
 	flags: 64 cpl0 cflow=ret tsx-impl-abort
-	gas: mnemonic=sysexit flags=o64
 	nasm: mnemonic=sysexit flags=o64
 END
 
@@ -15740,7 +15740,9 @@ END
 # Code: Cpuid
 INSTRUCTION: 0F A2 | CPUID | CPUID
 	implied: rw=eax cr=ecx w=ecx;edx;ebx
-	flags: serialize-intel serialize-amd intel-vm-exit no-in-sgx tdx-non-root-may-gen-ex amd-may-vm-exit tsx-abort
+	# Some Intel CPUs support CPUID faulting when executing CPUID and CPL>0 and !SMM
+	# when enabled with MISC_FEATURES_ENABLES[0]=1 (MSR=140h)
+	flags: serialize-intel serialize-amd may-require-cpl0 intel-vm-exit no-in-sgx tdx-non-root-may-gen-ex amd-may-vm-exit tsx-abort
 END
 
 # Code: Bt_rm16_r16
@@ -26844,73 +26846,73 @@ END
 # Code: EVEX_Vpcmpud_kr_k1_xmm_xmmm128b32_imm8
 INSTRUCTION: EVEX.128.66.0F3A.W0 1E /r ib | VPCMPUD k1 {k2}, xmm2, xmm3/m128/m32bcst, imm8 | AVX512VL AVX512F | N16b4
 	ops: w=reg r=vvvv r=rm r=imm | Packed128_UInt32 Broadcast128_UInt32
-	flags: implied-z
+	flags: pseudo=vpcmpud implied-z
 END
 
 # Code: EVEX_Vpcmpud_kr_k1_ymm_ymmm256b32_imm8
 INSTRUCTION: EVEX.256.66.0F3A.W0 1E /r ib | VPCMPUD k1 {k2}, ymm2, ymm3/m256/m32bcst, imm8 | AVX512VL AVX512F | N32b4
 	ops: w=reg r=vvvv r=rm r=imm | Packed256_UInt32 Broadcast256_UInt32
-	flags: implied-z
+	flags: pseudo=vpcmpud implied-z
 END
 
 # Code: EVEX_Vpcmpud_kr_k1_zmm_zmmm512b32_imm8
 INSTRUCTION: EVEX.512.66.0F3A.W0 1E /r ib | VPCMPUD k1 {k2}, zmm2, zmm3/m512/m32bcst, imm8 | AVX512F | N64b4
 	ops: w=reg r=vvvv r=rm r=imm | Packed512_UInt32 Broadcast512_UInt32
-	flags: implied-z
+	flags: pseudo=vpcmpud implied-z
 END
 
 # Code: EVEX_Vpcmpuq_kr_k1_xmm_xmmm128b64_imm8
 INSTRUCTION: EVEX.128.66.0F3A.W1 1E /r ib | VPCMPUQ k1 {k2}, xmm2, xmm3/m128/m64bcst, imm8 | AVX512VL AVX512F | N16b8
 	ops: w=reg r=vvvv r=rm r=imm | Packed128_UInt64 Broadcast128_UInt64
-	flags: implied-z
+	flags: pseudo=vpcmpuq implied-z
 END
 
 # Code: EVEX_Vpcmpuq_kr_k1_ymm_ymmm256b64_imm8
 INSTRUCTION: EVEX.256.66.0F3A.W1 1E /r ib | VPCMPUQ k1 {k2}, ymm2, ymm3/m256/m64bcst, imm8 | AVX512VL AVX512F | N32b8
 	ops: w=reg r=vvvv r=rm r=imm | Packed256_UInt64 Broadcast256_UInt64
-	flags: implied-z
+	flags: pseudo=vpcmpuq implied-z
 END
 
 # Code: EVEX_Vpcmpuq_kr_k1_zmm_zmmm512b64_imm8
 INSTRUCTION: EVEX.512.66.0F3A.W1 1E /r ib | VPCMPUQ k1 {k2}, zmm2, zmm3/m512/m64bcst, imm8 | AVX512F | N64b8
 	ops: w=reg r=vvvv r=rm r=imm | Packed512_UInt64 Broadcast512_UInt64
-	flags: implied-z
+	flags: pseudo=vpcmpuq implied-z
 END
 
 # Code: EVEX_Vpcmpd_kr_k1_xmm_xmmm128b32_imm8
 INSTRUCTION: EVEX.128.66.0F3A.W0 1F /r ib | VPCMPD k1 {k2}, xmm2, xmm3/m128/m32bcst, imm8 | AVX512VL AVX512F | N16b4
 	ops: w=reg r=vvvv r=rm r=imm | Packed128_Int32 Broadcast128_Int32
-	flags: implied-z
+	flags: pseudo=vpcmpd implied-z
 END
 
 # Code: EVEX_Vpcmpd_kr_k1_ymm_ymmm256b32_imm8
 INSTRUCTION: EVEX.256.66.0F3A.W0 1F /r ib | VPCMPD k1 {k2}, ymm2, ymm3/m256/m32bcst, imm8 | AVX512VL AVX512F | N32b4
 	ops: w=reg r=vvvv r=rm r=imm | Packed256_Int32 Broadcast256_Int32
-	flags: implied-z
+	flags: pseudo=vpcmpd implied-z
 END
 
 # Code: EVEX_Vpcmpd_kr_k1_zmm_zmmm512b32_imm8
 INSTRUCTION: EVEX.512.66.0F3A.W0 1F /r ib | VPCMPD k1 {k2}, zmm2, zmm3/m512/m32bcst, imm8 | AVX512F | N64b4
 	ops: w=reg r=vvvv r=rm r=imm | Packed512_Int32 Broadcast512_Int32
-	flags: implied-z
+	flags: pseudo=vpcmpd implied-z
 END
 
 # Code: EVEX_Vpcmpq_kr_k1_xmm_xmmm128b64_imm8
 INSTRUCTION: EVEX.128.66.0F3A.W1 1F /r ib | VPCMPQ k1 {k2}, xmm2, xmm3/m128/m64bcst, imm8 | AVX512VL AVX512F | N16b8
 	ops: w=reg r=vvvv r=rm r=imm | Packed128_Int64 Broadcast128_Int64
-	flags: implied-z
+	flags: pseudo=vpcmpq implied-z
 END
 
 # Code: EVEX_Vpcmpq_kr_k1_ymm_ymmm256b64_imm8
 INSTRUCTION: EVEX.256.66.0F3A.W1 1F /r ib | VPCMPQ k1 {k2}, ymm2, ymm3/m256/m64bcst, imm8 | AVX512VL AVX512F | N32b8
 	ops: w=reg r=vvvv r=rm r=imm | Packed256_Int64 Broadcast256_Int64
-	flags: implied-z
+	flags: pseudo=vpcmpq implied-z
 END
 
 # Code: EVEX_Vpcmpq_kr_k1_zmm_zmmm512b64_imm8
 INSTRUCTION: EVEX.512.66.0F3A.W1 1F /r ib | VPCMPQ k1 {k2}, zmm2, zmm3/m512/m64bcst, imm8 | AVX512F | N64b8
 	ops: w=reg r=vvvv r=rm r=imm | Packed512_Int64 Broadcast512_Int64
-	flags: implied-z
+	flags: pseudo=vpcmpq implied-z
 END
 
 # Code: Pinsrb_xmm_r32m8_imm8
@@ -27242,73 +27244,73 @@ END
 # Code: EVEX_Vpcmpub_kr_k1_xmm_xmmm128_imm8
 INSTRUCTION: EVEX.128.66.0F3A.W0 3E /r ib | VPCMPUB k1 {k2}, xmm2, xmm3/m128, imm8 | AVX512VL AVX512BW | N16
 	ops: w=reg r=vvvv r=rm r=imm | Packed128_UInt8
-	flags: implied-z
+	flags: pseudo=vpcmpub implied-z
 END
 
 # Code: EVEX_Vpcmpub_kr_k1_ymm_ymmm256_imm8
 INSTRUCTION: EVEX.256.66.0F3A.W0 3E /r ib | VPCMPUB k1 {k2}, ymm2, ymm3/m256, imm8 | AVX512VL AVX512BW | N32
 	ops: w=reg r=vvvv r=rm r=imm | Packed256_UInt8
-	flags: implied-z
+	flags: pseudo=vpcmpub implied-z
 END
 
 # Code: EVEX_Vpcmpub_kr_k1_zmm_zmmm512_imm8
 INSTRUCTION: EVEX.512.66.0F3A.W0 3E /r ib | VPCMPUB k1 {k2}, zmm2, zmm3/m512, imm8 | AVX512BW | N64
 	ops: w=reg r=vvvv r=rm r=imm | Packed512_UInt8
-	flags: implied-z
+	flags: pseudo=vpcmpub implied-z
 END
 
 # Code: EVEX_Vpcmpuw_kr_k1_xmm_xmmm128_imm8
 INSTRUCTION: EVEX.128.66.0F3A.W1 3E /r ib | VPCMPUW k1 {k2}, xmm2, xmm3/m128, imm8 | AVX512VL AVX512BW | N16
 	ops: w=reg r=vvvv r=rm r=imm | Packed128_UInt16
-	flags: implied-z
+	flags: pseudo=vpcmpuw implied-z
 END
 
 # Code: EVEX_Vpcmpuw_kr_k1_ymm_ymmm256_imm8
 INSTRUCTION: EVEX.256.66.0F3A.W1 3E /r ib | VPCMPUW k1 {k2}, ymm2, ymm3/m256, imm8 | AVX512VL AVX512BW | N32
 	ops: w=reg r=vvvv r=rm r=imm | Packed256_UInt16
-	flags: implied-z
+	flags: pseudo=vpcmpuw implied-z
 END
 
 # Code: EVEX_Vpcmpuw_kr_k1_zmm_zmmm512_imm8
 INSTRUCTION: EVEX.512.66.0F3A.W1 3E /r ib | VPCMPUW k1 {k2}, zmm2, zmm3/m512, imm8 | AVX512BW | N64
 	ops: w=reg r=vvvv r=rm r=imm | Packed512_UInt16
-	flags: implied-z
+	flags: pseudo=vpcmpuw implied-z
 END
 
 # Code: EVEX_Vpcmpb_kr_k1_xmm_xmmm128_imm8
 INSTRUCTION: EVEX.128.66.0F3A.W0 3F /r ib | VPCMPB k1 {k2}, xmm2, xmm3/m128, imm8 | AVX512VL AVX512BW | N16
 	ops: w=reg r=vvvv r=rm r=imm | Packed128_Int8
-	flags: implied-z
+	flags: pseudo=vpcmpb implied-z
 END
 
 # Code: EVEX_Vpcmpb_kr_k1_ymm_ymmm256_imm8
 INSTRUCTION: EVEX.256.66.0F3A.W0 3F /r ib | VPCMPB k1 {k2}, ymm2, ymm3/m256, imm8 | AVX512VL AVX512BW | N32
 	ops: w=reg r=vvvv r=rm r=imm | Packed256_Int8
-	flags: implied-z
+	flags: pseudo=vpcmpb implied-z
 END
 
 # Code: EVEX_Vpcmpb_kr_k1_zmm_zmmm512_imm8
 INSTRUCTION: EVEX.512.66.0F3A.W0 3F /r ib | VPCMPB k1 {k2}, zmm2, zmm3/m512, imm8 | AVX512BW | N64
 	ops: w=reg r=vvvv r=rm r=imm | Packed512_Int8
-	flags: implied-z
+	flags: pseudo=vpcmpb implied-z
 END
 
 # Code: EVEX_Vpcmpw_kr_k1_xmm_xmmm128_imm8
 INSTRUCTION: EVEX.128.66.0F3A.W1 3F /r ib | VPCMPW k1 {k2}, xmm2, xmm3/m128, imm8 | AVX512VL AVX512BW | N16
 	ops: w=reg r=vvvv r=rm r=imm | Packed128_Int16
-	flags: implied-z
+	flags: pseudo=vpcmpw implied-z
 END
 
 # Code: EVEX_Vpcmpw_kr_k1_ymm_ymmm256_imm8
 INSTRUCTION: EVEX.256.66.0F3A.W1 3F /r ib | VPCMPW k1 {k2}, ymm2, ymm3/m256, imm8 | AVX512VL AVX512BW | N32
 	ops: w=reg r=vvvv r=rm r=imm | Packed256_Int16
-	flags: implied-z
+	flags: pseudo=vpcmpw implied-z
 END
 
 # Code: EVEX_Vpcmpw_kr_k1_zmm_zmmm512_imm8
 INSTRUCTION: EVEX.512.66.0F3A.W1 3F /r ib | VPCMPW k1 {k2}, zmm2, zmm3/m512, imm8 | AVX512BW | N64
 	ops: w=reg r=vvvv r=rm r=imm | Packed512_Int16
-	flags: implied-z
+	flags: pseudo=vpcmpw implied-z
 END
 
 # Code: Dpps_xmm_xmmm128_imm8
@@ -29619,6 +29621,7 @@ END
 
 # Code: Seamcall
 INSTRUCTION: 66 0F 01 CF | SEAMCALL | TDX
+	implied: r=rax
 	rflags: w=c 0=oszap
 	# VMX instrs have tsx-impl-abort, it's probably the same for all TDX instructions
 	flags: 64 cpl0 cflow=call vmx=op intel-vm-exit no-in-smm no-in-seam tsx-impl-abort

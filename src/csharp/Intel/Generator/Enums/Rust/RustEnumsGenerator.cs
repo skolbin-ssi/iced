@@ -86,11 +86,9 @@ namespace Generator.Enums.Rust {
 			toPartialFileInfo.Add(TypeIds.OpCodeTableKind, new PartialEnumFileInfo("OpCodeTableKind", dirs.GetRustFilename("enums.rs"), new[] { RustConstants.AttributeCopyEqOrdHash, RustConstants.FeatureOpCodeInfo, RustConstants.AttributeNonExhaustive }));
 			toPartialFileInfo.Add(TypeIds.RoundingControl, new PartialEnumFileInfo("RoundingControl", dirs.GetRustFilename("enums.rs"), RustConstants.AttributeCopyEqOrdHash));
 			toPartialFileInfo.Add(TypeIds.OpKind, new PartialEnumFileInfo("OpKind", dirs.GetRustFilename("enums.rs"), new[] { RustConstants.AttributeCopyEqOrdHash, RustConstants.AttributeAllowNonCamelCaseTypes }));
-			toPartialFileInfo.Add(TypeIds.Instruction_MemoryFlags, new PartialEnumFileInfo("MemoryFlags", dirs.GetRustFilename("instruction.rs")));
-			toPartialFileInfo.Add(TypeIds.Instruction_OpKindFlags, new PartialEnumFileInfo("OpKindFlags", dirs.GetRustFilename("instruction.rs")));
-			toPartialFileInfo.Add(TypeIds.Instruction_CodeFlags, new PartialEnumFileInfo("CodeFlags", dirs.GetRustFilename("instruction.rs")));
-			toPartialFileInfo.Add(TypeIds.VectorLength, new PartialEnumFileInfo("VectorLength", dirs.GetRustFilename("enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.FeatureDecoderOrEncoder }));
-			toPartialFileInfo.Add(TypeIds.MandatoryPrefixByte, new PartialEnumFileInfo("MandatoryPrefixByte", dirs.GetRustFilename("enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.FeatureDecoderOrEncoder }));
+			toPartialFileInfo.Add(TypeIds.InstrFlags1, new PartialEnumFileInfo("InstrFlags1", dirs.GetRustFilename("instruction.rs")));
+			toPartialFileInfo.Add(TypeIds.VectorLength, new PartialEnumFileInfo("VectorLength", dirs.GetRustFilename("enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.FeatureDecoderOrEncoder, RustConstants.AttrReprU32 }));
+			toPartialFileInfo.Add(TypeIds.MandatoryPrefixByte, new PartialEnumFileInfo("MandatoryPrefixByte", dirs.GetRustFilename("enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.FeatureEncoder }));
 			toPartialFileInfo.Add(TypeIds.OpSize, new PartialEnumFileInfo("OpSize", dirs.GetRustFilename("decoder.rs"), RustConstants.AttributeCopyEq));
 			toPartialFileInfo.Add(TypeIds.StateFlags, new PartialEnumFileInfo("StateFlags", dirs.GetRustFilename("decoder.rs")));
 			toPartialFileInfo.Add(TypeIds.EncodingKind, new PartialEnumFileInfo("EncodingKind", dirs.GetRustFilename("enums.rs"), new[] { RustConstants.AttributeCopyEqOrdHash, RustConstants.AttributeNonExhaustive, RustConstants.FeatureDecoderOrEncoderOrInstrInfo }));
@@ -121,7 +119,7 @@ namespace Generator.Enums.Rust {
 			toPartialFileInfo.Add(TypeIds.EncFlags3, new PartialEnumFileInfo("EncFlags3", dirs.GetRustFilename("encoder", "enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.AttributeAllowNonCamelCaseTypes }));
 			toPartialFileInfo.Add(TypeIds.OpCodeInfoFlags1, new PartialEnumFileInfo("OpCodeInfoFlags1", dirs.GetRustFilename("encoder", "enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.AttributeAllowNonCamelCaseTypes, RustConstants.FeatureOpCodeInfo }));
 			toPartialFileInfo.Add(TypeIds.OpCodeInfoFlags2, new PartialEnumFileInfo("OpCodeInfoFlags2", dirs.GetRustFilename("encoder", "enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.AttributeAllowNonCamelCaseTypes, RustConstants.FeatureOpCodeInfo }));
-			toPartialFileInfo.Add(TypeIds.DecOptionValue, null);
+			toPartialFileInfo.Add(TypeIds.DecOptionValue, new PartialEnumFileInfo("DecOptionValue", dirs.GetRustFilename("encoder", "enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.AttributeAllowNonCamelCaseTypes, RustConstants.FeatureOpCodeInfo }));
 			toPartialFileInfo.Add(TypeIds.InstrStrFmtOption, new PartialEnumFileInfo("InstrStrFmtOption", dirs.GetRustFilename("encoder", "enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.AttributeAllowNonCamelCaseTypes, RustConstants.FeatureOpCodeInfo }));
 			toPartialFileInfo.Add(TypeIds.WBit, new PartialEnumFileInfo("WBit", dirs.GetRustFilename("encoder", "enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.AttributeAllowNonCamelCaseTypes, RustConstants.FeatureVexOrXopOrEvex }));
 			toPartialFileInfo.Add(TypeIds.LBit, new PartialEnumFileInfo("LBit", dirs.GetRustFilename("encoder", "enums.rs"), new[] { RustConstants.AttributeCopyEq, RustConstants.AttributeAllowNonCamelCaseTypes, RustConstants.FeatureVexOrXopOrEvex }));
@@ -251,6 +249,12 @@ namespace Generator.Enums.Rust {
 				var icedConstValue = "IcedConstants::" + idConverter.Constant(IcedConstants.GetEnumCountName(enumType.TypeId));
 				var enumUnderlyingType = GetUnderlyingTypeStr(enumType);
 
+				if (feature is not null)
+					writer.WriteLine(feature);
+				writer.WriteLine(RustConstants.AttributeAllowNonCamelCaseTypes);
+				writer.WriteLine(RustConstants.AttributeAllowDeadCode);
+				writer.WriteLine($"pub(crate) type {enumTypeName}UnderlyingType = {enumUnderlyingType};");
+
 				// Associated method: values()
 
 				if (feature is not null)
@@ -268,7 +272,7 @@ namespace Generator.Enums.Rust {
 						}
 						else {
 							writer.WriteLine("// SAFETY: all values 0-max are valid enum values");
-							writer.WriteLine($"(0..{icedConstValue}).map(|x| unsafe {{ core::mem::transmute::<{enumUnderlyingType}, {enumTypeName}>(x as {enumUnderlyingType}) }})");
+							writer.WriteLine($"(0..{icedConstValue}).map(|x| unsafe {{ mem::transmute::<{enumUnderlyingType}, {enumTypeName}>(x as {enumUnderlyingType}) }})");
 						}
 					}
 					writer.WriteLine("}");
@@ -293,6 +297,11 @@ namespace Generator.Enums.Rust {
 					using (writer.Indent())
 						writer.WriteLine("assert_eq!(i, value as usize);");
 					writer.WriteLine("}");
+					writer.WriteLine();
+					writer.WriteLine($"let values1: Vec<{enumTypeName}> = {enumTypeName}::values().collect();");
+					writer.WriteLine($"let mut values2: Vec<{enumTypeName}> = {enumTypeName}::values().rev().collect();");
+					writer.WriteLine("values2.reverse();");
+					writer.WriteLine("assert_eq!(values1, values2);");
 				}
 				writer.WriteLine("}");
 
@@ -351,9 +360,11 @@ namespace Generator.Enums.Rust {
 		}
 
 		static string GetUnderlyingTypeStr(EnumType enumType) {
-			if (enumType.Values.Length <= byte.MaxValue)
+			if (enumType.Values.Length <= 1)
+				return "()";
+			if (enumType.Values.Length <= byte.MaxValue + 1)
 				return "u8";
-			if (enumType.Values.Length <= ushort.MaxValue)
+			if (enumType.Values.Length <= ushort.MaxValue + 1)
 				return "u16";
 			return "u32";
 		}

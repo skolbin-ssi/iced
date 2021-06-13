@@ -1007,3 +1007,31 @@ TMM7: int = 248
 """
 <no docs>
 """
+DONTUSE0: int = 249
+"""
+DEPRECATED(1.12.0)
+"""
+DONTUSEFA: int = 250
+"""
+DEPRECATED(1.12.0)
+"""
+DONTUSEFB: int = 251
+"""
+DEPRECATED(1.12.0)
+"""
+DONTUSEFC: int = 252
+"""
+DEPRECATED(1.12.0)
+"""
+DONTUSEFD: int = 253
+"""
+DEPRECATED(1.12.0)
+"""
+DONTUSEFE: int = 254
+"""
+DEPRECATED(1.12.0)
+"""
+DONTUSEFF: int = 255
+"""
+DEPRECATED(1.12.0)
+"""

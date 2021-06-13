@@ -808,13 +808,16 @@ impl Default for MemorySize {
 		MemorySize::Unknown
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type MemorySizeUnderlyingType = u8;
 #[rustfmt::skip]
 impl MemorySize {
 	/// Iterates over all `MemorySize` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = MemorySize> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::MEMORY_SIZE_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, MemorySize>(x as u8) })
+		(0..IcedConstants::MEMORY_SIZE_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, MemorySize>(x as u8) })
 	}
 }
 #[test]
@@ -832,6 +835,11 @@ fn test_memorysize_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<MemorySize> = MemorySize::values().collect();
+	let mut values2: Vec<MemorySize> = MemorySize::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for MemorySize {

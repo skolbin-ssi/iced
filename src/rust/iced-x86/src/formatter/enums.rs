@@ -41,13 +41,16 @@ impl Default for NumberBase {
 		NumberBase::Hexadecimal
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type NumberBaseUnderlyingType = u8;
 #[rustfmt::skip]
 impl NumberBase {
 	/// Iterates over all `NumberBase` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = NumberBase> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::NUMBER_BASE_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, NumberBase>(x as u8) })
+		(0..IcedConstants::NUMBER_BASE_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, NumberBase>(x as u8) })
 	}
 }
 #[test]
@@ -65,6 +68,11 @@ fn test_numberbase_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<NumberBase> = NumberBase::values().collect();
+	let mut values2: Vec<NumberBase> = NumberBase::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for NumberBase {
@@ -167,13 +175,16 @@ impl Default for PrefixKind {
 		PrefixKind::ES
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type PrefixKindUnderlyingType = u8;
 #[rustfmt::skip]
 impl PrefixKind {
 	/// Iterates over all `PrefixKind` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = PrefixKind> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::PREFIX_KIND_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, PrefixKind>(x as u8) })
+		(0..IcedConstants::PREFIX_KIND_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, PrefixKind>(x as u8) })
 	}
 }
 #[test]
@@ -191,6 +202,11 @@ fn test_prefixkind_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<PrefixKind> = PrefixKind::values().collect();
+	let mut values2: Vec<PrefixKind> = PrefixKind::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for PrefixKind {
@@ -252,13 +268,16 @@ impl Default for DecoratorKind {
 		DecoratorKind::Broadcast
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type DecoratorKindUnderlyingType = u8;
 #[rustfmt::skip]
 impl DecoratorKind {
 	/// Iterates over all `DecoratorKind` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = DecoratorKind> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::DECORATOR_KIND_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, DecoratorKind>(x as u8) })
+		(0..IcedConstants::DECORATOR_KIND_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, DecoratorKind>(x as u8) })
 	}
 }
 #[test]
@@ -276,6 +295,11 @@ fn test_decoratorkind_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<DecoratorKind> = DecoratorKind::values().collect();
+	let mut values2: Vec<DecoratorKind> = DecoratorKind::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for DecoratorKind {
@@ -342,13 +366,16 @@ impl Default for NumberKind {
 		NumberKind::Int8
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type NumberKindUnderlyingType = u8;
 #[rustfmt::skip]
 impl NumberKind {
 	/// Iterates over all `NumberKind` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = NumberKind> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::NUMBER_KIND_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, NumberKind>(x as u8) })
+		(0..IcedConstants::NUMBER_KIND_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, NumberKind>(x as u8) })
 	}
 }
 #[test]
@@ -366,6 +393,11 @@ fn test_numberkind_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<NumberKind> = NumberKind::values().collect();
+	let mut values2: Vec<NumberKind> = NumberKind::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for NumberKind {
@@ -462,13 +494,16 @@ impl Default for CC_b {
 		CC_b::b
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type CC_bUnderlyingType = u8;
 #[rustfmt::skip]
 impl CC_b {
 	/// Iterates over all `CC_b` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = CC_b> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::CC_B_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, CC_b>(x as u8) })
+		(0..IcedConstants::CC_B_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, CC_b>(x as u8) })
 	}
 }
 #[test]
@@ -486,6 +521,11 @@ fn test_cc_b_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<CC_b> = CC_b::values().collect();
+	let mut values2: Vec<CC_b> = CC_b::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for CC_b {
@@ -544,13 +584,16 @@ impl Default for CC_ae {
 		CC_ae::ae
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type CC_aeUnderlyingType = u8;
 #[rustfmt::skip]
 impl CC_ae {
 	/// Iterates over all `CC_ae` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = CC_ae> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::CC_AE_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, CC_ae>(x as u8) })
+		(0..IcedConstants::CC_AE_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, CC_ae>(x as u8) })
 	}
 }
 #[test]
@@ -568,6 +611,11 @@ fn test_cc_ae_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<CC_ae> = CC_ae::values().collect();
+	let mut values2: Vec<CC_ae> = CC_ae::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for CC_ae {
@@ -623,13 +671,16 @@ impl Default for CC_e {
 		CC_e::e
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type CC_eUnderlyingType = u8;
 #[rustfmt::skip]
 impl CC_e {
 	/// Iterates over all `CC_e` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = CC_e> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::CC_E_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, CC_e>(x as u8) })
+		(0..IcedConstants::CC_E_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, CC_e>(x as u8) })
 	}
 }
 #[test]
@@ -647,6 +698,11 @@ fn test_cc_e_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<CC_e> = CC_e::values().collect();
+	let mut values2: Vec<CC_e> = CC_e::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for CC_e {
@@ -702,13 +758,16 @@ impl Default for CC_ne {
 		CC_ne::ne
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type CC_neUnderlyingType = u8;
 #[rustfmt::skip]
 impl CC_ne {
 	/// Iterates over all `CC_ne` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = CC_ne> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::CC_NE_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, CC_ne>(x as u8) })
+		(0..IcedConstants::CC_NE_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, CC_ne>(x as u8) })
 	}
 }
 #[test]
@@ -726,6 +785,11 @@ fn test_cc_ne_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<CC_ne> = CC_ne::values().collect();
+	let mut values2: Vec<CC_ne> = CC_ne::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for CC_ne {
@@ -781,13 +845,16 @@ impl Default for CC_be {
 		CC_be::be
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type CC_beUnderlyingType = u8;
 #[rustfmt::skip]
 impl CC_be {
 	/// Iterates over all `CC_be` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = CC_be> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::CC_BE_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, CC_be>(x as u8) })
+		(0..IcedConstants::CC_BE_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, CC_be>(x as u8) })
 	}
 }
 #[test]
@@ -805,6 +872,11 @@ fn test_cc_be_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<CC_be> = CC_be::values().collect();
+	let mut values2: Vec<CC_be> = CC_be::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for CC_be {
@@ -860,13 +932,16 @@ impl Default for CC_a {
 		CC_a::a
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type CC_aUnderlyingType = u8;
 #[rustfmt::skip]
 impl CC_a {
 	/// Iterates over all `CC_a` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = CC_a> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::CC_A_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, CC_a>(x as u8) })
+		(0..IcedConstants::CC_A_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, CC_a>(x as u8) })
 	}
 }
 #[test]
@@ -884,6 +959,11 @@ fn test_cc_a_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<CC_a> = CC_a::values().collect();
+	let mut values2: Vec<CC_a> = CC_a::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for CC_a {
@@ -939,13 +1019,16 @@ impl Default for CC_p {
 		CC_p::p
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type CC_pUnderlyingType = u8;
 #[rustfmt::skip]
 impl CC_p {
 	/// Iterates over all `CC_p` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = CC_p> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::CC_P_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, CC_p>(x as u8) })
+		(0..IcedConstants::CC_P_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, CC_p>(x as u8) })
 	}
 }
 #[test]
@@ -963,6 +1046,11 @@ fn test_cc_p_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<CC_p> = CC_p::values().collect();
+	let mut values2: Vec<CC_p> = CC_p::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for CC_p {
@@ -1018,13 +1106,16 @@ impl Default for CC_np {
 		CC_np::np
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type CC_npUnderlyingType = u8;
 #[rustfmt::skip]
 impl CC_np {
 	/// Iterates over all `CC_np` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = CC_np> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::CC_NP_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, CC_np>(x as u8) })
+		(0..IcedConstants::CC_NP_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, CC_np>(x as u8) })
 	}
 }
 #[test]
@@ -1042,6 +1133,11 @@ fn test_cc_np_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<CC_np> = CC_np::values().collect();
+	let mut values2: Vec<CC_np> = CC_np::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for CC_np {
@@ -1097,13 +1193,16 @@ impl Default for CC_l {
 		CC_l::l
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type CC_lUnderlyingType = u8;
 #[rustfmt::skip]
 impl CC_l {
 	/// Iterates over all `CC_l` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = CC_l> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::CC_L_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, CC_l>(x as u8) })
+		(0..IcedConstants::CC_L_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, CC_l>(x as u8) })
 	}
 }
 #[test]
@@ -1121,6 +1220,11 @@ fn test_cc_l_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<CC_l> = CC_l::values().collect();
+	let mut values2: Vec<CC_l> = CC_l::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for CC_l {
@@ -1176,13 +1280,16 @@ impl Default for CC_ge {
 		CC_ge::ge
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type CC_geUnderlyingType = u8;
 #[rustfmt::skip]
 impl CC_ge {
 	/// Iterates over all `CC_ge` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = CC_ge> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::CC_GE_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, CC_ge>(x as u8) })
+		(0..IcedConstants::CC_GE_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, CC_ge>(x as u8) })
 	}
 }
 #[test]
@@ -1200,6 +1307,11 @@ fn test_cc_ge_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<CC_ge> = CC_ge::values().collect();
+	let mut values2: Vec<CC_ge> = CC_ge::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for CC_ge {
@@ -1255,13 +1367,16 @@ impl Default for CC_le {
 		CC_le::le
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type CC_leUnderlyingType = u8;
 #[rustfmt::skip]
 impl CC_le {
 	/// Iterates over all `CC_le` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = CC_le> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::CC_LE_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, CC_le>(x as u8) })
+		(0..IcedConstants::CC_LE_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, CC_le>(x as u8) })
 	}
 }
 #[test]
@@ -1279,6 +1394,11 @@ fn test_cc_le_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<CC_le> = CC_le::values().collect();
+	let mut values2: Vec<CC_le> = CC_le::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for CC_le {
@@ -1334,13 +1454,16 @@ impl Default for CC_g {
 		CC_g::g
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type CC_gUnderlyingType = u8;
 #[rustfmt::skip]
 impl CC_g {
 	/// Iterates over all `CC_g` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = CC_g> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::CC_G_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, CC_g>(x as u8) })
+		(0..IcedConstants::CC_G_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, CC_g>(x as u8) })
 	}
 }
 #[test]
@@ -1358,6 +1481,11 @@ fn test_cc_g_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<CC_g> = CC_g::values().collect();
+	let mut values2: Vec<CC_g> = CC_g::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for CC_g {

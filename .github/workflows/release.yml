@@ -26,7 +26,7 @@ jobs:
         os: [windows-latest, ubuntu-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2.3.4
 
       - uses: actions/setup-dotnet@v1.8.0
         with:
@@ -67,7 +67,7 @@ jobs:
         os: [windows-latest, ubuntu-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2.3.4
 
       - name: Install Rust
         shell: bash
@@ -98,7 +98,7 @@ jobs:
         os: [windows-latest, ubuntu-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2.3.4
 
       - name: Install Rust
         shell: bash
@@ -120,6 +120,13 @@ jobs:
             extra_args=--quick-check
           fi
           ./build/build-js --no-set-rustflags $extra_args
+
+      - uses: actions/upload-artifact@v2
+        if: startsWith(matrix.os, 'ubuntu-')
+        with:
+          name: npm
+          path: src/rust/iced-x86-js/pkg/release/iced-x86-*.tgz
+          if-no-files-found: error
 
   #############################################################################
   #############################################################################
@@ -145,13 +152,13 @@ jobs:
         os: [ubuntu-latest]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2.3.4
 
       - name: Install Rust
         shell: bash
         run: bash build/ci-install-rust.sh
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.6
       - name: Install Python tools
@@ -201,7 +208,7 @@ jobs:
         os: [ubuntu-latest]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2.3.4
 
       - name: Build manylinux i686
         shell: bash
@@ -227,7 +234,7 @@ jobs:
         os: [macos-latest]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2.3.4
 
       - name: Install Rust
         shell: bash
@@ -242,7 +249,7 @@ jobs:
       #           shell: bash -le {0}
       #       setup-python is faster to install than setup-miniconda so we only
       #       use setup-miniconda if this is a macos image.
-      - uses: conda-incubator/setup-miniconda@v2
+      - uses: conda-incubator/setup-miniconda@v2.1.1
         with:
           python-version: 3.6
       - name: Install Python tools
@@ -257,7 +264,7 @@ jobs:
           ./build/build-python --no-set-rustflags --python python --quick-check
           git clean -xdf
 
-      - uses: conda-incubator/setup-miniconda@v2
+      - uses: conda-incubator/setup-miniconda@v2.1.1
         with:
           python-version: 3.6
       - name: Build and test the wheel
@@ -266,7 +273,7 @@ jobs:
           python --version 2>&1 | grep "Python 3\.6"
           bash build/ci-py-build-wheels.sh
 
-      - uses: conda-incubator/setup-miniconda@v2
+      - uses: conda-incubator/setup-miniconda@v2.1.1
         with:
           python-version: 3.7
       - name: Build and test the wheel
@@ -275,7 +282,7 @@ jobs:
           python --version 2>&1 | grep "Python 3\.7"
           bash build/ci-py-build-wheels.sh
 
-      - uses: conda-incubator/setup-miniconda@v2
+      - uses: conda-incubator/setup-miniconda@v2.1.1
         with:
           python-version: 3.8
       - name: Build and test the wheel
@@ -284,7 +291,7 @@ jobs:
           python --version 2>&1 | grep "Python 3\.8"
           bash build/ci-py-build-wheels.sh
 
-      - uses: conda-incubator/setup-miniconda@v2
+      - uses: conda-incubator/setup-miniconda@v2.1.1
         with:
           python-version: 3.9
       - name: Build and test the wheel
@@ -311,13 +318,13 @@ jobs:
         os: [windows-latest]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2.3.4
 
       - name: Install Rust
         shell: bash
         run: bash build/ci-install-rust.sh
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.6
       - name: Install Python tools
@@ -332,7 +339,7 @@ jobs:
           ./build/build-python --no-set-rustflags --python python --quick-check
           git clean -xdf
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.6
       - name: Build and test the wheel
@@ -341,7 +348,7 @@ jobs:
           python --version 2>&1 | grep "Python 3\.6"
           bash build/ci-py-build-wheels.sh
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.7
       - name: Build and test the wheel
@@ -350,7 +357,7 @@ jobs:
           python --version 2>&1 | grep "Python 3\.7"
           bash build/ci-py-build-wheels.sh
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.8
       - name: Build and test the wheel
@@ -359,7 +366,7 @@ jobs:
           python --version 2>&1 | grep "Python 3\.8"
           bash build/ci-py-build-wheels.sh
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.9
       - name: Build and test the wheel
@@ -391,7 +398,7 @@ jobs:
         os: [windows-latest]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2.3.4
 
       - name: Install Rust
         shell: bash
@@ -404,7 +411,7 @@ jobs:
           rustup default stable-i686-pc-windows-msvc
           rustup show
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.6
           architecture: x86
@@ -414,7 +421,7 @@ jobs:
           python --version 2>&1 | grep "Python 3\.6"
           bash build/ci-py-build-wheels.sh
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.7
           architecture: x86
@@ -424,7 +431,7 @@ jobs:
           python --version 2>&1 | grep "Python 3\.7"
           bash build/ci-py-build-wheels.sh
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.8
           architecture: x86
@@ -434,7 +441,7 @@ jobs:
           python --version 2>&1 | grep "Python 3\.8"
           bash build/ci-py-build-wheels.sh
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.9
           architecture: x86
@@ -473,16 +480,18 @@ jobs:
       - build-rust-python-windows-x86
 
     steps:
-      - uses: actions/checkout@v2
-        with:
-          # codecov needs fetch-depth > 1 (or 0)
-          fetch-depth: 2
+      - uses: actions/checkout@v2.3.4
+
       - uses: actions/setup-dotnet@v1.8.0
         with:
           dotnet-version: ${{env.CI_REQ_DOTNET_SDK_VER}}
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.x
+      - uses: actions/setup-node@v2.1.5
+        with:
+          node-version: ${{env.CI_NODE_MIN_VER}}
+          registry-url: "https://registry.npmjs.org"
 
       - uses: actions/download-artifact@v2
         with:
@@ -497,6 +506,10 @@ jobs:
           fi
           if [ -z "$(ls -A /tmp/artifacts/nupkg/Iced.*.nupkg)" ]; then
             echo "Missing nupkg files"
+            exit 1
+          fi
+          if [ -z "$(ls -A /tmp/artifacts/npm/iced-x86-*.tgz)" ]; then
+            echo "Missing npm files"
             exit 1
           fi
 
@@ -517,14 +530,6 @@ jobs:
           fi
           rmdir /tmp/py-dist-tmp
 
-          # Windows x86 + x64, macOS x64, Linux (x86 + x64) * (manylinux1 + manylinux2010)
-          # 7 (wheels) + 1 (source code tar.gz file)
-          if [ $(ls -A /tmp/py-dist | wc -l) -ne 8 ]; then
-            ls -l /tmp/py-dist
-            echo "Found too many/few Python whl files (see above)"
-            exit 1
-          fi
-
       - name: Upload checks
         shell: bash
         run: |
@@ -532,6 +537,7 @@ jobs:
           python -m twine check /tmp/py-dist/*
           dotnet nuget push --help
           cargo publish --help
+          npm publish --help
 
       - name: Upload to nuget.org
         shell: bash
@@ -555,3 +561,10 @@ jobs:
         shell: bash
         run: |
           python -m twine upload --non-interactive -u __token__ -p "${{secrets.PYPI_TOKEN}}" /tmp/py-dist/*
+
+      - name: Upload to npmjs.com
+        shell: bash
+        run: |
+          npm publish /tmp/artifacts/npm/iced-x86-*.tgz
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}

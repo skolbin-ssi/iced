@@ -22,13 +22,13 @@ use crate::formatter::nasm::mem_size_tbl::MEM_SIZE_TBL;
 use crate::formatter::nasm::regs::*;
 use crate::formatter::num_fmt::*;
 use crate::formatter::*;
+use crate::iced_constants::IcedConstants;
 use crate::iced_error::IcedError;
 use crate::instruction_internal;
 use crate::*;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::{mem, u16, u32, u8};
-use static_assertions::const_assert_eq;
 
 /// Nasm formatter
 ///
@@ -102,9 +102,9 @@ impl Default for NasmFormatter {
 // Read-only data which is needed a couple of times due to borrow checker
 struct SelfData {
 	options: FormatterOptions,
-	all_registers: &'static Vec<FormatterString>,
-	instr_infos: &'static Vec<Box<dyn InstrInfo + Sync + Send>>,
-	all_memory_sizes: &'static Vec<Info>,
+	all_registers: &'static [FormatterString; IcedConstants::REGISTER_ENUM_COUNT],
+	instr_infos: &'static [Box<dyn InstrInfo + Send + Sync>; IcedConstants::CODE_ENUM_COUNT],
+	all_memory_sizes: &'static [Info; IcedConstants::MEMORY_SIZE_ENUM_COUNT],
 	str_: &'static FormatterConstants,
 	vec_: &'static FormatterArrayConstants,
 }
@@ -1091,7 +1091,6 @@ impl NasmFormatter {
 
 	#[inline]
 	fn get_reg_str(d: &SelfData, reg: Register) -> &'static str {
-		debug_assert!((reg as usize) < d.all_registers.len());
 		let reg_str = &d.all_registers[reg as usize];
 		reg_str.get(d.options.uppercase_registers() || d.options.uppercase_all())
 	}
@@ -1100,7 +1099,6 @@ impl NasmFormatter {
 	fn format_register_internal(
 		d: &SelfData, output: &mut dyn FormatterOutput, instruction: &Instruction, operand: u32, instruction_operand: Option<u32>, reg: Register,
 	) {
-		const_assert_eq!(Registers::EXTRA_REGISTERS, 0);
 		output.write_register(instruction, operand, instruction_operand, NasmFormatter::get_reg_str(d, reg), reg);
 	}
 

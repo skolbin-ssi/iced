@@ -177,9 +177,8 @@ macro_rules! write_fast_str {
 	}};
 }
 
-#[rustfmt::skip]
-static HEX_GROUP2_UPPER: &str =
-   "000102030405060708090A0B0C0D0E0F\
+static HEX_GROUP2_UPPER: &str = "\
+	000102030405060708090A0B0C0D0E0F\
 	101112131415161718191A1B1C1D1E1F\
 	202122232425262728292A2B2C2D2E2F\
 	303132333435363738393A3B3C3D3E3F\
@@ -363,7 +362,6 @@ macro_rules! format_memory_code {
 			let mut base_reg = $base_reg;
 			let mut displ_size: u32 = $displ_size;
 			let mut displ: i64 = $displ;
-			debug_assert!(($scale as usize) < SCALE_NUMBERS.len());
 			debug_assert!(get_address_size_in_bytes(base_reg, $index_reg, displ_size, $instruction.code_size()) == $addr_size);
 
 			let abs_addr;
@@ -390,13 +388,11 @@ macro_rules! format_memory_code {
 			}
 
 			let show_mem_size = TraitOptions::always_show_memory_size(&$slf.d.options) || {
-				// SAFETY: all Code values are valid indexes
-				let flags = unsafe { *$slf.d.code_flags.get_unchecked($instruction.code() as usize) };
+				let flags = $slf.d.code_flags[$instruction.code() as usize];
 				(flags & (FastFmtFlags::FORCE_MEM_SIZE as u8)) != 0 || $instruction.is_broadcast()
 			};
 			if show_mem_size {
-				// SAFETY: all MemorySize values are valid indexes
-				let keywords = unsafe { *$slf.d.all_memory_sizes.get_unchecked($instruction.memory_size() as usize) };
+				let keywords = $slf.d.all_memory_sizes[$instruction.memory_size() as usize];
 				write_fast_str!($dst, $dst_next_p, FastStringMemorySize, keywords);
 			}
 
@@ -437,8 +433,7 @@ macro_rules! format_memory_code {
 
 				// [rsi] = base reg, [rsi*1] = index reg
 				if $addr_size != 2 && ($scale != 0 || base_reg == Register::None) {
-					// SAFETY: $scale is 0-3 inclusive, within bounds
-					let scale_str = unsafe { *SCALE_NUMBERS.as_ptr().add($scale as usize) };
+					let scale_str = SCALE_NUMBERS[$scale as usize];
 					write_fast_str!($dst, $dst_next_p, FastString4, scale_str);
 				}
 			}
@@ -478,7 +473,6 @@ macro_rules! call_format_memory {
 		// This speeds up SpecializedFormatter but slows down FastFormatter so detect which
 		// formatter it is. Both paths are tested (same tests).
 		// This is fugly but the whole point of this formatter is to be fast which can result in ugly code.
-		#[allow(unused_parens)]
 		{
 			if TraitOptions::__IS_FAST_FORMATTER {
 				// Less code: call a method
@@ -522,7 +516,13 @@ static SCALE_NUMBERS: [FastString4; 4] = [
 	mk_const_fast_str!(FastString4, "\x02*4  "),
 	mk_const_fast_str!(FastString4, "\x02*8  "),
 ];
-static RC_STRINGS: [FastString8; 4] = [
+const_assert_eq!(RoundingControl::None as u32, 0);
+const_assert_eq!(RoundingControl::RoundToNearest as u32, 1);
+const_assert_eq!(RoundingControl::RoundDown as u32, 2);
+const_assert_eq!(RoundingControl::RoundUp as u32, 3);
+const_assert_eq!(RoundingControl::RoundTowardZero as u32, 4);
+static RC_STRINGS: [FastString8; 5] = [
+	mk_const_fast_str!(FastString8, "\x08        "),
 	mk_const_fast_str!(FastString8, "\x08{rn-sae}"),
 	mk_const_fast_str!(FastString8, "\x08{rd-sae}"),
 	mk_const_fast_str!(FastString8, "\x08{ru-sae}"),
@@ -530,8 +530,8 @@ static RC_STRINGS: [FastString8; 4] = [
 ];
 
 struct FmtTableData {
-	mnemonics: Vec<FastStringMnemonic>,
-	flags: Vec<u8>, // FastFmtFlags
+	mnemonics: Box<[FastStringMnemonic; IcedConstants::CODE_ENUM_COUNT]>,
+	flags: Box<[u8; IcedConstants::CODE_ENUM_COUNT]>, // FastFmtFlags
 }
 
 /// Fast specialized formatter with less formatting options and with a masm-like syntax.
@@ -596,11 +596,10 @@ struct FmtTableData {
 /// impl SpecializedFormatterTraitOptions for MyTraitOptions {
 ///     // If you never create a db/dw/dd/dq 'instruction', we don't need this feature.
 ///     const ENABLE_DB_DW_DD_DQ: bool = false;
-///     // It reserves 300 bytes at the start of format() which is enough for all
-///     // instructions. See the docs for more info.
-///     unsafe fn verify_output_has_enough_bytes_left() -> bool {
-///         false
-///     }
+///     // For a few percent faster code, you can also override `verify_output_has_enough_bytes_left()` and return `false`
+///     // unsafe fn verify_output_has_enough_bytes_left() -> bool {
+///     //     false
+///     // }
 /// }
 /// type MyFormatter = SpecializedFormatter<MyTraitOptions>;
 ///
@@ -690,10 +689,10 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> Default for SpecializedForm
 // Read-only data which is needed a couple of times due to borrow checker
 struct SelfData {
 	options: FastFormatterOptions,
-	all_registers: &'static [FastStringRegister],
-	code_mnemonics: &'static [FastStringMnemonic],
-	code_flags: &'static [u8],
-	all_memory_sizes: &'static [FastStringMemorySize],
+	all_registers: &'static [FastStringRegister; IcedConstants::REGISTER_ENUM_COUNT],
+	code_mnemonics: &'static [FastStringMnemonic; IcedConstants::CODE_ENUM_COUNT],
+	code_flags: &'static [u8; IcedConstants::CODE_ENUM_COUNT],
+	all_memory_sizes: &'static [FastStringMemorySize; IcedConstants::MEMORY_SIZE_ENUM_COUNT],
 }
 
 impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitOptions> {
@@ -800,14 +799,10 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 		let mut dst_next_p = unsafe { dst.as_mut_ptr().add(dst.len()) };
 
 		let code = instruction.code();
-
-		// SAFETY: all Code values are valid indexes
-		let mut mnemonic = unsafe { *self.d.code_mnemonics.get_unchecked(code as usize) };
-
+		let mut mnemonic = self.d.code_mnemonics[code as usize];
 		let mut op_count = instruction.op_count();
 		if TraitOptions::use_pseudo_ops(&self.d.options) {
-			// SAFETY: all Code values are valid indexes
-			let flags = unsafe { *self.d.code_flags.get_unchecked(code as usize) };
+			let flags = self.d.code_flags[code as usize];
 			let pseudo_ops_num = flags >> FastFmtFlags::PSEUDO_OPS_KIND_SHIFT;
 			if pseudo_ops_num != 0 && instruction.try_op_kind(op_count - 1).unwrap_or(OpKind::FarBranch16) == OpKind::Immediate8 {
 				let mut index = instruction.immediate8() as usize;
@@ -835,7 +830,7 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 		let prefix_seg = instruction_internal::internal_segment_prefix_raw(instruction);
 		const_assert_eq!(Register::None as u32, 0);
 		if prefix_seg < 6 || instruction_internal::internal_has_any_of_xacquire_xrelease_lock_rep_repne_prefix(instruction) != 0 {
-			const DS_REG: u32 = 3;
+			const DS_REG: u32 = Register::DS as u32 - Register::ES as u32;
 			let has_notrack_prefix = prefix_seg == DS_REG && is_notrack_prefix_branch(code);
 			if !has_notrack_prefix && prefix_seg < 6 && SpecializedFormatter::<TraitOptions>::show_segment_prefix(instruction, op_count) {
 				let prefix_seg = unsafe { mem::transmute((Register::ES as u32 + prefix_seg) as u8) };
@@ -892,7 +887,7 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 		write_fast_str!(dst, dst_next_p, FastStringMnemonic, mnemonic);
 
 		let is_declare_data;
-		let declare_data_kind = if !(cfg!(feature = "db") && TraitOptions::ENABLE_DB_DW_DD_DQ) {
+		let declare_data_kind = if !TraitOptions::ENABLE_DB_DW_DD_DQ {
 			is_declare_data = false;
 			OpKind::Register
 		} else if (code as u32).wrapping_sub(Code::DeclareByte as u32) <= (Code::DeclareQword as u32 - Code::DeclareByte as u32) {
@@ -922,7 +917,7 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 				let imm32;
 				let imm64;
 				let imm_size;
-				let op_kind = if cfg!(feature = "db") && TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
+				let op_kind = if TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
 					declare_data_kind
 				} else {
 					instruction.try_op_kind(operand).unwrap_or(OpKind::Register)
@@ -1245,7 +1240,7 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 						OpKind::FarBranch16 | OpKind::FarBranch32 => fmt_far_br_16_32!(),
 
 						OpKind::Immediate8 | OpKind::Immediate8_2nd => {
-							if cfg!(feature = "db") && TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
+							if TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
 								imm8 = instruction.try_get_declare_byte_value(operand as usize).unwrap_or_default();
 							} else if op_kind == OpKind::Immediate8 {
 								imm8 = instruction.immediate8();
@@ -1257,7 +1252,7 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 						}
 
 						OpKind::Immediate16 | OpKind::Immediate8to16 => {
-							if cfg!(feature = "db") && TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
+							if TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
 								imm16 = instruction.try_get_declare_word_value(operand as usize).unwrap_or_default();
 							} else if op_kind == OpKind::Immediate16 {
 								imm16 = instruction.immediate16();
@@ -1269,7 +1264,7 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 						}
 
 						OpKind::Immediate32 | OpKind::Immediate8to32 => {
-							if cfg!(feature = "db") && TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
+							if TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
 								imm32 = instruction.try_get_declare_dword_value(operand as usize).unwrap_or_default();
 							} else if op_kind == OpKind::Immediate32 {
 								imm32 = instruction.immediate32();
@@ -1281,7 +1276,7 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 						}
 
 						OpKind::Immediate64 | OpKind::Immediate8to64 | OpKind::Immediate32to64 => {
-							if cfg!(feature = "db") && TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
+							if TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
 								imm64 = instruction.try_get_declare_qword_value(operand as usize).unwrap_or_default();
 							} else if op_kind == OpKind::Immediate32to64 {
 								imm64 = instruction.immediate32to64() as u64;
@@ -1329,7 +1324,7 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 						OpKind::FarBranch16 | OpKind::FarBranch32 => fmt_far_br_16_32!(),
 
 						OpKind::Immediate8 => {
-							imm8 = if cfg!(feature = "db") && TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
+							imm8 = if TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
 								instruction.try_get_declare_byte_value(operand as usize).unwrap_or_default()
 							} else {
 								instruction.immediate8()
@@ -1343,7 +1338,7 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 						}
 
 						OpKind::Immediate16 => {
-							imm16 = if cfg!(feature = "db") && TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
+							imm16 = if TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
 								instruction.try_get_declare_word_value(operand as usize).unwrap_or_default()
 							} else {
 								instruction.immediate16()
@@ -1357,7 +1352,7 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 						}
 
 						OpKind::Immediate32 => {
-							imm32 = if cfg!(feature = "db") && TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
+							imm32 = if TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
 								instruction.try_get_declare_dword_value(operand as usize).unwrap_or_default()
 							} else {
 								instruction.immediate32()
@@ -1371,7 +1366,7 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 						}
 
 						OpKind::Immediate64 => {
-							imm64 = if cfg!(feature = "db") && TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
+							imm64 = if TraitOptions::ENABLE_DB_DW_DD_DQ && is_declare_data {
 								instruction.try_get_declare_qword_value(operand as usize).unwrap_or_default()
 							} else {
 								instruction.immediate64()
@@ -1431,12 +1426,7 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 			if instruction_internal::internal_has_rounding_control_or_sae(instruction) {
 				let rc = instruction.rounding_control();
 				if rc != RoundingControl::None {
-					const_assert_eq!(RoundingControl::None as u32, 0);
-					const_assert_eq!(RoundingControl::RoundToNearest as u32, 1);
-					const_assert_eq!(RoundingControl::RoundDown as u32, 2);
-					const_assert_eq!(RoundingControl::RoundUp as u32, 3);
-					const_assert_eq!(RoundingControl::RoundTowardZero as u32, 4);
-					let fast_str = RC_STRINGS[rc as usize - 1];
+					let fast_str = RC_STRINGS[rc as usize];
 					write_fast_str!(dst, dst_next_p, FastString8, fast_str);
 				} else {
 					debug_assert!(instruction.suppress_all_exceptions());
@@ -1492,8 +1482,7 @@ impl<TraitOptions: SpecializedFormatterTraitOptions> SpecializedFormatter<TraitO
 	#[inline]
 	#[must_use]
 	fn format_register(&self, dst: &mut Vec<u8>, mut dst_next_p: *mut u8, register: Register) -> *mut u8 {
-		// SAFETY: all Register values are valid indexes
-		let reg_str = unsafe { *self.d.all_registers.get_unchecked(register as usize) };
+		let reg_str = self.d.all_registers[register as usize];
 		write_fast_str!(dst, dst_next_p, FastStringRegister, reg_str);
 		dst_next_p
 	}

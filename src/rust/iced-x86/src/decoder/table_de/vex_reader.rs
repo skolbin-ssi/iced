@@ -10,28 +10,27 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 #[allow(trivial_casts)]
-pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &mut Vec<&'static OpCodeHandler>) {
-	let code;
+pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &mut Vec<(OpCodeHandlerDecodeFn, &'static OpCodeHandler)>) {
 	let reg;
 	let elem: *const OpCodeHandler = match deserializer.read_vex_op_code_handler_kind() {
-		VexOpCodeHandlerKind::Invalid => &INVALID_HANDLER as *const _ as *const OpCodeHandler,
+		VexOpCodeHandlerKind::Invalid => get_invalid_handler().1,
 
 		VexOpCodeHandlerKind::Invalid2 => {
-			result.push(unsafe { &*(&INVALID_HANDLER as *const _ as *const OpCodeHandler) });
-			&INVALID_HANDLER as *const _ as *const OpCodeHandler
+			result.push(get_invalid_handler());
+			get_invalid_handler().1
 		}
 
 		VexOpCodeHandlerKind::Dup => {
 			let count = deserializer.read_u32();
 			let handler = deserializer.read_handler_or_null_instance();
 			for _ in 0..count {
-				result.push(unsafe { &*handler });
+				result.push(handler);
 			}
 			return;
 		}
 
-		VexOpCodeHandlerKind::Null => &NULL_HANDLER as *const _ as *const OpCodeHandler,
-		VexOpCodeHandlerKind::Invalid_NoModRM => &INVALID_NO_MODRM_HANDLER as *const _ as *const OpCodeHandler,
+		VexOpCodeHandlerKind::Null => get_null_handler().1,
+		VexOpCodeHandlerKind::Invalid_NoModRM => get_invalid_no_modrm_handler().1,
 
 		VexOpCodeHandlerKind::Bitness => {
 			Box::into_raw(Box::new(OpCodeHandler_Bitness::new(deserializer.read_handler(), deserializer.read_handler()))) as *const OpCodeHandler
@@ -42,7 +41,7 @@ pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &m
 				as *const OpCodeHandler
 		}
 
-		VexOpCodeHandlerKind::HandlerReference => deserializer.read_handler_reference(),
+		VexOpCodeHandlerKind::HandlerReference => deserializer.read_handler_reference().1,
 		VexOpCodeHandlerKind::ArrayReference => unreachable!(),
 
 		VexOpCodeHandlerKind::RM => {
@@ -66,9 +65,9 @@ pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &m
 		VexOpCodeHandlerKind::MandatoryPrefix2_1 => Box::into_raw(Box::new(OpCodeHandler_MandatoryPrefix2::new(
 			true,
 			deserializer.read_handler(),
-			&INVALID_HANDLER as *const _ as *const OpCodeHandler,
-			&INVALID_HANDLER as *const _ as *const OpCodeHandler,
-			&INVALID_HANDLER as *const _ as *const OpCodeHandler,
+			get_invalid_handler(),
+			get_invalid_handler(),
+			get_invalid_handler(),
 		))) as *const OpCodeHandler,
 
 		VexOpCodeHandlerKind::MandatoryPrefix2_4 => Box::into_raw(Box::new(OpCodeHandler_MandatoryPrefix2::new(
@@ -99,13 +98,13 @@ pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &m
 
 		VexOpCodeHandlerKind::Ed_V_Ib => {
 			reg = deserializer.read_register();
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_VEX_Ed_V_Ib::new(reg, code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_VEX_Ed_V_Ib::new(reg, code1, code2))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::Ev_VX => {
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_VEX_Ev_VX::new(code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_VEX_Ev_VX::new(code1, code2))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::G_VK => {
@@ -113,47 +112,47 @@ pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &m
 		}
 
 		VexOpCodeHandlerKind::Gv_Ev_Gv => {
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_VEX_Gv_Ev_Gv::new(code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_VEX_Gv_Ev_Gv::new(code1, code2))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::Gv_Ev_Ib => {
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_VEX_Gv_Ev_Ib::new(code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_VEX_Gv_Ev_Ib::new(code1, code2))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::Gv_Ev_Id => {
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_VEX_Gv_Ev_Id::new(code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_VEX_Gv_Ev_Id::new(code1, code2))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::Gv_GPR_Ib => {
 			reg = deserializer.read_register();
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_VEX_Gv_GPR_Ib::new(reg, code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_VEX_Gv_GPR_Ib::new(reg, code1, code2))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::Gv_Gv_Ev => {
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_VEX_Gv_Gv_Ev::new(code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_VEX_Gv_Gv_Ev::new(code1, code2))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::Gv_RX => {
 			reg = deserializer.read_register();
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_VEX_Gv_RX::new(reg, code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_VEX_Gv_RX::new(reg, code1, code2))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::Gv_W => {
 			reg = deserializer.read_register();
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_VEX_Gv_W::new(reg, code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_VEX_Gv_W::new(reg, code1, code2))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::GvM_VX_Ib => {
 			reg = deserializer.read_register();
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_VEX_GvM_VX_Ib::new(reg, code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_VEX_GvM_VX_Ib::new(reg, code1, code2))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::HRIb => {
@@ -161,13 +160,13 @@ pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &m
 		}
 
 		VexOpCodeHandlerKind::Hv_Ed_Id => {
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_VEX_Hv_Ed_Id::new(code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_VEX_Hv_Ed_Id::new(code1, code2))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::Hv_Ev => {
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_VEX_Hv_Ev::new(code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_VEX_Hv_Ev::new(code1, code2))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::M => Box::into_raw(Box::new(OpCodeHandler_VEX_M::new(deserializer.read_code()))) as *const OpCodeHandler,
@@ -187,22 +186,22 @@ pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &m
 		}
 
 		VexOpCodeHandlerKind::RdRq => {
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_VEX_RdRq::new(code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_VEX_RdRq::new(code1, code2))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::Simple => Box::into_raw(Box::new(OpCodeHandler_VEX_Simple::new(deserializer.read_code()))) as *const OpCodeHandler,
 
 		VexOpCodeHandlerKind::VHEv => {
 			reg = deserializer.read_register();
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_VEX_VHEv::new(reg, code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_VEX_VHEv::new(reg, code1, code2))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::VHEvIb => {
 			reg = deserializer.read_register();
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_VEX_VHEvIb::new(reg, code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_VEX_VHEvIb::new(reg, code1, code2))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::VHIs4W => {
@@ -219,7 +218,7 @@ pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &m
 
 		VexOpCodeHandlerKind::VHW_2 => {
 			reg = deserializer.read_register();
-			code = deserializer.read_code();
+			let code = deserializer.read_code();
 			Box::into_raw(Box::new(OpCodeHandler_VEX_VHW::new(reg, reg, reg, code, code))) as *const OpCodeHandler
 		}
 
@@ -286,19 +285,19 @@ pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &m
 
 		VexOpCodeHandlerKind::VWIb_2 => {
 			reg = deserializer.read_register();
-			code = deserializer.read_code();
+			let code = deserializer.read_code();
 			Box::into_raw(Box::new(OpCodeHandler_VEX_VWIb::new(reg, reg, code, code))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::VWIb_3 => {
 			reg = deserializer.read_register();
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_VEX_VWIb::new(reg, reg, code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_VEX_VWIb::new(reg, reg, code1, code2))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::VX_Ev => {
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_VEX_VX_Ev::new(code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_VEX_VX_Ev::new(code1, code2))) as *const OpCodeHandler
 		}
 
 		VexOpCodeHandlerKind::VX_VSIB_HX => Box::into_raw(Box::new(OpCodeHandler_VEX_VX_VSIB_HX::new(
@@ -330,5 +329,6 @@ pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &m
 		VexOpCodeHandlerKind::VT => Box::into_raw(Box::new(OpCodeHandler_VEX_VT::new(deserializer.read_code()))) as *const OpCodeHandler,
 		VexOpCodeHandlerKind::VT_RT_HT => Box::into_raw(Box::new(OpCodeHandler_VEX_VT_RT_HT::new(deserializer.read_code()))) as *const OpCodeHandler,
 	};
-	result.push(unsafe { &*elem });
+	let handler = unsafe { &*elem };
+	result.push((handler.decode, handler));
 }

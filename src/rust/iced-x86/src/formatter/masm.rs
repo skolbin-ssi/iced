@@ -6,7 +6,6 @@ mod fmt_data;
 mod fmt_tbl;
 mod info;
 mod mem_size_tbl;
-mod regs;
 #[cfg(test)]
 mod tests;
 
@@ -19,16 +18,16 @@ use crate::formatter::masm::fmt_tbl::ALL_INFOS;
 use crate::formatter::masm::info::*;
 use crate::formatter::masm::mem_size_tbl::Info;
 use crate::formatter::masm::mem_size_tbl::MEM_SIZE_TBL;
-use crate::formatter::masm::regs::*;
 use crate::formatter::num_fmt::*;
 use crate::formatter::regs_tbl::REGS_TBL;
 use crate::formatter::*;
+use crate::iced_constants::IcedConstants;
 use crate::iced_error::IcedError;
 use crate::instruction_internal;
 use crate::*;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use core::{mem, u16, u32, u8};
+use core::{u16, u32, u8};
 use static_assertions::const_assert_eq;
 
 /// Masm formatter
@@ -103,9 +102,9 @@ impl Default for MasmFormatter {
 // Read-only data which is needed a couple of times due to borrow checker
 struct SelfData {
 	options: FormatterOptions,
-	all_registers: &'static Vec<FormatterString>,
-	instr_infos: &'static Vec<Box<dyn InstrInfo + Sync + Send>>,
-	all_memory_sizes: &'static Vec<Info>,
+	all_registers: &'static [FormatterString; IcedConstants::REGISTER_ENUM_COUNT],
+	instr_infos: &'static [Box<dyn InstrInfo + Send + Sync>; IcedConstants::CODE_ENUM_COUNT],
+	all_memory_sizes: &'static [Info; IcedConstants::MEMORY_SIZE_ENUM_COUNT],
 	str_: &'static FormatterConstants,
 	vec_: &'static FormatterArrayConstants,
 }
@@ -384,14 +383,9 @@ impl MasmFormatter {
 		let number_kind;
 		let op_kind = op_info.op_kind(operand);
 		match op_kind {
-			InstrOpKind::Register => MasmFormatter::format_register_internal(
-				&self.d,
-				output,
-				instruction,
-				operand,
-				instruction_operand,
-				op_info.op_register(operand) as u32,
-			),
+			InstrOpKind::Register => {
+				MasmFormatter::format_register_internal(&self.d, output, instruction, operand, instruction_operand, op_info.op_register(operand))
+			}
 
 			InstrOpKind::NearBranch16 | InstrOpKind::NearBranch32 | InstrOpKind::NearBranch64 => {
 				if op_kind == InstrOpKind::NearBranch64 {
@@ -980,7 +974,7 @@ impl MasmFormatter {
 		if operand == 0 && instruction_internal::internal_has_op_mask_or_zeroing_masking(instruction) {
 			if instruction.has_op_mask() {
 				output.write("{", FormatterTextKind::Punctuation);
-				MasmFormatter::format_register_internal(&self.d, output, instruction, operand, instruction_operand, instruction.op_mask() as u32);
+				MasmFormatter::format_register_internal(&self.d, output, instruction, operand, instruction_operand, instruction.op_mask());
 				output.write("}", FormatterTextKind::Punctuation);
 			}
 			if instruction.zeroing_masking() {
@@ -1044,28 +1038,19 @@ impl MasmFormatter {
 	}
 
 	#[inline]
-	fn get_reg_str(d: &SelfData, mut reg_num: u32) -> &'static str {
-		if d.options.prefer_st0() && reg_num == Registers::REGISTER_ST {
-			reg_num = Register::ST0 as u32;
+	fn get_reg_str(d: &SelfData, mut reg: Register) -> &'static str {
+		if d.options.prefer_st0() && reg == REGISTER_ST {
+			reg = Register::ST0;
 		}
-		debug_assert!((reg_num as usize) < d.all_registers.len());
-		let reg_str = &d.all_registers[reg_num as usize];
+		let reg_str = &d.all_registers[reg as usize];
 		reg_str.get(d.options.uppercase_registers() || d.options.uppercase_all())
 	}
 
 	#[inline]
 	fn format_register_internal(
-		d: &SelfData, output: &mut dyn FormatterOutput, instruction: &Instruction, operand: u32, instruction_operand: Option<u32>, reg_num: u32,
+		d: &SelfData, output: &mut dyn FormatterOutput, instruction: &Instruction, operand: u32, instruction_operand: Option<u32>, reg: Register,
 	) {
-		const_assert_eq!(Registers::EXTRA_REGISTERS, 1);
-		output.write_register(
-			instruction,
-			operand,
-			instruction_operand,
-			MasmFormatter::get_reg_str(d, reg_num),
-			// SAFETY: either it's REGISTER_ST or it's a valid Register enum value, see Registers::EXTRA_REGISTERS == 1 above
-			if reg_num == Registers::REGISTER_ST { Register::ST0 } else { unsafe { mem::transmute(reg_num as u8) } },
-		);
+		output.write_register(instruction, operand, instruction_operand, MasmFormatter::get_reg_str(d, reg), reg);
 	}
 
 	#[allow(clippy::too_many_arguments)]
@@ -1150,7 +1135,7 @@ impl MasmFormatter {
 			|| (seg_override != Register::None && !notrack_prefix && show_segment_prefix(Register::None, instruction, &self.d.options))
 			|| (is1632 && !has_mem_reg && symbol.is_none() && self.d.options.masm_add_ds_prefix32())
 		{
-			MasmFormatter::format_register_internal(&self.d, output, instruction, operand, instruction_operand, seg_reg as u32);
+			MasmFormatter::format_register_internal(&self.d, output, instruction, operand, instruction_operand, seg_reg);
 			output.write(":", FormatterTextKind::Punctuation);
 		}
 		if !displ_in_brackets {
@@ -1179,7 +1164,7 @@ impl MasmFormatter {
 		}
 
 		let mut need_plus = if base_reg != Register::None {
-			MasmFormatter::format_register_internal(&self.d, output, instruction, operand, instruction_operand, base_reg as u32);
+			MasmFormatter::format_register_internal(&self.d, output, instruction, operand, instruction_operand, base_reg);
 			true
 		} else {
 			false
@@ -1198,7 +1183,7 @@ impl MasmFormatter {
 			need_plus = true;
 
 			if !use_scale {
-				MasmFormatter::format_register_internal(&self.d, output, instruction, operand, instruction_operand, index_reg as u32);
+				MasmFormatter::format_register_internal(&self.d, output, instruction, operand, instruction_operand, index_reg);
 			} else if self.d.options.scale_before_index() {
 				output.write_number(
 					instruction,
@@ -1216,9 +1201,9 @@ impl MasmFormatter {
 				if self.d.options.space_between_memory_mul_operators() {
 					output.write(" ", FormatterTextKind::Text);
 				}
-				MasmFormatter::format_register_internal(&self.d, output, instruction, operand, instruction_operand, index_reg as u32);
+				MasmFormatter::format_register_internal(&self.d, output, instruction, operand, instruction_operand, index_reg);
 			} else {
-				MasmFormatter::format_register_internal(&self.d, output, instruction, operand, instruction_operand, index_reg as u32);
+				MasmFormatter::format_register_internal(&self.d, output, instruction, operand, instruction_operand, index_reg);
 				if self.d.options.space_between_memory_mul_operators() {
 					output.write(" ", FormatterTextKind::Text);
 				}
@@ -1631,7 +1616,7 @@ impl Formatter for MasmFormatter {
 	#[must_use]
 	#[inline]
 	fn format_register(&mut self, register: Register) -> &str {
-		MasmFormatter::get_reg_str(&self.d, register as u32)
+		MasmFormatter::get_reg_str(&self.d, register)
 	}
 
 	#[must_use]

@@ -1,189 +1,116 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2018-present iced project and contributors
 
-// These funcs should be in Instruction but since racer (used by RLS) shows
+// These funcs should be in Instruction but since rust-analyzer shows
 // all functions even if they're private, they've been moved here.
-//	https://github.com/racer-rust/racer/issues/165
-// If this 5 year old issue is ever fixed, move these funcs back and remove
+//	https://github.com/rust-analyzer/rust-analyzer/issues/824
+// If this 2 year old issue is ever fixed, move these funcs back and remove
 // pub(crate) from Instruction's fields.
 
 use crate::iced_constants::IcedConstants;
 #[cfg(feature = "encoder")]
 use crate::iced_error::IcedError;
 use crate::*;
+use core::u32;
 #[cfg(feature = "encoder")]
-use core::{i16, i32, i8, u8};
-use core::{u16, u32};
-#[cfg(any(feature = "encoder", feature = "fast_fmt"))]
+use core::{i16, i32, i8, u16, u8};
+#[cfg(any(feature = "encoder", feature = "fast_fmt", feature = "instr_info"))]
 use static_assertions::const_assert_eq;
 
 #[cfg(feature = "decoder")]
 #[inline]
+pub(crate) fn internal_set_len(this: &mut Instruction, len: u32) {
+	debug_assert!(len <= IcedConstants::MAX_INSTRUCTION_LENGTH as u32);
+	this.len = len as u8;
+}
+
+#[cfg(feature = "decoder")]
+#[inline]
 pub(crate) fn internal_set_code_size(this: &mut Instruction, new_value: CodeSize) {
-	this.op_kind_flags |= (new_value as u32) << OpKindFlags::CODE_SIZE_SHIFT;
-}
-
-#[cfg(any(feature = "decoder", feature = "encoder"))]
-#[inline]
-pub(crate) fn internal_set_code(this: &mut Instruction, new_value: Code) {
-	this.code_flags |= new_value as u32;
-}
-
-#[cfg(feature = "decoder")]
-#[inline]
-pub(crate) fn internal_set_code_u32(this: &mut Instruction, new_value: u32) {
-	this.code_flags |= new_value;
-}
-
-#[cfg(feature = "decoder")]
-#[inline]
-pub(crate) fn internal_set_len(this: &mut Instruction, new_value: u32) {
-	this.code_flags |= new_value << CodeFlags::INSTR_LENGTH_SHIFT;
+	this.flags1 |= (new_value as u32) << InstrFlags1::CODE_SIZE_SHIFT;
 }
 
 #[cfg(feature = "encoder")]
 #[must_use]
 #[inline]
 pub(crate) fn internal_has_repe_prefix_has_xrelease_prefix(this: &Instruction) -> bool {
-	(this.code_flags & (CodeFlags::REPE_PREFIX | CodeFlags::XRELEASE_PREFIX)) != 0
+	(this.flags1 & (InstrFlags1::REPE_PREFIX | InstrFlags1::XRELEASE_PREFIX)) != 0
 }
 
 #[cfg(feature = "encoder")]
 #[must_use]
 #[inline]
 pub(crate) fn internal_has_repne_prefix_has_xacquire_prefix(this: &Instruction) -> bool {
-	(this.code_flags & (CodeFlags::REPNE_PREFIX | CodeFlags::XACQUIRE_PREFIX)) != 0
+	(this.flags1 & (InstrFlags1::REPNE_PREFIX | InstrFlags1::XACQUIRE_PREFIX)) != 0
 }
 
 #[cfg(feature = "instr_info")]
 #[must_use]
 #[inline]
 pub(crate) fn internal_has_repe_or_repne_prefix(this: &Instruction) -> bool {
-	(this.code_flags & (CodeFlags::REPE_PREFIX | CodeFlags::REPNE_PREFIX)) != 0
-}
-
-#[cfg(feature = "decoder")]
-#[inline]
-pub(crate) fn internal_set_has_xacquire_prefix(this: &mut Instruction) {
-	this.code_flags |= CodeFlags::XACQUIRE_PREFIX
-}
-
-#[cfg(feature = "decoder")]
-#[inline]
-pub(crate) fn internal_set_has_xrelease_prefix(this: &mut Instruction) {
-	this.code_flags |= CodeFlags::XRELEASE_PREFIX
+	(this.flags1 & (InstrFlags1::REPE_PREFIX | InstrFlags1::REPNE_PREFIX)) != 0
 }
 
 #[cfg(any(feature = "decoder", feature = "encoder"))]
 #[inline]
 pub(crate) fn internal_set_has_repe_prefix(this: &mut Instruction) {
-	this.code_flags = (this.code_flags & !CodeFlags::REPNE_PREFIX) | CodeFlags::REPE_PREFIX
+	this.flags1 = (this.flags1 & !InstrFlags1::REPNE_PREFIX) | InstrFlags1::REPE_PREFIX
 }
 
 #[cfg(any(feature = "gas", feature = "intel", feature = "masm", feature = "nasm", feature = "fast_fmt"))]
 #[inline]
 pub(crate) fn internal_has_any_of_xacquire_xrelease_lock_rep_repne_prefix(this: &Instruction) -> u32 {
-	this.code_flags
-		& (CodeFlags::XACQUIRE_PREFIX | CodeFlags::XRELEASE_PREFIX | CodeFlags::LOCK_PREFIX | CodeFlags::REPE_PREFIX | CodeFlags::REPNE_PREFIX)
+	this.flags1
+		& (InstrFlags1::XACQUIRE_PREFIX
+			| InstrFlags1::XRELEASE_PREFIX
+			| InstrFlags1::LOCK_PREFIX
+			| InstrFlags1::REPE_PREFIX
+			| InstrFlags1::REPNE_PREFIX)
 }
 
 #[cfg(any(feature = "gas", feature = "intel", feature = "masm", feature = "nasm", feature = "fast_fmt"))]
 #[inline]
 pub(crate) fn internal_has_op_mask_or_zeroing_masking(this: &Instruction) -> bool {
-	(this.code_flags & ((CodeFlags::OP_MASK_MASK << CodeFlags::OP_MASK_SHIFT) | CodeFlags::ZEROING_MASKING)) != 0
+	(this.flags1 & ((InstrFlags1::OP_MASK_MASK << InstrFlags1::OP_MASK_SHIFT) | InstrFlags1::ZEROING_MASKING)) != 0
 }
 
 #[cfg(feature = "decoder")]
 #[inline]
 pub(crate) fn internal_clear_has_repe_repne_prefix(this: &mut Instruction) {
-	this.code_flags &= !(CodeFlags::REPE_PREFIX | CodeFlags::REPNE_PREFIX)
-}
-
-#[cfg(feature = "decoder")]
-#[inline]
-pub(crate) fn internal_clear_has_repe_prefix(this: &mut Instruction) {
-	this.code_flags &= !CodeFlags::REPE_PREFIX
+	this.flags1 &= !(InstrFlags1::REPE_PREFIX | InstrFlags1::REPNE_PREFIX)
 }
 
 #[cfg(any(feature = "decoder", feature = "encoder"))]
 #[inline]
 pub(crate) fn internal_set_has_repne_prefix(this: &mut Instruction) {
-	this.code_flags = (this.code_flags & !CodeFlags::REPE_PREFIX) | CodeFlags::REPNE_PREFIX
-}
-
-#[cfg(feature = "decoder")]
-#[inline]
-pub(crate) fn internal_clear_has_repne_prefix(this: &mut Instruction) {
-	this.code_flags &= !CodeFlags::REPNE_PREFIX
-}
-
-#[cfg(feature = "decoder")]
-#[inline]
-pub(crate) fn internal_set_has_lock_prefix(this: &mut Instruction) {
-	this.code_flags |= CodeFlags::LOCK_PREFIX
-}
-
-#[cfg(feature = "decoder")]
-#[inline]
-pub(crate) fn internal_clear_has_lock_prefix(this: &mut Instruction) {
-	this.code_flags &= !CodeFlags::LOCK_PREFIX
-}
-
-#[cfg(any(feature = "decoder", feature = "encoder"))]
-#[inline]
-pub(crate) fn internal_set_op0_kind(this: &mut Instruction, new_value: OpKind) {
-	this.op_kind_flags |= new_value as u32;
+	this.flags1 = (this.flags1 & !InstrFlags1::REPE_PREFIX) | InstrFlags1::REPNE_PREFIX
 }
 
 #[cfg(feature = "instr_info")]
 #[must_use]
 #[inline]
 pub(crate) fn internal_op0_is_not_reg_or_op1_is_not_reg(this: &Instruction) -> bool {
-	(this.op_kind_flags & (OpKindFlags::OP_KIND_MASK | (OpKindFlags::OP_KIND_MASK << OpKindFlags::OP1_KIND_SHIFT))) != 0
-}
-
-#[cfg(any(feature = "decoder", feature = "encoder"))]
-#[inline]
-pub(crate) fn internal_set_op1_kind(this: &mut Instruction, new_value: OpKind) {
-	this.op_kind_flags |= (new_value as u32) << OpKindFlags::OP1_KIND_SHIFT;
-}
-
-#[cfg(any(feature = "decoder", feature = "encoder"))]
-#[inline]
-pub(crate) fn internal_set_op2_kind(this: &mut Instruction, new_value: OpKind) {
-	this.op_kind_flags |= (new_value as u32) << OpKindFlags::OP2_KIND_SHIFT;
-}
-
-#[cfg(any(feature = "decoder", feature = "encoder"))]
-#[inline]
-pub(crate) fn internal_set_op3_kind(this: &mut Instruction, new_value: OpKind) {
-	this.op_kind_flags |= (new_value as u32) << OpKindFlags::OP3_KIND_SHIFT;
+	const_assert_eq!(Register::None as u32, 0);
+	((this.op_kinds[0] as RegisterUnderlyingType) | (this.op_kinds[1] as RegisterUnderlyingType)) != 0
 }
 
 #[cfg(feature = "decoder")]
 #[inline]
 pub(crate) fn internal_set_memory_displ_size(this: &mut Instruction, new_value: u32) {
 	debug_assert!(new_value <= 4);
-	this.memory_flags |= (new_value << MemoryFlags::DISPL_SIZE_SHIFT) as u16;
-}
-
-#[cfg(feature = "decoder")]
-#[cfg(not(feature = "no_evex"))]
-#[inline]
-pub(crate) fn internal_set_is_broadcast(this: &mut Instruction) {
-	this.memory_flags |= MemoryFlags::BROADCAST as u16;
+	this.displ_size = new_value as u8;
 }
 
 #[must_use]
 #[inline]
 pub(crate) fn internal_get_memory_index_scale(this: &Instruction) -> u32 {
-	(this.memory_flags & (MemoryFlags::SCALE_MASK as u16)) as u32
+	this.scale as u32
 }
 
 #[cfg(feature = "decoder")]
 #[inline]
-pub(crate) fn internal_set_memory_index_scale(this: &mut Instruction, new_value: u32) {
-	this.memory_flags |= new_value as u16;
+pub(crate) fn internal_set_memory_index_scale(this: &mut Instruction, new_value: InstrScale) {
+	this.scale = new_value;
 }
 
 #[cfg(any(feature = "decoder", feature = "encoder"))]
@@ -246,98 +173,22 @@ pub(crate) fn internal_set_far_branch_selector(this: &mut Instruction, new_value
 	this.mem_displ = new_value;
 }
 
-#[cfg(any(feature = "decoder", feature = "encoder"))]
-#[inline]
-pub(crate) fn internal_set_memory_base(this: &mut Instruction, new_value: Register) {
-	this.mem_base_reg = new_value as u8;
-}
-
-#[cfg(feature = "decoder")]
-#[inline]
-pub(crate) fn internal_set_memory_base_u32(this: &mut Instruction, new_value: u32) {
-	this.mem_base_reg = new_value as u8;
-}
-
-#[cfg(any(feature = "decoder", feature = "encoder"))]
-#[inline]
-pub(crate) fn internal_set_memory_index(this: &mut Instruction, new_value: Register) {
-	this.mem_index_reg = new_value as u8;
-}
-
-#[cfg(feature = "decoder")]
-#[inline]
-pub(crate) fn internal_set_memory_index_u32(this: &mut Instruction, new_value: u32) {
-	this.mem_index_reg = new_value as u8;
-}
-
 #[cfg(feature = "fast_fmt")]
 #[inline]
 pub(crate) fn internal_segment_prefix_raw(this: &Instruction) -> u32 {
-	(((this.memory_flags as u32) >> MemoryFlags::SEGMENT_PREFIX_SHIFT) & MemoryFlags::SEGMENT_PREFIX_MASK).wrapping_sub(1)
+	((this.flags1 >> InstrFlags1::SEGMENT_PREFIX_SHIFT) & InstrFlags1::SEGMENT_PREFIX_MASK).wrapping_sub(1)
 }
 
 #[cfg(feature = "fast_fmt")]
 #[inline]
 pub(crate) fn internal_op_register(this: &Instruction, operand: u32) -> Register {
-	use core::mem;
-
 	const_assert_eq!(IcedConstants::MAX_OP_COUNT, 5);
 	if let Some(&reg) = this.regs.get(operand as usize) {
-		unsafe { mem::transmute(reg) }
+		reg
 	} else {
 		debug_assert_eq!(operand, 4);
 		this.op4_register()
 	}
-}
-
-#[cfg(any(feature = "decoder", feature = "encoder"))]
-#[inline]
-pub(crate) fn internal_set_op0_register(this: &mut Instruction, new_value: Register) {
-	this.regs[0] = new_value as u8;
-}
-
-#[cfg(feature = "decoder")]
-#[inline]
-pub(crate) fn internal_set_op0_register_u32(this: &mut Instruction, new_value: u32) {
-	this.regs[0] = new_value as u8;
-}
-
-#[cfg(any(feature = "decoder", feature = "encoder"))]
-#[inline]
-pub(crate) fn internal_set_op1_register(this: &mut Instruction, new_value: Register) {
-	this.regs[1] = new_value as u8;
-}
-
-#[cfg(feature = "decoder")]
-#[inline]
-pub(crate) fn internal_set_op1_register_u32(this: &mut Instruction, new_value: u32) {
-	this.regs[1] = new_value as u8;
-}
-
-#[cfg(any(feature = "decoder", feature = "encoder"))]
-#[inline]
-pub(crate) fn internal_set_op2_register(this: &mut Instruction, new_value: Register) {
-	this.regs[2] = new_value as u8;
-}
-
-#[cfg(feature = "decoder")]
-#[inline]
-pub(crate) fn internal_set_op2_register_u32(this: &mut Instruction, new_value: u32) {
-	this.regs[2] = new_value as u8;
-}
-
-#[allow(dead_code)]
-#[cfg(feature = "encoder")]
-#[inline]
-pub(crate) fn internal_set_op3_register(this: &mut Instruction, new_value: Register) {
-	this.regs[3] = new_value as u8;
-}
-
-#[cfg(feature = "decoder")]
-#[cfg(any(not(feature = "no_vex"), not(feature = "no_xop")))]
-#[inline]
-pub(crate) fn internal_set_op3_register_u32(this: &mut Instruction, new_value: u32) {
-	this.regs[3] = new_value as u8;
 }
 
 #[cfg(feature = "encoder")]
@@ -345,47 +196,36 @@ pub(crate) fn internal_set_op3_register_u32(this: &mut Instruction, new_value: u
 #[must_use]
 #[inline]
 pub(crate) fn internal_op_mask(this: &Instruction) -> u32 {
-	(this.code_flags >> CodeFlags::OP_MASK_SHIFT) & CodeFlags::OP_MASK_MASK
+	(this.flags1 >> InstrFlags1::OP_MASK_SHIFT) & InstrFlags1::OP_MASK_MASK
 }
 
 #[cfg(feature = "decoder")]
 #[cfg(not(feature = "no_evex"))]
 #[inline]
 pub(crate) fn internal_set_op_mask(this: &mut Instruction, new_value: u32) {
-	this.code_flags |= new_value << CodeFlags::OP_MASK_SHIFT
-}
-
-#[cfg(feature = "decoder")]
-#[cfg(not(feature = "no_evex"))]
-#[inline]
-pub(crate) fn internal_set_zeroing_masking(this: &mut Instruction) {
-	this.code_flags |= CodeFlags::ZEROING_MASKING;
+	debug_assert!(new_value <= 7);
+	this.flags1 |= new_value << InstrFlags1::OP_MASK_SHIFT
 }
 
 #[cfg(feature = "decoder")]
 #[cfg(not(feature = "no_evex"))]
 #[inline]
 pub(crate) fn internal_set_rounding_control(this: &mut Instruction, new_value: u32) {
-	this.code_flags |= new_value << CodeFlags::ROUNDING_CONTROL_SHIFT;
+	debug_assert!(new_value < IcedConstants::ROUNDING_CONTROL_ENUM_COUNT as u32);
+	this.flags1 |= new_value << InstrFlags1::ROUNDING_CONTROL_SHIFT;
 }
 
 #[cfg(any(feature = "intel", feature = "masm", feature = "fast_fmt"))]
 #[inline]
 pub(crate) fn internal_has_rounding_control_or_sae(this: &Instruction) -> bool {
-	(this.code_flags & ((CodeFlags::ROUNDING_CONTROL_MASK << CodeFlags::ROUNDING_CONTROL_SHIFT) | CodeFlags::SUPPRESS_ALL_EXCEPTIONS)) != 0
+	(this.flags1 & ((InstrFlags1::ROUNDING_CONTROL_MASK << InstrFlags1::ROUNDING_CONTROL_SHIFT) | InstrFlags1::SUPPRESS_ALL_EXCEPTIONS)) != 0
 }
 
 #[cfg(feature = "encoder")]
 #[inline]
 pub(crate) fn internal_set_declare_data_len(this: &mut Instruction, new_value: u32) {
-	this.op_kind_flags |= (new_value - 1) << OpKindFlags::DATA_LENGTH_SHIFT;
-}
-
-#[cfg(feature = "decoder")]
-#[cfg(not(feature = "no_evex"))]
-#[inline]
-pub(crate) fn internal_set_suppress_all_exceptions(this: &mut Instruction) {
-	this.code_flags |= CodeFlags::SUPPRESS_ALL_EXCEPTIONS;
+	debug_assert!(new_value <= 0x10);
+	this.flags1 |= (new_value - 1) << InstrFlags1::DATA_LENGTH_SHIFT;
 }
 
 // GENERATOR-BEGIN: RegToAddrSize
@@ -641,6 +481,13 @@ static REG_TO_ADDR_SIZE: [u8; IcedConstants::REGISTER_ENUM_COUNT] = [
 	0, // TMM5
 	0, // TMM6
 	0, // TMM7
+	0, // DontUse0
+	0, // DontUseFA
+	0, // DontUseFB
+	0, // DontUseFC
+	0, // DontUseFD
+	0, // DontUseFE
+	0, // DontUseFF
 ];
 // GENERATOR-END: RegToAddrSize
 
@@ -705,7 +552,7 @@ pub(crate) fn initialize_signed_immediate(instruction: &mut Instruction, operand
 		}
 
 		OpKind::Immediate16 => {
-			// All short and all ushort values can be used
+			// All i16 and all u16 values can be used
 			if i16::MIN as i64 <= immediate && immediate <= u16::MAX as i64 {
 				internal_set_immediate16(instruction, immediate as u16 as u32);
 				return Ok(());
@@ -713,7 +560,7 @@ pub(crate) fn initialize_signed_immediate(instruction: &mut Instruction, operand
 		}
 
 		OpKind::Immediate32 => {
-			// All int and all uint values can be used
+			// All i32 and all u32 values can be used
 			if i32::MIN as i64 <= immediate && immediate <= u32::MAX as i64 {
 				instruction.set_immediate32(immediate as u32);
 				return Ok(());
@@ -900,7 +747,7 @@ pub(crate) fn with_string_reg_segrsi(
 	code: Code, address_size: u32, register: Register, segment_prefix: Register, rep_prefix: RepPrefixKind,
 ) -> Result<Instruction, IcedError> {
 	let mut instruction = Instruction::default();
-	internal_set_code(&mut instruction, code);
+	instruction.set_code(code);
 
 	match rep_prefix {
 		RepPrefixKind::None => {}
@@ -909,13 +756,13 @@ pub(crate) fn with_string_reg_segrsi(
 	}
 
 	const_assert_eq!(OpKind::Register as u32, 0);
-	//internal_set_op0_kind(&mut instruction, OpKind::Register);
-	internal_set_op0_register(&mut instruction, register);
+	//instruction.set_op0_kind(OpKind::Register);
+	instruction.set_op0_register(register);
 
 	match address_size {
-		64 => internal_set_op1_kind(&mut instruction, OpKind::MemorySegRSI),
-		32 => internal_set_op1_kind(&mut instruction, OpKind::MemorySegESI),
-		16 => internal_set_op1_kind(&mut instruction, OpKind::MemorySegSI),
+		64 => instruction.set_op1_kind(OpKind::MemorySegRSI),
+		32 => instruction.set_op1_kind(OpKind::MemorySegESI),
+		16 => instruction.set_op1_kind(OpKind::MemorySegSI),
 		_ => return Err(IcedError::new("Invalid address size")),
 	}
 
@@ -928,7 +775,7 @@ pub(crate) fn with_string_reg_segrsi(
 #[cfg(feature = "encoder")]
 pub(crate) fn with_string_reg_esrdi(code: Code, address_size: u32, register: Register, rep_prefix: RepPrefixKind) -> Result<Instruction, IcedError> {
 	let mut instruction = Instruction::default();
-	internal_set_code(&mut instruction, code);
+	instruction.set_code(code);
 
 	match rep_prefix {
 		RepPrefixKind::None => {}
@@ -937,13 +784,13 @@ pub(crate) fn with_string_reg_esrdi(code: Code, address_size: u32, register: Reg
 	}
 
 	const_assert_eq!(OpKind::Register as u32, 0);
-	//internal_set_op0_kind(&mut instruction, OpKind::Register);
-	internal_set_op0_register(&mut instruction, register);
+	//instruction.set_op0_kind(OpKind::Register);
+	instruction.set_op0_register(register);
 
 	match address_size {
-		64 => internal_set_op1_kind(&mut instruction, OpKind::MemoryESRDI),
-		32 => internal_set_op1_kind(&mut instruction, OpKind::MemoryESEDI),
-		16 => internal_set_op1_kind(&mut instruction, OpKind::MemoryESDI),
+		64 => instruction.set_op1_kind(OpKind::MemoryESRDI),
+		32 => instruction.set_op1_kind(OpKind::MemoryESEDI),
+		16 => instruction.set_op1_kind(OpKind::MemoryESDI),
 		_ => return Err(IcedError::new("Invalid address size")),
 	}
 
@@ -954,7 +801,7 @@ pub(crate) fn with_string_reg_esrdi(code: Code, address_size: u32, register: Reg
 #[cfg(feature = "encoder")]
 pub(crate) fn with_string_esrdi_reg(code: Code, address_size: u32, register: Register, rep_prefix: RepPrefixKind) -> Result<Instruction, IcedError> {
 	let mut instruction = Instruction::default();
-	internal_set_code(&mut instruction, code);
+	instruction.set_code(code);
 
 	match rep_prefix {
 		RepPrefixKind::None => {}
@@ -963,15 +810,15 @@ pub(crate) fn with_string_esrdi_reg(code: Code, address_size: u32, register: Reg
 	}
 
 	match address_size {
-		64 => internal_set_op0_kind(&mut instruction, OpKind::MemoryESRDI),
-		32 => internal_set_op0_kind(&mut instruction, OpKind::MemoryESEDI),
-		16 => internal_set_op0_kind(&mut instruction, OpKind::MemoryESDI),
+		64 => instruction.set_op0_kind(OpKind::MemoryESRDI),
+		32 => instruction.set_op0_kind(OpKind::MemoryESEDI),
+		16 => instruction.set_op0_kind(OpKind::MemoryESDI),
 		_ => return Err(IcedError::new("Invalid address size")),
 	}
 
 	const_assert_eq!(OpKind::Register as u32, 0);
-	//internal_set_op1_kind(&mut instruction, OpKind::Register);
-	internal_set_op1_register(&mut instruction, register);
+	//instruction.set_op1_kind(OpKind::Register);
+	instruction.set_op1_register(register);
 
 	debug_assert_eq!(instruction.op_count(), 2);
 	Ok(instruction)
@@ -982,7 +829,7 @@ pub(crate) fn with_string_segrsi_esrdi(
 	code: Code, address_size: u32, segment_prefix: Register, rep_prefix: RepPrefixKind,
 ) -> Result<Instruction, IcedError> {
 	let mut instruction = Instruction::default();
-	internal_set_code(&mut instruction, code);
+	instruction.set_code(code);
 
 	match rep_prefix {
 		RepPrefixKind::None => {}
@@ -992,16 +839,16 @@ pub(crate) fn with_string_segrsi_esrdi(
 
 	match address_size {
 		64 => {
-			internal_set_op0_kind(&mut instruction, OpKind::MemorySegRSI);
-			internal_set_op1_kind(&mut instruction, OpKind::MemoryESRDI);
+			instruction.set_op0_kind(OpKind::MemorySegRSI);
+			instruction.set_op1_kind(OpKind::MemoryESRDI);
 		}
 		32 => {
-			internal_set_op0_kind(&mut instruction, OpKind::MemorySegESI);
-			internal_set_op1_kind(&mut instruction, OpKind::MemoryESEDI);
+			instruction.set_op0_kind(OpKind::MemorySegESI);
+			instruction.set_op1_kind(OpKind::MemoryESEDI);
 		}
 		16 => {
-			internal_set_op0_kind(&mut instruction, OpKind::MemorySegSI);
-			internal_set_op1_kind(&mut instruction, OpKind::MemoryESDI);
+			instruction.set_op0_kind(OpKind::MemorySegSI);
+			instruction.set_op1_kind(OpKind::MemoryESDI);
 		}
 		_ => return Err(IcedError::new("Invalid address size")),
 	}
@@ -1017,7 +864,7 @@ pub(crate) fn with_string_esrdi_segrsi(
 	code: Code, address_size: u32, segment_prefix: Register, rep_prefix: RepPrefixKind,
 ) -> Result<Instruction, IcedError> {
 	let mut instruction = Instruction::default();
-	internal_set_code(&mut instruction, code);
+	instruction.set_code(code);
 
 	match rep_prefix {
 		RepPrefixKind::None => {}
@@ -1027,16 +874,16 @@ pub(crate) fn with_string_esrdi_segrsi(
 
 	match address_size {
 		64 => {
-			internal_set_op0_kind(&mut instruction, OpKind::MemoryESRDI);
-			internal_set_op1_kind(&mut instruction, OpKind::MemorySegRSI);
+			instruction.set_op0_kind(OpKind::MemoryESRDI);
+			instruction.set_op1_kind(OpKind::MemorySegRSI);
 		}
 		32 => {
-			internal_set_op0_kind(&mut instruction, OpKind::MemoryESEDI);
-			internal_set_op1_kind(&mut instruction, OpKind::MemorySegESI);
+			instruction.set_op0_kind(OpKind::MemoryESEDI);
+			instruction.set_op1_kind(OpKind::MemorySegESI);
 		}
 		16 => {
-			internal_set_op0_kind(&mut instruction, OpKind::MemoryESDI);
-			internal_set_op1_kind(&mut instruction, OpKind::MemorySegSI);
+			instruction.set_op0_kind(OpKind::MemoryESDI);
+			instruction.set_op1_kind(OpKind::MemorySegSI);
 		}
 		_ => return Err(IcedError::new("Invalid address size")),
 	}
@@ -1052,22 +899,22 @@ pub(crate) fn with_maskmov(
 	code: Code, address_size: u32, register1: Register, register2: Register, segment_prefix: Register,
 ) -> Result<Instruction, IcedError> {
 	let mut instruction = Instruction::default();
-	internal_set_code(&mut instruction, code);
+	instruction.set_code(code);
 
 	match address_size {
-		64 => internal_set_op0_kind(&mut instruction, OpKind::MemorySegRDI),
-		32 => internal_set_op0_kind(&mut instruction, OpKind::MemorySegEDI),
-		16 => internal_set_op0_kind(&mut instruction, OpKind::MemorySegDI),
+		64 => instruction.set_op0_kind(OpKind::MemorySegRDI),
+		32 => instruction.set_op0_kind(OpKind::MemorySegEDI),
+		16 => instruction.set_op0_kind(OpKind::MemorySegDI),
 		_ => return Err(IcedError::new("Invalid address size")),
 	}
 
 	const_assert_eq!(OpKind::Register as u32, 0);
-	//internal_set_op1_kind(&mut instruction, OpKind::Register);
-	internal_set_op1_register(&mut instruction, register1);
+	//instruction.set_op1_kind(OpKind::Register);
+	instruction.set_op1_register(register1);
 
 	const_assert_eq!(OpKind::Register as u32, 0);
-	//internal_set_op2_kind(&mut instruction, OpKind::Register);
-	internal_set_op2_register(&mut instruction, register2);
+	//instruction.set_op2_kind(OpKind::Register);
+	instruction.set_op2_register(register2);
 
 	instruction.set_segment_prefix(segment_prefix);
 

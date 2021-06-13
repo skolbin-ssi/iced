@@ -15,7 +15,7 @@ mod table_de;
 #[cfg(test)]
 pub(crate) mod tests;
 
-use crate::decoder::handlers::OpCodeHandler;
+use crate::decoder::handlers::{OpCodeHandler, OpCodeHandlerDecodeFn};
 use crate::decoder::handlers_tables::TABLES;
 use crate::iced_constants::IcedConstants;
 use crate::iced_error::IcedError;
@@ -57,11 +57,6 @@ static READ_OP_MEM_VSIB_FNS: [fn(&mut Decoder<'_>, &mut Instruction, Register, T
 	decoder_read_op_mem_vsib_2,
 	decoder_read_op_mem_vsib_2,
 ];
-
-// 0F,26,2E,36,3E,64,65,66,67,F0,F2,F3
-static PREFIXES1632: [u32; 8] = [0x0000_8000, 0x4040_4040, 0x0000_0000, 0x0000_00F0, 0x0000_0000, 0x0000_0000, 0x0000_0000, 0x000D_0000];
-// 0F,26,2E,36,3E,64,65,66,67,F0,F2,F3 and 40-4F
-static PREFIXES64: [u32; 8] = [0x0000_8000, 0x4040_4040, 0x0000_FFFF, 0x0000_00F0, 0x0000_0000, 0x0000_0000, 0x0000_0000, 0x000D_0000];
 
 static MEM_REGS_16: [(Register, Register); 8] = [
 	(Register::BX, Register::SI),
@@ -136,13 +131,16 @@ impl Default for DecoderError {
 		DecoderError::None
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type DecoderErrorUnderlyingType = u8;
 #[rustfmt::skip]
 impl DecoderError {
 	/// Iterates over all `DecoderError` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = DecoderError> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::DECODER_ERROR_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, DecoderError>(x as u8) })
+		(0..IcedConstants::DECODER_ERROR_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, DecoderError>(x as u8) })
 	}
 }
 #[test]
@@ -160,6 +158,11 @@ fn test_decodererror_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<DecoderError> = DecoderError::values().collect();
+	let mut values2: Vec<DecoderError> = DecoderError::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for DecoderError {
@@ -269,7 +272,7 @@ impl HandlerFlags {
 pub(crate) struct StateFlags;
 #[allow(dead_code)]
 impl StateFlags {
-	pub(crate) const ENCODING_MASK: u32 = 0x0000_0007;
+	pub(crate) const IP_REL: u32 = 0x0000_0001;
 	pub(crate) const HAS_REX: u32 = 0x0000_0008;
 	pub(crate) const B: u32 = 0x0000_0010;
 	pub(crate) const Z: u32 = 0x0000_0020;
@@ -283,7 +286,8 @@ impl StateFlags {
 	pub(crate) const ALLOW_LOCK: u32 = 0x0000_2000;
 	pub(crate) const NO_MORE_BYTES: u32 = 0x0000_4000;
 	pub(crate) const HAS66: u32 = 0x0000_8000;
-	pub(crate) const IP_REL: u32 = 0x0001_0000;
+	pub(crate) const ENCODING_MASK: u32 = 0x0000_0007;
+	pub(crate) const ENCODING_SHIFT: u32 = 0x0000_001D;
 }
 // GENERATOR-END: StateFlags
 
@@ -313,6 +317,23 @@ macro_rules! mk_read_value {
 	};
 }
 
+// This is `repr(u32)` since we need the decoder field near other fields that also get cleared in `decode()`.
+// It could fit in a `u8` but then it wouldn't be cleared at the same time as the other fields since the
+// compiler would move other `u32` fields above it to align the fields.
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum DecoderMandatoryPrefix {
+	PNP = 0,
+	P66 = 1,
+	PF3 = 2,
+	PF2 = 3,
+}
+impl Default for DecoderMandatoryPrefix {
+	fn default() -> Self {
+		DecoderMandatoryPrefix::PNP
+	}
+}
+
 #[derive(Default)]
 #[allow(dead_code)]
 struct State {
@@ -328,17 +349,19 @@ struct State {
 	extra_base_register_base: u32,  // B << 3
 	extra_index_register_base_vsib: u32,
 	flags: u32, // StateFlags
-	mandatory_prefix: u32,
+	mandatory_prefix: DecoderMandatoryPrefix,
 
 	vvvv: u32,               // V`vvvv. Not stored in inverted form. If 16/32-bit mode, bits [4:3] are cleared
 	vvvv_invalid_check: u32, // vvvv bits, even in 16/32-bit mode.
 	// ***************************
+	mem_index: u32, // (mod << 3 | rm) and an index into the mem handler tables if mod <= 2
+	vector_length: VectorLength,
 	aaa: u32,
 	extra_register_base_evex: u32,      // EVEX.R' << 4
 	extra_base_register_base_evex: u32, // EVEX.XB << 3
-	vector_length: u32,
-	operand_size: OpSize,
 	address_size: OpSize,
+	operand_size: OpSize,
+	segment_prio: u8, // 0=ES/CS/SS/DS, 1=FS/GS
 }
 
 impl State {
@@ -347,7 +370,7 @@ impl State {
 	#[cfg(debug_assertions)]
 	fn encoding(&self) -> EncodingKind {
 		// SAFETY: It's always a valid enum value
-		unsafe { mem::transmute((self.flags & StateFlags::ENCODING_MASK) as u8) }
+		unsafe { mem::transmute(((self.flags >> StateFlags::ENCODING_SHIFT) & StateFlags::ENCODING_MASK) as u8) }
 	}
 	#[must_use]
 	#[inline(always)]
@@ -368,8 +391,6 @@ where
 	// Current RIP value
 	ip: u64,
 
-	// One of {&PREFIXES1632, &PREFIXES64} depending on bitness
-	prefixes: &'static [u32; 8],
 	// Input data provided by the user. When there's no more bytes left to read we'll return a NoMoreBytes error
 	data: &'a [u8],
 	// Next bytes to read if there's enough bytes left to read.
@@ -392,14 +413,13 @@ where
 	// Initialized to start of data (data_ptr) when decode() is called. Used to calculate current IP/offset (when decoding) if needed.
 	instr_start_data_ptr: usize,
 
-	handlers_xx: &'static [&'static OpCodeHandler; 0x100],
-	handlers_0fxx: &'static [&'static OpCodeHandler; 0x100],
+	handlers_xx: &'static [(OpCodeHandlerDecodeFn, &'static OpCodeHandler); 0x100],
 	#[cfg(not(feature = "no_vex"))]
-	handlers_vex: [&'static [&'static OpCodeHandler; 0x100]; 3],
+	handlers_vex: [&'static [(OpCodeHandlerDecodeFn, &'static OpCodeHandler); 0x100]; 3],
 	#[cfg(not(feature = "no_evex"))]
-	handlers_evex: [&'static [&'static OpCodeHandler; 0x100]; 3],
+	handlers_evex: [&'static [(OpCodeHandlerDecodeFn, &'static OpCodeHandler); 0x100]; 3],
 	#[cfg(not(feature = "no_xop"))]
-	handlers_xop: [&'static [&'static OpCodeHandler; 0x100]; 3],
+	handlers_xop: [&'static [(OpCodeHandlerDecodeFn, &'static OpCodeHandler); 0x100]; 3],
 
 	#[cfg(feature = "no_vex")]
 	handlers_vex: [(); 3],
@@ -424,16 +444,31 @@ where
 	reg15_mask: u32,
 	// 0 in 16/32-bit mode, 0E0h in 64-bit mode
 	mask_e0: u32,
+	mask_64b: u32,
 	bitness: u32,
-	default_operand_size: OpSize,
 	default_address_size: OpSize,
-	default_inverted_operand_size: OpSize,
+	default_operand_size: OpSize,
 	default_inverted_address_size: OpSize,
+	default_inverted_operand_size: OpSize,
 	// true if 64-bit mode, false if 16/32-bit mode
 	is64b_mode: bool,
 	default_code_size: CodeSize,
 	// Offset of displacement in the instruction. Only used by get_constant_offsets() to return the offset of the displ
 	displ_index: u8,
+}
+
+macro_rules! write_base_reg {
+	($instruction:ident, $expr:expr) => {
+		debug_assert!($expr < IcedConstants::REGISTER_ENUM_COUNT as u32);
+		$instruction.set_memory_base(unsafe { mem::transmute($expr as RegisterUnderlyingType) });
+	};
+}
+
+macro_rules! write_index_reg {
+	($instruction:ident, $expr:expr) => {
+		debug_assert!($expr < IcedConstants::REGISTER_ENUM_COUNT as u32);
+		$instruction.set_memory_index(unsafe { mem::transmute($expr as RegisterUnderlyingType) });
+	};
 }
 
 impl<'a> Decoder<'a> {
@@ -710,7 +745,6 @@ impl<'a> Decoder<'a> {
 	#[allow(clippy::let_unit_value)]
 	#[allow(trivial_casts)]
 	pub fn try_with_ip(bitness: u32, data: &'a [u8], ip: u64, options: u32) -> Result<Decoder<'a>, IcedError> {
-		let prefixes;
 		let is64b_mode;
 		let default_code_size;
 		let default_operand_size;
@@ -725,7 +759,6 @@ impl<'a> Decoder<'a> {
 				default_inverted_operand_size = OpSize::Size16;
 				default_address_size = OpSize::Size64;
 				default_inverted_address_size = OpSize::Size32;
-				prefixes = &PREFIXES64;
 			}
 			32 => {
 				is64b_mode = false;
@@ -734,7 +767,6 @@ impl<'a> Decoder<'a> {
 				default_inverted_operand_size = OpSize::Size16;
 				default_address_size = OpSize::Size32;
 				default_inverted_address_size = OpSize::Size16;
-				prefixes = &PREFIXES1632;
 			}
 			16 => {
 				is64b_mode = false;
@@ -743,7 +775,6 @@ impl<'a> Decoder<'a> {
 				default_inverted_operand_size = OpSize::Size32;
 				default_address_size = OpSize::Size16;
 				default_inverted_address_size = OpSize::Size32;
-				prefixes = &PREFIXES1632;
 			}
 			_ => return Err(IcedError::new("Invalid bitness")),
 		}
@@ -761,7 +792,9 @@ impl<'a> Decoder<'a> {
 		let tables = &*TABLES;
 
 		#[allow(clippy::unwrap_used)]
-		fn get_handlers(handlers: &'static [&'static OpCodeHandler]) -> &'static [&'static OpCodeHandler; 0x100] {
+		fn get_handlers(
+			handlers: &'static [(OpCodeHandlerDecodeFn, &'static OpCodeHandler)],
+		) -> &'static [(OpCodeHandlerDecodeFn, &'static OpCodeHandler); 0x100] {
 			debug_assert_eq!(handlers.len(), 0x100);
 			// SAFETY: handlers size is verified to be 0x100
 			unsafe { (handlers.as_ptr() as *const [_; 0x100]).as_ref() }.unwrap()
@@ -817,17 +850,14 @@ impl<'a> Decoder<'a> {
 		#[cfg(feature = "__internal_mem_vsib")]
 		let read_op_mem_fns = ();
 
-		debug_assert_eq!(prefixes.len() * mem::size_of_val(&prefixes[0]) * 8, 256);
 		Ok(Decoder {
 			ip,
-			prefixes,
 			data,
 			data_ptr: data.as_ptr() as usize,
 			data_ptr_end,
 			max_data_ptr: data.as_ptr() as usize,
 			instr_start_data_ptr: data.as_ptr() as usize,
 			handlers_xx: get_handlers(&tables.handlers_xx),
-			handlers_0fxx: get_handlers(&tables.handlers_0fxx),
 			handlers_vex: [handlers_vex_0fxx, handlers_vex_0f38xx, handlers_vex_0f3axx],
 			handlers_evex: [handlers_evex_0fxx, handlers_evex_0f38xx, handlers_evex_0f3axx],
 			handlers_xop: [handlers_xop8, handlers_xop9, handlers_xopa],
@@ -838,11 +868,12 @@ impl<'a> Decoder<'a> {
 			is64b_mode_and_w: if is64b_mode { StateFlags::W } else { 0 },
 			reg15_mask: if is64b_mode { 0xF } else { 0x7 },
 			mask_e0: if is64b_mode { 0xE0 } else { 0 },
+			mask_64b: if is64b_mode { 0xFFFF_FFFF } else { 0 },
 			bitness,
-			default_operand_size,
 			default_address_size,
-			default_inverted_operand_size,
+			default_operand_size,
 			default_inverted_address_size,
+			default_inverted_operand_size,
 			is64b_mode,
 			default_code_size,
 			displ_index: 0,
@@ -1064,7 +1095,7 @@ impl<'a> Decoder<'a> {
 	/// assert!(iter.next().is_none());
 	/// ```
 	///
-	/// For loop
+	/// `for` loop:
 	///
 	/// ```
 	/// use iced_x86::*;
@@ -1082,21 +1113,25 @@ impl<'a> Decoder<'a> {
 	}
 
 	#[must_use]
+	#[inline(always)]
 	fn read_u8(&mut self) -> usize {
 		mk_read_value! {self, u8, u8::from_le, usize}
 	}
 
 	#[must_use]
+	#[inline(always)]
 	fn read_u16(&mut self) -> usize {
 		mk_read_value! {self, u16, u16::from_le, usize}
 	}
 
 	#[must_use]
+	#[inline(always)]
 	fn read_u32(&mut self) -> usize {
 		mk_read_value! {self, u32, u32::from_le, usize}
 	}
 
 	#[must_use]
+	#[inline(always)]
 	fn read_u64(&mut self) -> u64 {
 		mk_read_value! {self, u64, u64::from_le, u64}
 	}
@@ -1229,14 +1264,16 @@ impl<'a> Decoder<'a> {
 		self.state.extra_base_register_base = 0;
 		self.state.extra_index_register_base_vsib = 0;
 		self.state.flags = 0;
-		self.state.mandatory_prefix = 0;
+		self.state.mandatory_prefix = DecoderMandatoryPrefix::default();
 		// These don't need to be cleared, but they're here so the compiler can re-use the
 		// same XMM reg to clear the previous 2 u32s (including these 2 u32s).
 		self.state.vvvv = 0;
 		self.state.vvvv_invalid_check = 0;
 
-		self.state.operand_size = self.default_operand_size;
 		self.state.address_size = self.default_address_size;
+		self.state.operand_size = self.default_operand_size;
+
+		self.state.segment_prio = 0;
 
 		let data_ptr = self.data_ptr;
 		self.instr_start_data_ptr = data_ptr;
@@ -1244,111 +1281,30 @@ impl<'a> Decoder<'a> {
 		// The calculated usize is a valid pointer in `self.data` slice or at most 1 byte past the last valid byte.
 		self.max_data_ptr = cmp::min(data_ptr + IcedConstants::MAX_INSTRUCTION_LENGTH, self.data_ptr_end);
 
-		let mut table = self.handlers_xx;
 		let mut b = self.read_u8();
-		if (((self.prefixes[b / 32]) >> (b & 31)) & 1) != 0 {
-			let mut default_ds_segment = Register::DS;
-			let mut rex_prefix: usize = 0;
-			loop {
-				// Test binary: xul.dll 64-bit
-				// 52.01% of all instructions have at least one prefix
-				// REX = 92.50%
-				//  66 =  4.41%
-				//  F3 =  1.80%
-				//  F2 =  0.65%
-				//  F0 =  0.51%
-				//  65 =  0.10%
-				// We need to check for 0Fh before REX prefix since the compiler generates worse
-				// code if we check it after the REX prefix.
-				if b == 0x0F {
-					b = self.read_u8();
-					table = self.handlers_0fxx;
-					break;
-				} else if ((b as u32) >> 4) == 4 {
-					debug_assert!(self.is64b_mode);
-					rex_prefix = b;
-				} else if b == 0x66 {
-					self.state.flags |= StateFlags::HAS66;
-					self.state.operand_size = self.default_inverted_operand_size;
-					if self.state.mandatory_prefix == MandatoryPrefixByte::None as u32 {
-						self.state.mandatory_prefix = MandatoryPrefixByte::P66 as u32;
-					}
-					rex_prefix = 0;
-				} else if b == 0xF3 {
-					instruction_internal::internal_set_has_repe_prefix(instruction);
-					self.state.mandatory_prefix = MandatoryPrefixByte::PF3 as u32;
-					rex_prefix = 0;
-				} else if b == 0xF2 {
-					instruction_internal::internal_set_has_repne_prefix(instruction);
-					self.state.mandatory_prefix = MandatoryPrefixByte::PF2 as u32;
-					rex_prefix = 0;
-				} else if b == 0xF0 {
-					instruction_internal::internal_set_has_lock_prefix(instruction);
-					self.state.flags |= StateFlags::LOCK;
-					rex_prefix = 0;
-				} else {
-					match b {
-						0x2E => {
-							if !self.is64b_mode || default_ds_segment < Register::FS {
-								instruction.set_segment_prefix(Register::CS);
-								default_ds_segment = Register::CS;
-							}
-							rex_prefix = 0;
-						}
-						0x36 => {
-							if !self.is64b_mode || default_ds_segment < Register::FS {
-								instruction.set_segment_prefix(Register::SS);
-								default_ds_segment = Register::SS;
-							}
-							rex_prefix = 0;
-						}
-						0x3E => {
-							if !self.is64b_mode || default_ds_segment < Register::FS {
-								instruction.set_segment_prefix(Register::DS);
-								default_ds_segment = Register::DS;
-							}
-							rex_prefix = 0;
-						}
-						0x64 => {
-							instruction.set_segment_prefix(Register::FS);
-							default_ds_segment = Register::FS;
-							rex_prefix = 0;
-						}
-						0x65 => {
-							instruction.set_segment_prefix(Register::GS);
-							default_ds_segment = Register::GS;
-							rex_prefix = 0;
-						}
-						0x67 => {
-							self.state.address_size = self.default_inverted_address_size;
-							rex_prefix = 0;
-						}
-						_ => {
-							if !self.is64b_mode || default_ds_segment < Register::FS {
-								instruction.set_segment_prefix(Register::ES);
-								default_ds_segment = Register::ES;
-							}
-							rex_prefix = 0;
-						}
-					}
-				}
-				b = self.read_u8();
-				if (((self.prefixes[b / 32]) >> (b & 31)) & 1) == 0 {
-					break;
-				}
+		// Test binary: xul.dll 64-bit
+		// 52.01% of all instructions have at least one prefix
+		// REX = 92.50%
+		//  66 =  4.41%
+		//  F3 =  1.80%
+		//  F2 =  0.65%
+		//  F0 =  0.51%
+		//  65 =  0.10%
+		if (((b as u32) >> 4) & self.mask_64b) == 4 {
+			debug_assert!(self.is64b_mode);
+			let mut flags = self.state.flags | StateFlags::HAS_REX;
+			if (b & 8) != 0 {
+				flags |= StateFlags::W;
+				self.state.operand_size = OpSize::Size64;
 			}
-			if rex_prefix != 0 {
-				self.state.flags |= StateFlags::HAS_REX;
-				if (rex_prefix & 8) != 0 {
-					self.state.flags |= StateFlags::W;
-					self.state.operand_size = OpSize::Size64;
-				}
-				self.state.extra_register_base = (rex_prefix as u32 & 4) << 1;
-				self.state.extra_index_register_base = (rex_prefix as u32 & 2) << 2;
-				self.state.extra_base_register_base = (rex_prefix as u32 & 1) << 3;
-			}
+			self.state.flags = flags;
+			let b2 = b;
+			b = self.read_u8();
+			self.state.extra_register_base = (b2 as u32 & 4) << 1;
+			self.state.extra_index_register_base = (b2 as u32 & 2) << 2;
+			self.state.extra_base_register_base = (b2 as u32 & 1) << 3;
 		}
-		self.decode_table2(table[b], instruction);
+		self.decode_table2(self.handlers_xx[b], instruction);
 
 		debug_assert_eq!(data_ptr, self.instr_start_data_ptr);
 		let instr_len = self.data_ptr as u32 - data_ptr as u32;
@@ -1381,7 +1337,7 @@ impl<'a> Decoder<'a> {
 			{
 				*instruction = Instruction::default();
 				const_assert_eq!(Code::INVALID as u32, 0);
-				//instruction_internal::internal_set_code(instruction, Code::INVALID);
+				//instruction.set_code(Code::INVALID);
 
 				if (flags & StateFlags::NO_MORE_BYTES) != 0 {
 					debug_assert_eq!(data_ptr, self.instr_start_data_ptr);
@@ -1404,6 +1360,25 @@ impl<'a> Decoder<'a> {
 				instruction_internal::internal_set_code_size(instruction, self.default_code_size);
 			}
 		}
+	}
+
+	#[inline(always)]
+	fn reset_rex_prefix_state(&mut self) {
+		self.state.flags &= !(StateFlags::HAS_REX | StateFlags::W);
+		if (self.state.flags & StateFlags::HAS66) == 0 {
+			self.state.operand_size = self.default_operand_size;
+		} else {
+			self.state.operand_size = self.default_inverted_operand_size;
+		}
+		self.state.extra_register_base = 0;
+		self.state.extra_index_register_base = 0;
+		self.state.extra_base_register_base = 0;
+	}
+
+	#[inline(always)]
+	fn call_opcode_handler_xx_table(&mut self, instruction: &mut Instruction) {
+		let b = self.read_u8();
+		self.decode_table2(self.handlers_xx[b], instruction);
 	}
 
 	#[must_use]
@@ -1435,20 +1410,18 @@ impl<'a> Decoder<'a> {
 		}
 	}
 
-	const PF3: u32 = MandatoryPrefixByte::PF3 as u32;
-	const PF2: u32 = MandatoryPrefixByte::PF2 as u32;
 	fn set_xacquire_xrelease_core(&mut self, instruction: &mut Instruction, flags: u32) {
 		debug_assert!(!((flags & HandlerFlags::XACQUIRE_XRELEASE_NO_LOCK) == 0 && !instruction.has_lock_prefix()));
 		match self.state.mandatory_prefix {
-			Decoder::PF2 => {
+			DecoderMandatoryPrefix::PF2 => {
 				if (flags & HandlerFlags::XACQUIRE) != 0 {
 					self.clear_mandatory_prefix_f2(instruction);
-					instruction_internal::internal_set_has_xacquire_prefix(instruction);
+					instruction.set_has_xacquire_prefix(true);
 				}
 			}
-			Decoder::PF3 => {
+			DecoderMandatoryPrefix::PF3 => {
 				self.clear_mandatory_prefix_f3(instruction);
-				instruction_internal::internal_set_has_xrelease_prefix(instruction);
+				instruction.set_has_xrelease_prefix(true);
 			}
 			_ => {}
 		}
@@ -1457,15 +1430,15 @@ impl<'a> Decoder<'a> {
 	#[inline]
 	fn clear_mandatory_prefix_f3(&self, instruction: &mut Instruction) {
 		debug_assert_eq!(self.state.encoding(), EncodingKind::Legacy);
-		debug_assert_eq!(self.state.mandatory_prefix, MandatoryPrefixByte::PF3 as u32);
-		instruction_internal::internal_clear_has_repe_prefix(instruction);
+		debug_assert_eq!(self.state.mandatory_prefix, DecoderMandatoryPrefix::PF3);
+		instruction.set_has_repe_prefix(false);
 	}
 
 	#[inline]
 	fn clear_mandatory_prefix_f2(&self, instruction: &mut Instruction) {
 		debug_assert_eq!(self.state.encoding(), EncodingKind::Legacy);
-		debug_assert_eq!(self.state.mandatory_prefix, MandatoryPrefixByte::PF2 as u32);
-		instruction_internal::internal_clear_has_repne_prefix(instruction);
+		debug_assert_eq!(self.state.mandatory_prefix, DecoderMandatoryPrefix::PF2);
+		instruction.set_has_repne_prefix(false);
 	}
 
 	#[inline]
@@ -1474,30 +1447,32 @@ impl<'a> Decoder<'a> {
 	}
 
 	#[inline(always)]
-	fn decode_table(&mut self, table: &[&OpCodeHandler; 0x100], instruction: &mut Instruction) {
+	fn decode_table(&mut self, table: &[(OpCodeHandlerDecodeFn, &OpCodeHandler); 0x100], instruction: &mut Instruction) {
 		let b = self.read_u8();
 		self.decode_table2(table[b], instruction);
 	}
 
 	#[inline(always)]
-	fn decode_table2(&mut self, handler: &OpCodeHandler, instruction: &mut Instruction) {
+	fn decode_table2(&mut self, (decode, handler): (OpCodeHandlerDecodeFn, &OpCodeHandler), instruction: &mut Instruction) {
 		if handler.has_modrm {
 			let m = self.read_u8() as u32;
 			self.state.modrm = m;
-			self.state.mod_ = m >> 6;
 			self.state.reg = (m >> 3) & 7;
+			self.state.mod_ = m >> 6;
 			self.state.rm = m & 7;
+			self.state.mem_index = (self.state.mod_ << 3) | self.state.rm;
 		}
-		(handler.decode)(handler, self, instruction);
+		(decode)(handler, self, instruction);
 	}
 
 	#[inline(always)]
 	fn read_modrm(&mut self) {
 		let m = self.read_u8() as u32;
 		self.state.modrm = m;
-		self.state.mod_ = m >> 6;
 		self.state.reg = (m >> 3) & 7;
+		self.state.mod_ = m >> 6;
 		self.state.rm = m & 7;
+		self.state.mem_index = (self.state.mod_ << 3) | self.state.rm;
 	}
 
 	#[cfg(feature = "no_vex")]
@@ -1507,7 +1482,8 @@ impl<'a> Decoder<'a> {
 
 	#[cfg(not(feature = "no_vex"))]
 	fn vex2(&mut self, instruction: &mut Instruction) {
-		if (((self.state.flags & StateFlags::HAS_REX) | self.state.mandatory_prefix) & self.invalid_check_mask) != 0 {
+		const_assert_eq!(DecoderMandatoryPrefix::PNP as u32, 0);
+		if (((self.state.flags & StateFlags::HAS_REX) | (self.state.mandatory_prefix as u32)) & self.invalid_check_mask) != 0 {
 			self.set_invalid_instruction();
 		}
 		// Undo what decode_out() did if it got a REX prefix
@@ -1516,30 +1492,35 @@ impl<'a> Decoder<'a> {
 		self.state.extra_base_register_base = 0;
 
 		if cfg!(debug_assertions) {
-			self.state.flags |= EncodingKind::VEX as u32;
+			self.state.flags |= (EncodingKind::VEX as u32) << StateFlags::ENCODING_SHIFT;
 		}
+
+		let b = self.read_u8();
+		let (decode, handler) = self.handlers_vex[0][b];
 
 		let mut b = self.state.modrm;
 
 		const_assert_eq!(VectorLength::L128 as u32, 0);
 		const_assert_eq!(VectorLength::L256 as u32, 1);
-		self.state.vector_length = (b >> 2) & 1;
+		// SAFETY: 0<=(n&1)<=1 and those are valid enum variants, see const_assert_eq!() above
+		self.state.vector_length = unsafe { mem::transmute((b >> 2) & 1) };
 
-		const_assert_eq!(MandatoryPrefixByte::None as u32, 0);
-		const_assert_eq!(MandatoryPrefixByte::P66 as u32, 1);
-		const_assert_eq!(MandatoryPrefixByte::PF3 as u32, 2);
-		const_assert_eq!(MandatoryPrefixByte::PF2 as u32, 3);
-		self.state.mandatory_prefix = b & 3;
+		const_assert_eq!(DecoderMandatoryPrefix::PNP as u32, 0);
+		const_assert_eq!(DecoderMandatoryPrefix::P66 as u32, 1);
+		const_assert_eq!(DecoderMandatoryPrefix::PF3 as u32, 2);
+		const_assert_eq!(DecoderMandatoryPrefix::PF2 as u32, 3);
+		// SAFETY: 0<=(b&3)<=3 and those are valid enum variants, see const_assert_eq!() above
+		self.state.mandatory_prefix = unsafe { mem::transmute(b & 3) };
 
 		b = !b;
 		self.state.extra_register_base = (b >> 4) & 8;
 
-		// Bit 6 can only be 1 if it's 16/32-bit mode, so we don't need to change the mask
+		// Bit 6 can only be 0 if it's 16/32-bit mode, so we don't need to change the mask
 		b = (b >> 3) & 0x0F;
 		self.state.vvvv = b;
 		self.state.vvvv_invalid_check = b;
 
-		self.decode_table(self.handlers_vex[0], instruction);
+		self.decode_table2((decode, handler), instruction);
 	}
 
 	#[cfg(feature = "no_vex")]
@@ -1549,14 +1530,15 @@ impl<'a> Decoder<'a> {
 
 	#[cfg(not(feature = "no_vex"))]
 	fn vex3(&mut self, instruction: &mut Instruction) {
-		if (((self.state.flags & StateFlags::HAS_REX) | self.state.mandatory_prefix) & self.invalid_check_mask) != 0 {
+		const_assert_eq!(DecoderMandatoryPrefix::PNP as u32, 0);
+		if (((self.state.flags & StateFlags::HAS_REX) | (self.state.mandatory_prefix as u32)) & self.invalid_check_mask) != 0 {
 			self.set_invalid_instruction();
 		}
 		// Undo what decode_out() did if it got a REX prefix
 		self.state.flags &= !StateFlags::W;
 
 		if cfg!(debug_assertions) {
-			self.state.flags |= EncodingKind::VEX as u32;
+			self.state.flags |= (EncodingKind::VEX as u32) << StateFlags::ENCODING_SHIFT;
 		}
 
 		let b2 = self.read_u16() as u32;
@@ -1566,13 +1548,15 @@ impl<'a> Decoder<'a> {
 
 		const_assert_eq!(VectorLength::L128 as u32, 0);
 		const_assert_eq!(VectorLength::L256 as u32, 1);
-		self.state.vector_length = (b2 >> 2) & 1;
+		// SAFETY: 0<=(n&1)<=1 and those are valid enum variants, see const_assert_eq!() above
+		self.state.vector_length = unsafe { mem::transmute((b2 >> 2) & 1) };
 
-		const_assert_eq!(MandatoryPrefixByte::None as u32, 0);
-		const_assert_eq!(MandatoryPrefixByte::P66 as u32, 1);
-		const_assert_eq!(MandatoryPrefixByte::PF3 as u32, 2);
-		const_assert_eq!(MandatoryPrefixByte::PF2 as u32, 3);
-		self.state.mandatory_prefix = b2 & 3;
+		const_assert_eq!(DecoderMandatoryPrefix::PNP as u32, 0);
+		const_assert_eq!(DecoderMandatoryPrefix::P66 as u32, 1);
+		const_assert_eq!(DecoderMandatoryPrefix::PF3 as u32, 2);
+		const_assert_eq!(DecoderMandatoryPrefix::PF2 as u32, 3);
+		// SAFETY: 0<=(b2&3)<=3 and those are valid enum variants, see const_assert_eq!() above
+		self.state.mandatory_prefix = unsafe { mem::transmute(b2 & 3) };
 
 		let b = (!b2 >> 3) & 0x0F;
 		self.state.vvvv_invalid_check = b;
@@ -1597,14 +1581,15 @@ impl<'a> Decoder<'a> {
 
 	#[cfg(not(feature = "no_xop"))]
 	fn xop(&mut self, instruction: &mut Instruction) {
-		if (((self.state.flags & StateFlags::HAS_REX) | self.state.mandatory_prefix) & self.invalid_check_mask) != 0 {
+		const_assert_eq!(DecoderMandatoryPrefix::PNP as u32, 0);
+		if (((self.state.flags & StateFlags::HAS_REX) | (self.state.mandatory_prefix as u32)) & self.invalid_check_mask) != 0 {
 			self.set_invalid_instruction();
 		}
 		// Undo what decode_out() did if it got a REX prefix
 		self.state.flags &= !StateFlags::W;
 
 		if cfg!(debug_assertions) {
-			self.state.flags |= EncodingKind::XOP as u32;
+			self.state.flags |= (EncodingKind::XOP as u32) << StateFlags::ENCODING_SHIFT;
 		}
 
 		let b2 = self.read_u16() as u32;
@@ -1614,13 +1599,15 @@ impl<'a> Decoder<'a> {
 
 		const_assert_eq!(VectorLength::L128 as u32, 0);
 		const_assert_eq!(VectorLength::L256 as u32, 1);
-		self.state.vector_length = (b2 >> 2) & 1;
+		// SAFETY: 0<=(n&1)<=1 and those are valid enum variants, see const_assert_eq!() above
+		self.state.vector_length = unsafe { mem::transmute((b2 >> 2) & 1) };
 
-		const_assert_eq!(MandatoryPrefixByte::None as u32, 0);
-		const_assert_eq!(MandatoryPrefixByte::P66 as u32, 1);
-		const_assert_eq!(MandatoryPrefixByte::PF3 as u32, 2);
-		const_assert_eq!(MandatoryPrefixByte::PF2 as u32, 3);
-		self.state.mandatory_prefix = b2 & 3;
+		const_assert_eq!(DecoderMandatoryPrefix::PNP as u32, 0);
+		const_assert_eq!(DecoderMandatoryPrefix::P66 as u32, 1);
+		const_assert_eq!(DecoderMandatoryPrefix::PF3 as u32, 2);
+		const_assert_eq!(DecoderMandatoryPrefix::PF2 as u32, 3);
+		// SAFETY: 0<=(b2&3)<=3 and those are valid enum variants, see const_assert_eq!() above
+		self.state.mandatory_prefix = unsafe { mem::transmute(b2 & 3) };
 
 		let b = (!b2 >> 3) & 0x0F;
 		self.state.vvvv_invalid_check = b;
@@ -1645,31 +1632,32 @@ impl<'a> Decoder<'a> {
 
 	#[cfg(not(feature = "no_evex"))]
 	fn evex_mvex(&mut self, instruction: &mut Instruction) {
-		if (((self.state.flags & StateFlags::HAS_REX) | self.state.mandatory_prefix) & self.invalid_check_mask) != 0 {
+		const_assert_eq!(DecoderMandatoryPrefix::PNP as u32, 0);
+		if (((self.state.flags & StateFlags::HAS_REX) | (self.state.mandatory_prefix as u32)) & self.invalid_check_mask) != 0 {
 			self.set_invalid_instruction();
 		}
 		// Undo what decode_out() did if it got a REX prefix
 		self.state.flags &= !StateFlags::W;
 
 		let d = self.read_u32() as u32;
-		let p2 = d >> 8;
-
-		let p0 = self.state.modrm;
 		if (d & 4) != 0 {
+			let p0 = self.state.modrm;
 			if (p0 & 0x0C) == 0 {
 				if cfg!(debug_assertions) {
-					self.state.flags |= EncodingKind::EVEX as u32;
+					self.state.flags |= (EncodingKind::EVEX as u32) << StateFlags::ENCODING_SHIFT;
 				}
 
-				const_assert_eq!(MandatoryPrefixByte::None as u32, 0);
-				const_assert_eq!(MandatoryPrefixByte::P66 as u32, 1);
-				const_assert_eq!(MandatoryPrefixByte::PF3 as u32, 2);
-				const_assert_eq!(MandatoryPrefixByte::PF2 as u32, 3);
-				self.state.mandatory_prefix = d & 3;
+				const_assert_eq!(DecoderMandatoryPrefix::PNP as u32, 0);
+				const_assert_eq!(DecoderMandatoryPrefix::P66 as u32, 1);
+				const_assert_eq!(DecoderMandatoryPrefix::PF3 as u32, 2);
+				const_assert_eq!(DecoderMandatoryPrefix::PF2 as u32, 3);
+				// SAFETY: 0<=(d&3)<=3 and those are valid enum variants, see const_assert_eq!() above
+				self.state.mandatory_prefix = unsafe { mem::transmute(d & 3) };
 
 				const_assert_eq!(StateFlags::W, 0x80);
 				self.state.flags |= d & 0x80;
 
+				let p2 = d >> 8;
 				let aaa = p2 & 7;
 				self.state.aaa = aaa;
 				instruction_internal::internal_set_op_mask(instruction, aaa);
@@ -1679,7 +1667,7 @@ impl<'a> Decoder<'a> {
 						self.set_invalid_instruction();
 					}
 					self.state.flags |= StateFlags::Z;
-					instruction_internal::internal_set_zeroing_masking(instruction);
+					instruction.set_zeroing_masking(true);
 				}
 
 				const_assert_eq!(StateFlags::B, 0x10);
@@ -1689,7 +1677,8 @@ impl<'a> Decoder<'a> {
 				const_assert_eq!(VectorLength::L256 as u32, 1);
 				const_assert_eq!(VectorLength::L512 as u32, 2);
 				const_assert_eq!(VectorLength::Unknown as u32, 3);
-				self.state.vector_length = (p2 >> 5) & 3;
+				// SAFETY: 0<=(n&3)<=3 and those are valid enum variants, see const_assert_eq!() above
+				self.state.vector_length = unsafe { mem::transmute((p2 >> 5) & 3) };
 
 				let p1 = (!d >> 3) & 0x0F;
 				if self.is64b_mode {
@@ -1713,19 +1702,20 @@ impl<'a> Decoder<'a> {
 				}
 
 				if let Some(&table) = self.handlers_evex.get(((p0 & 3) as usize).wrapping_sub(1)) {
-					let handler = table[(d >> 16) as u8 as usize];
+					let (decode, handler) = table[(d >> 16) as u8 as usize];
 					debug_assert!(handler.has_modrm);
 					let m = d >> 24;
 					self.state.modrm = m;
-					self.state.mod_ = m >> 6;
 					self.state.reg = (m >> 3) & 7;
+					self.state.mod_ = m >> 6;
 					self.state.rm = m & 7;
+					self.state.mem_index = (self.state.mod_ << 3) | self.state.rm;
 					// Invalid if LL=3 and no rc
 					const_assert!(StateFlags::B > 3);
-					if (((self.state.flags & StateFlags::B) | self.state.vector_length) & self.invalid_check_mask) == 3 {
+					if (((self.state.flags & StateFlags::B) | (self.state.vector_length as u32)) & self.invalid_check_mask) == 3 {
 						self.set_invalid_instruction();
 					}
-					(handler.decode)(handler, self, instruction);
+					(decode)(handler, self, instruction);
 				} else {
 					self.set_invalid_instruction();
 				}
@@ -1741,6 +1731,11 @@ impl<'a> Decoder<'a> {
 	#[inline(always)]
 	fn read_op_seg_reg(&mut self) -> u32 {
 		let reg = self.state.reg;
+		const_assert_eq!(Register::ES as u32 + 1, Register::CS as u32);
+		const_assert_eq!(Register::ES as u32 + 2, Register::SS as u32);
+		const_assert_eq!(Register::ES as u32 + 3, Register::DS as u32);
+		const_assert_eq!(Register::ES as u32 + 4, Register::FS as u32);
+		const_assert_eq!(Register::ES as u32 + 5, Register::GS as u32);
 		if reg < 6 {
 			Register::ES as u32 + reg
 		} else {
@@ -1854,8 +1849,8 @@ impl<'a> Decoder<'a> {
 				instruction_internal::internal_set_memory_displacement64_lo(instruction, self.read_u16() as u32);
 			}
 		}
-		instruction_internal::internal_set_memory_base(instruction, base_reg);
-		instruction_internal::internal_set_memory_index(instruction, index_reg);
+		instruction.set_memory_base(base_reg);
+		instruction.set_memory_index(index_reg);
 	}
 
 	#[must_use]
@@ -1873,9 +1868,7 @@ impl<'a> Decoder<'a> {
 	fn read_op_mem_32_or_64(&mut self, instruction: &mut Instruction) -> bool {
 		debug_assert!(self.state.address_size == OpSize::Size32 || self.state.address_size == OpSize::Size64);
 
-		let index = ((self.state.mod_ << 3) | self.state.rm) as usize;
-		debug_assert!(self.state.mod_ <= 2);
-		debug_assert!(self.state.rm <= 7);
+		let index = self.state.mem_index as usize;
 		debug_assert!(index < self.read_op_mem_fns.len());
 		// SAFETY: index is valid because modrm.mod = 0-2 (never 3 if we're here) so index will always be 0-10_111 (17h)
 		unsafe { (self.read_op_mem_fns.get_unchecked(index))(self, instruction) }
@@ -1888,16 +1881,10 @@ impl<'a> Decoder<'a> {
 		let b = self.read_u8();
 		if self.state.address_size == OpSize::Size64 {
 			instruction.set_memory_displacement64(b as i8 as u64);
-			instruction_internal::internal_set_memory_base_u32(
-				instruction,
-				self.state.extra_base_register_base + self.state.rm + Register::RAX as u32,
-			);
+			write_base_reg!(instruction, self.state.extra_base_register_base + self.state.rm + Register::RAX as u32);
 		} else {
 			instruction_internal::internal_set_memory_displacement64_lo(instruction, b as i8 as u32);
-			instruction_internal::internal_set_memory_base_u32(
-				instruction,
-				self.state.extra_base_register_base + self.state.rm + Register::EAX as u32,
-			);
+			write_base_reg!(instruction, self.state.extra_base_register_base + self.state.rm + Register::EAX as u32);
 		}
 
 		false
@@ -1910,14 +1897,19 @@ impl<'a> Decoder<'a> {
 		self.displ_index = self.data_ptr.wrapping_add(1) as u8;
 		let sib = self.read_u16() as u32;
 
-		instruction_internal::internal_set_memory_index_scale(instruction, (sib >> 6) & 3);
+		const_assert_eq!(InstrScale::Scale1 as u32, 0);
+		const_assert_eq!(InstrScale::Scale2 as u32, 1);
+		const_assert_eq!(InstrScale::Scale4 as u32, 2);
+		const_assert_eq!(InstrScale::Scale8 as u32, 3);
+		// SAFETY: 0-3 are valid variants
+		instruction_internal::internal_set_memory_index_scale(instruction, unsafe { mem::transmute(((sib >> 6) & 3) as u8) });
 		let index = ((sib >> 3) & 7) + self.state.extra_index_register_base;
 		let base_reg = if self.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
 		if index != 4 {
-			instruction_internal::internal_set_memory_index_u32(instruction, index + base_reg as u32);
+			write_index_reg!(instruction, index + base_reg as u32);
 		}
 
-		instruction_internal::internal_set_memory_base_u32(instruction, (sib & 7) + self.state.extra_base_register_base + base_reg as u32);
+		write_base_reg!(instruction, (sib & 7) + self.state.extra_base_register_base + base_reg as u32);
 		let displ = (sib >> 8) as i8 as u32;
 		if self.state.address_size == OpSize::Size64 {
 			instruction.set_memory_displacement64(displ as i32 as u64);
@@ -1931,7 +1923,7 @@ impl<'a> Decoder<'a> {
 	#[cfg(not(feature = "__internal_mem_vsib"))]
 	fn read_op_mem_0(&mut self, instruction: &mut Instruction) -> bool {
 		let base_reg = if self.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
-		instruction_internal::internal_set_memory_base_u32(instruction, self.state.extra_base_register_base + self.state.rm + base_reg as u32);
+		write_base_reg!(instruction, self.state.extra_base_register_base + self.state.rm + base_reg as u32);
 
 		false
 	}
@@ -1945,11 +1937,11 @@ impl<'a> Decoder<'a> {
 			if self.state.address_size == OpSize::Size64 {
 				instruction.set_memory_displacement64(d as i32 as u64);
 				instruction_internal::internal_set_memory_displ_size(instruction, 4);
-				instruction_internal::internal_set_memory_base(instruction, Register::RIP);
+				instruction.set_memory_base(Register::RIP);
 			} else {
 				instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
 				instruction_internal::internal_set_memory_displ_size(instruction, 3);
-				instruction_internal::internal_set_memory_base(instruction, Register::EIP);
+				instruction.set_memory_base(Register::EIP);
 			}
 		} else {
 			instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
@@ -1965,14 +1957,19 @@ impl<'a> Decoder<'a> {
 		self.displ_index = self.data_ptr as u8;
 		let displ = self.read_u32() as u32;
 
-		instruction_internal::internal_set_memory_index_scale(instruction, sib >> 6);
+		const_assert_eq!(InstrScale::Scale1 as u32, 0);
+		const_assert_eq!(InstrScale::Scale2 as u32, 1);
+		const_assert_eq!(InstrScale::Scale4 as u32, 2);
+		const_assert_eq!(InstrScale::Scale8 as u32, 3);
+		// SAFETY: 0-3 are valid variants
+		instruction_internal::internal_set_memory_index_scale(instruction, unsafe { mem::transmute((sib >> 6) as u8) });
 		let index = ((sib >> 3) & 7) + self.state.extra_index_register_base;
 		let base_reg = if self.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
 		if index != 4 {
-			instruction_internal::internal_set_memory_index_u32(instruction, index + base_reg as u32);
+			write_index_reg!(instruction, index + base_reg as u32);
 		}
 
-		instruction_internal::internal_set_memory_base_u32(instruction, (sib & 7) + self.state.extra_base_register_base + base_reg as u32);
+		write_base_reg!(instruction, (sib & 7) + self.state.extra_base_register_base + base_reg as u32);
 		if self.state.address_size == OpSize::Size64 {
 			instruction_internal::internal_set_memory_displ_size(instruction, 4);
 			instruction.set_memory_displacement64(displ as i32 as u64);
@@ -1991,17 +1988,11 @@ impl<'a> Decoder<'a> {
 		if self.state.address_size == OpSize::Size64 {
 			instruction.set_memory_displacement64(d as i32 as u64);
 			instruction_internal::internal_set_memory_displ_size(instruction, 4);
-			instruction_internal::internal_set_memory_base_u32(
-				instruction,
-				self.state.extra_base_register_base + self.state.rm + Register::RAX as u32,
-			);
+			write_base_reg!(instruction, self.state.extra_base_register_base + self.state.rm + Register::RAX as u32);
 		} else {
 			instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
 			instruction_internal::internal_set_memory_displ_size(instruction, 3);
-			instruction_internal::internal_set_memory_base_u32(
-				instruction,
-				self.state.extra_base_register_base + self.state.rm + Register::EAX as u32,
-			);
+			write_base_reg!(instruction, self.state.extra_base_register_base + self.state.rm + Register::EAX as u32);
 		}
 
 		false
@@ -2010,11 +2001,16 @@ impl<'a> Decoder<'a> {
 	#[cfg(not(feature = "__internal_mem_vsib"))]
 	fn read_op_mem_0_4(&mut self, instruction: &mut Instruction) -> bool {
 		let sib = self.read_u8() as u32;
-		instruction_internal::internal_set_memory_index_scale(instruction, sib >> 6);
+		const_assert_eq!(InstrScale::Scale1 as u32, 0);
+		const_assert_eq!(InstrScale::Scale2 as u32, 1);
+		const_assert_eq!(InstrScale::Scale4 as u32, 2);
+		const_assert_eq!(InstrScale::Scale8 as u32, 3);
+		// SAFETY: 0-3 are valid variants
+		instruction_internal::internal_set_memory_index_scale(instruction, unsafe { mem::transmute((sib >> 6) as u8) });
 		let index = ((sib >> 3) & 7) + self.state.extra_index_register_base;
 		let base_reg = if self.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
 		if index != 4 {
-			instruction_internal::internal_set_memory_index_u32(instruction, index + base_reg as u32);
+			write_index_reg!(instruction, index + base_reg as u32);
 		}
 
 		let base = sib & 7;
@@ -2029,7 +2025,7 @@ impl<'a> Decoder<'a> {
 				instruction_internal::internal_set_memory_displ_size(instruction, 3);
 			}
 		} else {
-			instruction_internal::internal_set_memory_base_u32(instruction, base + self.state.extra_base_register_base + base_reg as u32);
+			write_base_reg!(instruction, base + self.state.extra_base_register_base + base_reg as u32);
 			instruction_internal::internal_set_memory_displ_size(instruction, 0);
 			if self.state.address_size == OpSize::Size64 {
 				instruction.set_memory_displacement64(0);
@@ -2203,9 +2199,7 @@ fn decoder_read_op_mem_32_or_64_vsib(
 ) -> bool {
 	debug_assert!(this.state.address_size == OpSize::Size32 || this.state.address_size == OpSize::Size64);
 
-	let index = ((this.state.mod_ << 3) | this.state.rm) as usize;
-	debug_assert!(this.state.mod_ <= 2);
-	debug_assert!(this.state.rm <= 7);
+	let index = this.state.mem_index as usize;
 	debug_assert!(index < READ_OP_MEM_VSIB_FNS.len());
 	// SAFETY: index is valid because modrm.mod = 0-2 (never 3 if we're here) so index will always be 0-10_111 (17h)
 	unsafe { (READ_OP_MEM_VSIB_FNS.get_unchecked(index))(this, instruction, index_reg, tuple_type, is_vsib) }
@@ -2219,10 +2213,10 @@ fn decoder_read_op_mem_vsib_1(
 	this.displ_index = this.data_ptr as u8;
 	let b = this.read_u8();
 	if this.state.address_size == OpSize::Size64 {
-		instruction_internal::internal_set_memory_base_u32(instruction, this.state.extra_base_register_base + this.state.rm + Register::RAX as u32);
+		write_base_reg!(instruction, this.state.extra_base_register_base + this.state.rm + Register::RAX as u32);
 		instruction.set_memory_displacement64((this.disp8n(tuple_type) as u64).wrapping_mul(b as i8 as u64));
 	} else {
-		instruction_internal::internal_set_memory_base_u32(instruction, this.state.extra_base_register_base + this.state.rm + Register::EAX as u32);
+		write_base_reg!(instruction, this.state.extra_base_register_base + this.state.rm + Register::EAX as u32);
 		instruction_internal::internal_set_memory_displacement64_lo(instruction, this.disp8n(tuple_type).wrapping_mul(b as i8 as u32));
 	}
 
@@ -2240,15 +2234,20 @@ fn decoder_read_op_mem_vsib_1_4(
 	let index = ((sib >> 3) & 7) + this.state.extra_index_register_base;
 	if !is_vsib {
 		if index != 4 {
-			instruction_internal::internal_set_memory_index_u32(instruction, index + index_reg as u32);
+			write_index_reg!(instruction, index + index_reg as u32);
 		}
 	} else {
-		instruction_internal::internal_set_memory_index_u32(instruction, index + this.state.extra_index_register_base_vsib + index_reg as u32);
+		write_index_reg!(instruction, index + this.state.extra_index_register_base_vsib + index_reg as u32);
 	}
 
-	instruction_internal::internal_set_memory_index_scale(instruction, (sib >> 6) & 3);
+	const_assert_eq!(InstrScale::Scale1 as u32, 0);
+	const_assert_eq!(InstrScale::Scale2 as u32, 1);
+	const_assert_eq!(InstrScale::Scale4 as u32, 2);
+	const_assert_eq!(InstrScale::Scale8 as u32, 3);
+	// SAFETY: 0-3 are valid variants
+	instruction_internal::internal_set_memory_index_scale(instruction, unsafe { mem::transmute(((sib >> 6) & 3) as u8) });
 	let base_reg = if this.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
-	instruction_internal::internal_set_memory_base_u32(instruction, (sib & 7) + this.state.extra_base_register_base + base_reg as u32);
+	write_base_reg!(instruction, (sib & 7) + this.state.extra_base_register_base + base_reg as u32);
 
 	let b = (sib >> 8) as i8 as u32;
 	let displ = this.disp8n(tuple_type).wrapping_mul(b);
@@ -2266,7 +2265,7 @@ fn decoder_read_op_mem_vsib_0(
 	this: &mut Decoder<'_>, instruction: &mut Instruction, _index_reg: Register, _tuple_type: TupleType, _is_vsib: bool,
 ) -> bool {
 	let base_reg = if this.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
-	instruction_internal::internal_set_memory_base_u32(instruction, this.state.extra_base_register_base + this.state.rm + base_reg as u32);
+	write_base_reg!(instruction, this.state.extra_base_register_base + this.state.rm + base_reg as u32);
 
 	false
 }
@@ -2282,11 +2281,11 @@ fn decoder_read_op_mem_vsib_0_5(
 		if this.state.address_size == OpSize::Size64 {
 			instruction.set_memory_displacement64(d as i32 as u64);
 			instruction_internal::internal_set_memory_displ_size(instruction, 4);
-			instruction_internal::internal_set_memory_base(instruction, Register::RIP);
+			instruction.set_memory_base(Register::RIP);
 		} else {
 			instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
 			instruction_internal::internal_set_memory_displ_size(instruction, 3);
-			instruction_internal::internal_set_memory_base(instruction, Register::EIP);
+			instruction.set_memory_base(Register::EIP);
 		}
 	} else {
 		instruction_internal::internal_set_memory_displacement64_lo(instruction, d as u32);
@@ -2306,16 +2305,21 @@ fn decoder_read_op_mem_vsib_2_4(
 	let index = ((sib >> 3) & 7) + this.state.extra_index_register_base;
 	if !is_vsib {
 		if index != 4 {
-			instruction_internal::internal_set_memory_index_u32(instruction, index + index_reg as u32);
+			write_index_reg!(instruction, index + index_reg as u32);
 		}
 	} else {
-		instruction_internal::internal_set_memory_index_u32(instruction, index + this.state.extra_index_register_base_vsib + index_reg as u32);
+		write_index_reg!(instruction, index + this.state.extra_index_register_base_vsib + index_reg as u32);
 	}
 
-	instruction_internal::internal_set_memory_index_scale(instruction, sib >> 6);
+	const_assert_eq!(InstrScale::Scale1 as u32, 0);
+	const_assert_eq!(InstrScale::Scale2 as u32, 1);
+	const_assert_eq!(InstrScale::Scale4 as u32, 2);
+	const_assert_eq!(InstrScale::Scale8 as u32, 3);
+	// SAFETY: 0-3 are valid variants
+	instruction_internal::internal_set_memory_index_scale(instruction, unsafe { mem::transmute((sib >> 6) as u8) });
 
 	let base_reg = if this.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
-	instruction_internal::internal_set_memory_base_u32(instruction, (sib & 7) + this.state.extra_base_register_base + base_reg as u32);
+	write_base_reg!(instruction, (sib & 7) + this.state.extra_base_register_base + base_reg as u32);
 	let displ = this.read_u32() as u32;
 	if this.state.address_size == OpSize::Size64 {
 		instruction_internal::internal_set_memory_displ_size(instruction, 4);
@@ -2333,7 +2337,7 @@ fn decoder_read_op_mem_vsib_2(
 	this: &mut Decoder<'_>, instruction: &mut Instruction, _index_reg: Register, _tuple_type: TupleType, _is_vsib: bool,
 ) -> bool {
 	let base_reg = if this.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
-	instruction_internal::internal_set_memory_base_u32(instruction, this.state.extra_base_register_base + this.state.rm + base_reg as u32);
+	write_base_reg!(instruction, this.state.extra_base_register_base + this.state.rm + base_reg as u32);
 	this.displ_index = this.data_ptr as u8;
 	let d = this.read_u32();
 	if this.state.address_size == OpSize::Size64 {
@@ -2352,14 +2356,19 @@ fn decoder_read_op_mem_vsib_0_4(
 	this: &mut Decoder<'_>, instruction: &mut Instruction, index_reg: Register, _tuple_type: TupleType, is_vsib: bool,
 ) -> bool {
 	let sib = this.read_u8() as u32;
-	instruction_internal::internal_set_memory_index_scale(instruction, sib >> 6);
+	const_assert_eq!(InstrScale::Scale1 as u32, 0);
+	const_assert_eq!(InstrScale::Scale2 as u32, 1);
+	const_assert_eq!(InstrScale::Scale4 as u32, 2);
+	const_assert_eq!(InstrScale::Scale8 as u32, 3);
+	// SAFETY: 0-3 are valid variants
+	instruction_internal::internal_set_memory_index_scale(instruction, unsafe { mem::transmute((sib >> 6) as u8) });
 	let index = ((sib >> 3) & 7) + this.state.extra_index_register_base;
 	if !is_vsib {
 		if index != 4 {
-			instruction_internal::internal_set_memory_index_u32(instruction, index + index_reg as u32);
+			write_index_reg!(instruction, index + index_reg as u32);
 		}
 	} else {
-		instruction_internal::internal_set_memory_index_u32(instruction, index + this.state.extra_index_register_base_vsib + index_reg as u32);
+		write_index_reg!(instruction, index + this.state.extra_index_register_base_vsib + index_reg as u32);
 	}
 
 	let base = sib & 7;
@@ -2375,7 +2384,7 @@ fn decoder_read_op_mem_vsib_0_4(
 		}
 	} else {
 		let base_reg = if this.state.address_size == OpSize::Size64 { Register::RAX } else { Register::EAX };
-		instruction_internal::internal_set_memory_base_u32(instruction, base + this.state.extra_base_register_base + base_reg as u32);
+		write_base_reg!(instruction, base + this.state.extra_base_register_base + base_reg as u32);
 		instruction_internal::internal_set_memory_displ_size(instruction, 0);
 		if this.state.address_size == OpSize::Size64 {
 			instruction.set_memory_displacement64(0);

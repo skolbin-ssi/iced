@@ -33,6 +33,9 @@ impl Default for RelocKind {
 		RelocKind::Offset64
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type RelocKindUnderlyingType = ();
 #[rustfmt::skip]
 impl RelocKind {
 	/// Iterates over all `RelocKind` enum values
@@ -57,6 +60,11 @@ fn test_relockind_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<RelocKind> = RelocKind::values().collect();
+	let mut values2: Vec<RelocKind> = RelocKind::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for RelocKind {

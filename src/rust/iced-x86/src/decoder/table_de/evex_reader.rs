@@ -11,27 +11,26 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 #[allow(trivial_casts)]
-pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &mut Vec<&'static OpCodeHandler>) {
-	let code;
+pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &mut Vec<(OpCodeHandlerDecodeFn, &'static OpCodeHandler)>) {
 	let reg;
 	let elem: *const OpCodeHandler = match deserializer.read_evex_op_code_handler_kind() {
-		EvexOpCodeHandlerKind::Invalid => &INVALID_HANDLER as *const _ as *const OpCodeHandler,
+		EvexOpCodeHandlerKind::Invalid => get_invalid_handler().1,
 
 		EvexOpCodeHandlerKind::Invalid2 => {
-			result.push(unsafe { &*(&INVALID_HANDLER as *const _ as *const OpCodeHandler) });
-			&INVALID_HANDLER as *const _ as *const OpCodeHandler
+			result.push(get_invalid_handler());
+			get_invalid_handler().1
 		}
 
 		EvexOpCodeHandlerKind::Dup => {
 			let count = deserializer.read_u32();
 			let handler = deserializer.read_handler();
 			for _ in 0..count {
-				result.push(unsafe { &*handler });
+				result.push(handler);
 			}
 			return;
 		}
 
-		EvexOpCodeHandlerKind::HandlerReference => deserializer.read_handler_reference(),
+		EvexOpCodeHandlerKind::HandlerReference => deserializer.read_handler_reference().1,
 
 		EvexOpCodeHandlerKind::ArrayReference => unreachable!(),
 
@@ -70,42 +69,42 @@ pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &m
 
 		EvexOpCodeHandlerKind::Ed_V_Ib => {
 			reg = deserializer.read_register();
-			code = deserializer.read_code();
+			let (code1, code2) = deserializer.read_code2();
 			Box::into_raw(Box::new(OpCodeHandler_EVEX_Ed_V_Ib::new(
 				reg,
-				code,
-				code + 1,
+				code1,
+				code2,
 				deserializer.read_tuple_type(),
 				deserializer.read_tuple_type(),
 			))) as *const OpCodeHandler
 		}
 
 		EvexOpCodeHandlerKind::Ev_VX => {
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_EVEX_Ev_VX::new(code, code + 1, deserializer.read_tuple_type(), deserializer.read_tuple_type())))
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_EVEX_Ev_VX::new(code1, code2, deserializer.read_tuple_type(), deserializer.read_tuple_type())))
 				as *const OpCodeHandler
 		}
 
 		EvexOpCodeHandlerKind::Ev_VX_Ib => {
 			reg = deserializer.read_register();
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_EVEX_Ev_VX_Ib::new(reg, code, code + 1))) as *const OpCodeHandler
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_EVEX_Ev_VX_Ib::new(reg, code1, code2))) as *const OpCodeHandler
 		}
 
 		EvexOpCodeHandlerKind::Gv_W_er => {
 			reg = deserializer.read_register();
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_EVEX_Gv_W_er::new(reg, code, code + 1, deserializer.read_tuple_type(), deserializer.read_boolean())))
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_EVEX_Gv_W_er::new(reg, code1, code2, deserializer.read_tuple_type(), deserializer.read_boolean())))
 				as *const OpCodeHandler
 		}
 
 		EvexOpCodeHandlerKind::GvM_VX_Ib => {
 			reg = deserializer.read_register();
-			code = deserializer.read_code();
+			let (code1, code2) = deserializer.read_code2();
 			Box::into_raw(Box::new(OpCodeHandler_EVEX_GvM_VX_Ib::new(
 				reg,
-				code,
-				code + 1,
+				code1,
+				code2,
 				deserializer.read_tuple_type(),
 				deserializer.read_tuple_type(),
 			))) as *const OpCodeHandler
@@ -205,11 +204,11 @@ pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &m
 
 		EvexOpCodeHandlerKind::V_H_Ev_er => {
 			reg = deserializer.read_register();
-			code = deserializer.read_code();
+			let (code1, code2) = deserializer.read_code2();
 			Box::into_raw(Box::new(OpCodeHandler_EVEX_V_H_Ev_er::new(
 				reg,
-				code,
-				code + 1,
+				code1,
+				code2,
 				deserializer.read_tuple_type(),
 				deserializer.read_tuple_type(),
 			))) as *const OpCodeHandler
@@ -217,11 +216,11 @@ pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &m
 
 		EvexOpCodeHandlerKind::V_H_Ev_Ib => {
 			reg = deserializer.read_register();
-			code = deserializer.read_code();
+			let (code1, code2) = deserializer.read_code2();
 			Box::into_raw(Box::new(OpCodeHandler_EVEX_V_H_Ev_Ib::new(
 				reg,
-				code,
-				code + 1,
+				code1,
+				code2,
 				deserializer.read_tuple_type(),
 				deserializer.read_tuple_type(),
 			))) as *const OpCodeHandler
@@ -264,7 +263,7 @@ pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &m
 		))) as *const OpCodeHandler,
 
 		EvexOpCodeHandlerKind::VkEv_REXW_2 => {
-			Box::into_raw(Box::new(OpCodeHandler_EVEX_VkEv_REXW::new(deserializer.read_register(), deserializer.read_code(), Code::INVALID as u32)))
+			Box::into_raw(Box::new(OpCodeHandler_EVEX_VkEv_REXW::new(deserializer.read_register(), deserializer.read_code(), Code::INVALID)))
 				as *const OpCodeHandler
 		}
 
@@ -468,8 +467,8 @@ pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &m
 		))) as *const OpCodeHandler,
 
 		EvexOpCodeHandlerKind::VX_Ev => {
-			code = deserializer.read_code();
-			Box::into_raw(Box::new(OpCodeHandler_EVEX_VX_Ev::new(code, code + 1, deserializer.read_tuple_type(), deserializer.read_tuple_type())))
+			let (code1, code2) = deserializer.read_code2();
+			Box::into_raw(Box::new(OpCodeHandler_EVEX_VX_Ev::new(code1, code2, deserializer.read_tuple_type(), deserializer.read_tuple_type())))
 				as *const OpCodeHandler
 		}
 
@@ -517,5 +516,6 @@ pub(super) fn read_handlers(deserializer: &mut TableDeserializer<'_>, result: &m
 			deserializer.read_tuple_type(),
 		))) as *const OpCodeHandler,
 	};
-	result.push(unsafe { &*elem });
+	let handler = unsafe { &*elem };
+	result.push((handler.decode, handler));
 }

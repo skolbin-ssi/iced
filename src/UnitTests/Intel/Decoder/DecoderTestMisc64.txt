@@ -218,10 +218,16 @@ F2 F2 F2 64 0F10 08, Movsd_xmm_xmmm64, Movsd, 2, op0=r;xmm1 op1=m;fs;rax;;1;0;0;
 65 64 01 18, Add_rm32_r32, Add, 2, op0=m;fs;rax;;1;0;0;UInt32 op1=r;ebx fs: enc=640118
 65 65 01 18, Add_rm32_r32, Add, 2, op0=m;gs;rax;;1;0;0;UInt32 op1=r;ebx gs: enc=650118
 
+# prefix: REX without W + 66
+66 40 01 CE, Add_rm16_r16, Add, 2, op0=r;si op1=r;cx enc=6601CE
+66 47 40 01 CE, Add_rm16_r16, Add, 2, op0=r;si op1=r;cx enc=6601CE
+66 4F 40 01 CE, Add_rm16_r16, Add, 2, op0=r;si op1=r;cx enc=6601CE
+
 # prefix: REX.W overrides 66
 66 48 01 CE, Add_rm64_r64, Add, 2, op0=r;rsi op1=r;rcx enc=4801CE
 
 # prefix: double REX prefixes
+4F 40 01 CE, Add_rm32_r32, Add, 2, op0=r;esi op1=r;ecx enc=01CE
 4F 48 01 CE, Add_rm64_r64, Add, 2, op0=r;rsi op1=r;rcx enc=4801CE
 4F 4C 01 C5, Add_rm64_r64, Add, 2, op0=r;rbp op1=r;r8 enc=4C01C5
 4F 49 01 D6, Add_rm64_r64, Add, 2, op0=r;r14 op1=r;rdx enc=4901D6
@@ -272,3 +278,11 @@ F0 81 05 34125AA5 F0DEBC, INVALID, INVALID, 0, code=Add_rm32_imm32 err=NoMoreByt
 F0 8E 0D 34125AA5, INVALID, INVALID, 0, code=Mov_Sreg_r32m16
 # mov cs,[rip-5AA5EDCCh]
 8E 0D 34125AA5, INVALID, INVALID, 0, code=Mov_Sreg_r32m16
+
+# Decoder/encoder ip overflow test
+01 CE, Add_rm32_r32, Add, 2, op0=r;esi op1=r;ecx ip=0xFFFFFFFFFFFFFFFE
+01 CE, Add_rm32_r32, Add, 2, op0=r;esi op1=r;ecx ip=0xFFFFFFFFFFFFFFFF
+
+# Verify that the decoder clears extra_index_register_base_vsib in decode(). The order of these two test cases is important!
+62 D27D43 C6 4C 8E 01, EVEX_Vgatherpf0dps_vm32z_k1, Vgatherpf0dps, 1, op0=m;ds;r14;zmm17;4;4;1;Float32 k3 vsib32 co=0;0;0;0;7;1
+C4E209 90 4C A1 01, VEX_Vpgatherdd_xmm_vm32x_xmm, Vpgatherdd, 3, op0=r;xmm1 op1=m;ds;rcx;xmm4;4;1;1;Int32 op2=r;xmm14 vsib32 co=0;0;0;0;6;1

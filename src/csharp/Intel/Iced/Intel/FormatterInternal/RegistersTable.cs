@@ -265,14 +265,19 @@ namespace Iced.Intel.FormatterInternal {
 				0x04, 0x74, 0x6D, 0x6D, 0x36,// tmm6
 				0x04, 0x74, 0x6D, 0x6D, 0x37,// tmm7
 				0x02, 0x73, 0x74,// st
+				0x03, 0x3F, 0x3F, 0x3F,// ???
+				0x03, 0x3F, 0x3F, 0x3F,// ???
+				0x03, 0x3F, 0x3F, 0x3F,// ???
+				0x03, 0x3F, 0x3F, 0x3F,// ???
+				0x03, 0x3F, 0x3F, 0x3F,// ???
+				0x03, 0x3F, 0x3F, 0x3F,// ???
 			};
 		const int MaxStringLength = 5;
-		const int StringsCount = 250;
 		// GENERATOR-END: Registers
 
 		public static FormatterString[] GetRegisters() {
 			var reader = new DataReader(GetRegistersData(), MaxStringLength);
-			var strings = new FormatterString[StringsCount];
+			var strings = new FormatterString[IcedConstants.RegisterEnumCount];
 			for (int i = 0; i < strings.Length; i++)
 				strings[i] = new FormatterString(reader.ReadAsciiString());
 			if (reader.CanRead)

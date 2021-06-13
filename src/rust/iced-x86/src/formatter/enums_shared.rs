@@ -94,13 +94,16 @@ impl Default for FormatterTextKind {
 		FormatterTextKind::Text
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type FormatterTextKindUnderlyingType = u8;
 #[rustfmt::skip]
 impl FormatterTextKind {
 	/// Iterates over all `FormatterTextKind` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = FormatterTextKind> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::FORMATTER_TEXT_KIND_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, FormatterTextKind>(x as u8) })
+		(0..IcedConstants::FORMATTER_TEXT_KIND_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, FormatterTextKind>(x as u8) })
 	}
 }
 #[test]
@@ -118,6 +121,11 @@ fn test_formattertextkind_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<FormatterTextKind> = FormatterTextKind::values().collect();
+	let mut values2: Vec<FormatterTextKind> = FormatterTextKind::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for FormatterTextKind {
@@ -168,9 +176,17 @@ pub(crate) enum PseudoOpsKind {
 	vpcomuw,
 	vpcomud,
 	vpcomuq,
+	vpcmpb,
+	vpcmpw,
+	vpcmpd,
+	vpcmpq,
+	vpcmpub,
+	vpcmpuw,
+	vpcmpud,
+	vpcmpuq,
 }
 #[rustfmt::skip]
-static GEN_DEBUG_PSEUDO_OPS_KIND: [&str; 18] = [
+static GEN_DEBUG_PSEUDO_OPS_KIND: [&str; 26] = [
 	"cmpps",
 	"vcmpps",
 	"cmppd",
@@ -189,6 +205,14 @@ static GEN_DEBUG_PSEUDO_OPS_KIND: [&str; 18] = [
 	"vpcomuw",
 	"vpcomud",
 	"vpcomuq",
+	"vpcmpb",
+	"vpcmpw",
+	"vpcmpd",
+	"vpcmpq",
+	"vpcmpub",
+	"vpcmpuw",
+	"vpcmpud",
+	"vpcmpuq",
 ];
 impl fmt::Debug for PseudoOpsKind {
 	#[inline]
@@ -239,13 +263,16 @@ impl Default for MemorySizeOptions {
 		MemorySizeOptions::Default
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type MemorySizeOptionsUnderlyingType = u8;
 #[rustfmt::skip]
 impl MemorySizeOptions {
 	/// Iterates over all `MemorySizeOptions` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = MemorySizeOptions> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::MEMORY_SIZE_OPTIONS_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u8, MemorySizeOptions>(x as u8) })
+		(0..IcedConstants::MEMORY_SIZE_OPTIONS_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u8, MemorySizeOptions>(x as u8) })
 	}
 }
 #[test]
@@ -263,6 +290,11 @@ fn test_memorysizeoptions_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<MemorySizeOptions> = MemorySizeOptions::values().collect();
+	let mut values2: Vec<MemorySizeOptions> = MemorySizeOptions::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for MemorySizeOptions {

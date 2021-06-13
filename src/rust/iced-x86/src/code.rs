@@ -38914,13 +38914,16 @@ impl Default for Code {
 		Code::INVALID
 	}
 }
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub(crate) type CodeUnderlyingType = u16;
 #[rustfmt::skip]
 impl Code {
 	/// Iterates over all `Code` enum values
 	#[inline]
 	pub fn values() -> impl Iterator<Item = Code> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
 		// SAFETY: all values 0-max are valid enum values
-		(0..IcedConstants::CODE_ENUM_COUNT).map(|x| unsafe { core::mem::transmute::<u16, Code>(x as u16) })
+		(0..IcedConstants::CODE_ENUM_COUNT).map(|x| unsafe { mem::transmute::<u16, Code>(x as u16) })
 	}
 }
 #[test]
@@ -38938,6 +38941,11 @@ fn test_code_values() {
 	for (i, value) in values.into_iter().enumerate() {
 		assert_eq!(i, value as usize);
 	}
+
+	let values1: Vec<Code> = Code::values().collect();
+	let mut values2: Vec<Code> = Code::values().rev().collect();
+	values2.reverse();
+	assert_eq!(values1, values2);
 }
 #[rustfmt::skip]
 impl TryFrom<usize> for Code {
@@ -39009,13 +39017,8 @@ impl Code {
 	#[must_use]
 	#[inline]
 	pub fn encoding(self) -> EncodingKind {
-		// SAFETY: size of table is count(Code)*2 so the index is valid
-		unsafe {
-			mem::transmute(
-				((*crate::info::info_table::TABLE.get_unchecked((self as usize) * 2 + 1) >> InfoFlags2::ENCODING_SHIFT) & InfoFlags2::ENCODING_MASK)
-					as u8,
-			)
-		}
+		// SAFETY: The table is generated and only contains valid enum variants
+		unsafe { mem::transmute(((crate::info::info_table::TABLE[self as usize].1 >> InfoFlags2::ENCODING_SHIFT) & InfoFlags2::ENCODING_MASK) as u8) }
 	}
 
 	/// Gets the CPU or CPUID feature flags
@@ -39037,13 +39040,14 @@ impl Code {
 	#[must_use]
 	#[inline]
 	pub fn cpuid_features(self) -> &'static [CpuidFeature] {
-		// SAFETY: size of table is count(Code)*2 so the index is valid
-		let index = unsafe {
-			((*crate::info::info_table::TABLE.get_unchecked((self as usize) * 2 + 1) >> InfoFlags2::CPUID_FEATURE_INTERNAL_SHIFT)
-				& InfoFlags2::CPUID_FEATURE_INTERNAL_MASK) as usize
+		// SAFETY: The table is generated and only contains valid enum variants
+		let index: CpuidFeatureInternal = unsafe {
+			mem::transmute(
+				((crate::info::info_table::TABLE[self as usize].1 >> InfoFlags2::CPUID_FEATURE_INTERNAL_SHIFT)
+					& InfoFlags2::CPUID_FEATURE_INTERNAL_MASK) as u8,
+			)
 		};
-		// SAFETY: index is generated and always valid
-		unsafe { *crate::info::cpuid_table::CPUID.get_unchecked(index) }
+		crate::info::cpuid_table::CPUID[index as usize]
 	}
 
 	/// Gets control flow info
@@ -39059,11 +39063,10 @@ impl Code {
 	#[must_use]
 	#[inline]
 	pub fn flow_control(self) -> FlowControl {
-		// SAFETY: size of table is count(Code)*2 so the index is valid
+		// SAFETY: The table is generated and only contains valid enum variants
 		unsafe {
 			mem::transmute(
-				((*crate::info::info_table::TABLE.get_unchecked((self as usize) * 2 + 1) >> InfoFlags2::FLOW_CONTROL_SHIFT)
-					& InfoFlags2::FLOW_CONTROL_MASK) as u8,
+				((crate::info::info_table::TABLE[self as usize].1 >> InfoFlags2::FLOW_CONTROL_SHIFT) & InfoFlags2::FLOW_CONTROL_MASK) as u8,
 			)
 		}
 	}
@@ -39072,8 +39075,7 @@ impl Code {
 	#[must_use]
 	#[inline]
 	pub fn is_privileged(self) -> bool {
-		// SAFETY: size of table is count(Code)*2 so the index is valid
-		unsafe { (*crate::info::info_table::TABLE.get_unchecked((self as usize) * 2 + 1) & InfoFlags2::PRIVILEGED) != 0 }
+		(crate::info::info_table::TABLE[self as usize].1 & InfoFlags2::PRIVILEGED) != 0
 	}
 
 	/// Checks if this is an instruction that implicitly uses the stack pointer (`SP`/`ESP`/`RSP`), eg. `CALL`, `PUSH`, `POP`, `RET`, etc.
@@ -39092,16 +39094,14 @@ impl Code {
 	#[must_use]
 	#[inline]
 	pub fn is_stack_instruction(self) -> bool {
-		// SAFETY: size of table is count(Code)*2 so the index is valid
-		unsafe { (*crate::info::info_table::TABLE.get_unchecked((self as usize) * 2 + 1) & InfoFlags2::STACK_INSTRUCTION) != 0 }
+		(crate::info::info_table::TABLE[self as usize].1 & InfoFlags2::STACK_INSTRUCTION) != 0
 	}
 
 	/// Checks if it's an instruction that saves or restores too many registers (eg. `FXRSTOR`, `XSAVE`, etc).
 	#[must_use]
 	#[inline]
 	pub fn is_save_restore_instruction(self) -> bool {
-		// SAFETY: size of table is count(Code)*2 so the index is valid
-		unsafe { (*crate::info::info_table::TABLE.get_unchecked((self as usize) * 2 + 1) & InfoFlags2::SAVE_RESTORE) != 0 }
+		(crate::info::info_table::TABLE[self as usize].1 & InfoFlags2::SAVE_RESTORE) != 0
 	}
 
 	/// Checks if it's a `Jcc NEAR` instruction
@@ -39277,38 +39277,37 @@ impl Code {
 		if t <= (Code::Jg_rel32_64 as u32 - Code::Jo_rel16 as u32) {
 			// They're ordered, eg. je_16, je_32, je_64, jne_16, jne_32, jne_64
 			// if low 3, add 3, else if high 3, subtract 3.
-			//return (((int)((t / 3) << 31) >> 31) | 1) * 3 + code;
 			if ((t / 3) & 1) != 0 {
-				return unsafe { mem::transmute(self as u16 - 3) };
+				return unsafe { mem::transmute(self as CodeUnderlyingType - 3) };
 			}
-			return unsafe { mem::transmute(self as u16 + 3) };
+			return unsafe { mem::transmute(self as CodeUnderlyingType + 3) };
 		}
 
 		t = (self as u32).wrapping_sub(Code::Jo_rel8_16 as u32);
 		if t <= (Code::Jg_rel8_64 as u32 - Code::Jo_rel8_16 as u32) {
 			if ((t / 3) & 1) != 0 {
-				return unsafe { mem::transmute(self as u16 - 3) };
+				return unsafe { mem::transmute(self as CodeUnderlyingType - 3) };
 			}
-			return unsafe { mem::transmute(self as u16 + 3) };
+			return unsafe { mem::transmute(self as CodeUnderlyingType + 3) };
 		}
 
 		t = (self as u32).wrapping_sub(Code::Cmovo_r16_rm16 as u32);
 		if t <= (Code::Cmovg_r64_rm64 as u32 - Code::Cmovo_r16_rm16 as u32) {
 			if ((t / 3) & 1) != 0 {
-				return unsafe { mem::transmute(self as u16 - 3) };
+				return unsafe { mem::transmute(self as CodeUnderlyingType - 3) };
 			}
-			return unsafe { mem::transmute(self as u16 + 3) };
+			return unsafe { mem::transmute(self as CodeUnderlyingType + 3) };
 		}
 
 		t = (self as u32).wrapping_sub(Code::Seto_rm8 as u32);
 		if t <= (Code::Setg_rm8 as u32 - Code::Seto_rm8 as u32) {
-			return unsafe { mem::transmute(((t ^ 1) + Code::Seto_rm8 as u32) as u16) };
+			return unsafe { mem::transmute(((t ^ 1) + Code::Seto_rm8 as u32) as CodeUnderlyingType) };
 		}
 
 		const_assert_eq!(Code::Loopne_rel8_16_CX as u32 + 7, Code::Loope_rel8_16_CX as u32);
 		t = (self as u32).wrapping_sub(Code::Loopne_rel8_16_CX as u32);
 		if t <= (Code::Loope_rel8_64_RCX as u32 - Code::Loopne_rel8_16_CX as u32) {
-			return unsafe { mem::transmute((Code::Loopne_rel8_16_CX as u32 + (t + 7) % 14) as u16) };
+			return unsafe { mem::transmute((Code::Loopne_rel8_16_CX as u32 + (t + 7) % 14) as CodeUnderlyingType) };
 		}
 
 		self
@@ -39333,12 +39332,12 @@ impl Code {
 
 		t = (self as u32).wrapping_sub(Code::Jo_rel16 as u32);
 		if t <= (Code::Jg_rel32_64 as u32 - Code::Jo_rel16 as u32) {
-			return unsafe { mem::transmute((t + Code::Jo_rel8_16 as u32) as u16) };
+			return unsafe { mem::transmute((t + Code::Jo_rel8_16 as u32) as CodeUnderlyingType) };
 		}
 
 		t = (self as u32).wrapping_sub(Code::Jmp_rel16 as u32);
 		if t <= (Code::Jmp_rel32_64 as u32 - Code::Jmp_rel16 as u32) {
-			return unsafe { mem::transmute((t + Code::Jmp_rel8_16 as u32) as u16) };
+			return unsafe { mem::transmute((t + Code::Jmp_rel8_16 as u32) as CodeUnderlyingType) };
 		}
 
 		self
@@ -39363,12 +39362,12 @@ impl Code {
 
 		t = (self as u32).wrapping_sub(Code::Jo_rel8_16 as u32);
 		if t <= (Code::Jg_rel8_64 as u32 - Code::Jo_rel8_16 as u32) {
-			return unsafe { mem::transmute((t + Code::Jo_rel16 as u32) as u16) };
+			return unsafe { mem::transmute((t + Code::Jo_rel16 as u32) as CodeUnderlyingType) };
 		}
 
 		t = (self as u32).wrapping_sub(Code::Jmp_rel8_16 as u32);
 		if t <= (Code::Jmp_rel8_64 as u32 - Code::Jmp_rel8_16 as u32) {
-			return unsafe { mem::transmute((t + Code::Jmp_rel16 as u32) as u16) };
+			return unsafe { mem::transmute((t + Code::Jmp_rel16 as u32) as CodeUnderlyingType) };
 		}
 
 		self

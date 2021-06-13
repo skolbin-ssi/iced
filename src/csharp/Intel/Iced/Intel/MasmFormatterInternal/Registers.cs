@@ -6,8 +6,9 @@ using Iced.Intel.FormatterInternal;
 
 namespace Iced.Intel.MasmFormatterInternal {
 	static class Registers {
-		public const int Register_ST = IcedConstants.RegisterEnumCount + 0;
-		public const int ExtraRegisters = 1;
+#pragma warning disable CS0618 // Type or member is obsolete
+		public const Register Register_ST = Register.DontUse0;
+#pragma warning restore CS0618 // Type or member is obsolete
 		public static readonly FormatterString[] AllRegisters = RegistersTable.GetRegisters();
 	}
 }

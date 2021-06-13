@@ -1,32 +1,31 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2018-present iced project and contributors
 
-use crate::decoder::handlers::OpCodeHandler;
+use crate::decoder::handlers::{OpCodeHandler, OpCodeHandlerDecodeFn};
 use crate::decoder::table_de::*;
 use alloc::vec::Vec;
 use lazy_static::lazy_static;
 
 pub(super) struct Tables {
-	pub(super) handlers_xx: Vec<&'static OpCodeHandler>,
-	pub(super) handlers_0fxx: Vec<&'static OpCodeHandler>,
+	pub(super) handlers_xx: Vec<(OpCodeHandlerDecodeFn, &'static OpCodeHandler)>,
 	#[cfg(not(feature = "no_vex"))]
-	pub(super) handlers_vex_0fxx: Vec<&'static OpCodeHandler>,
+	pub(super) handlers_vex_0fxx: Vec<(OpCodeHandlerDecodeFn, &'static OpCodeHandler)>,
 	#[cfg(not(feature = "no_vex"))]
-	pub(super) handlers_vex_0f38xx: Vec<&'static OpCodeHandler>,
+	pub(super) handlers_vex_0f38xx: Vec<(OpCodeHandlerDecodeFn, &'static OpCodeHandler)>,
 	#[cfg(not(feature = "no_vex"))]
-	pub(super) handlers_vex_0f3axx: Vec<&'static OpCodeHandler>,
+	pub(super) handlers_vex_0f3axx: Vec<(OpCodeHandlerDecodeFn, &'static OpCodeHandler)>,
 	#[cfg(not(feature = "no_evex"))]
-	pub(super) handlers_evex_0fxx: Vec<&'static OpCodeHandler>,
+	pub(super) handlers_evex_0fxx: Vec<(OpCodeHandlerDecodeFn, &'static OpCodeHandler)>,
 	#[cfg(not(feature = "no_evex"))]
-	pub(super) handlers_evex_0f38xx: Vec<&'static OpCodeHandler>,
+	pub(super) handlers_evex_0f38xx: Vec<(OpCodeHandlerDecodeFn, &'static OpCodeHandler)>,
 	#[cfg(not(feature = "no_evex"))]
-	pub(super) handlers_evex_0f3axx: Vec<&'static OpCodeHandler>,
+	pub(super) handlers_evex_0f3axx: Vec<(OpCodeHandlerDecodeFn, &'static OpCodeHandler)>,
 	#[cfg(not(feature = "no_xop"))]
-	pub(super) handlers_xop8: Vec<&'static OpCodeHandler>,
+	pub(super) handlers_xop8: Vec<(OpCodeHandlerDecodeFn, &'static OpCodeHandler)>,
 	#[cfg(not(feature = "no_xop"))]
-	pub(super) handlers_xop9: Vec<&'static OpCodeHandler>,
+	pub(super) handlers_xop9: Vec<(OpCodeHandlerDecodeFn, &'static OpCodeHandler)>,
 	#[cfg(not(feature = "no_xop"))]
-	pub(super) handlers_xopa: Vec<&'static OpCodeHandler>,
+	pub(super) handlers_xopa: Vec<(OpCodeHandlerDecodeFn, &'static OpCodeHandler)>,
 	#[cfg(feature = "no_vex")]
 	#[allow(dead_code)]
 	handlers_vex_0fxx: (),
@@ -58,7 +57,7 @@ pub(super) struct Tables {
 
 lazy_static! {
 	pub(super) static ref TABLES: Tables = {
-		let (handlers_xx, handlers_0fxx) = read_legacy();
+		let handlers_xx = read_legacy();
 		#[cfg(not(feature = "no_vex"))]
 		let (handlers_vex_0fxx, handlers_vex_0f38xx, handlers_vex_0f3axx) = read_vex();
 		#[cfg(not(feature = "no_evex"))]
@@ -73,7 +72,6 @@ lazy_static! {
 		let (handlers_xop8, handlers_xop9, handlers_xopa) = ((), (), ());
 		Tables {
 			handlers_xx,
-			handlers_0fxx,
 			handlers_vex_0fxx,
 			handlers_vex_0f38xx,
 			handlers_vex_0f3axx,

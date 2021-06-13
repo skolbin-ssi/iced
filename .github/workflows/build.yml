@@ -38,7 +38,7 @@ jobs:
         os: [ubuntu-latest]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2.3.4
 
       - uses: actions/setup-dotnet@v1.8.0
         with:
@@ -81,7 +81,7 @@ jobs:
         os: [ubuntu-latest]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2.3.4
 
       - name: Install Rust
         shell: bash
@@ -107,7 +107,7 @@ jobs:
         os: [ubuntu-latest]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2.3.4
 
       - name: Install Rust
         shell: bash
@@ -125,6 +125,12 @@ jobs:
         shell: bash
         run: ./build/build-js --no-set-rustflags --quick-check
 
+      - uses: actions/upload-artifact@v2
+        with:
+          name: npm
+          path: src/rust/iced-x86-js/pkg/release/iced-x86-*.tgz
+          if-no-files-found: error
+
   #############################################################################
   #############################################################################
   #############################################################################
@@ -137,13 +143,13 @@ jobs:
         os: [ubuntu-latest]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2.3.4
 
       - name: Install Rust
         shell: bash
         run: bash build/ci-install-rust.sh
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v2.2.2
         with:
           python-version: 3.6
       - name: Install Python tools

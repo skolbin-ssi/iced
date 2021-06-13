@@ -10,7 +10,7 @@ iced-x86 is a blazing fast and correct x86 (16/32/64-bit) instruction decoder, d
 - ✔️Correct: All instructions are tested and iced has been tested against other disassemblers/assemblers (xed, gas, objdump, masm, dumpbin, nasm, ndisasm) and fuzzed
 - ✔️100% Rust code
 - ✔️The formatter supports masm, nasm, gas (AT&T), Intel (XED) and there are many options to customize the output
-- ✔️Blazing fast: Decodes >200 MB/s and decode+format >110 MB/s ([see here](https://github.com/icedland/disas-bench/tree/7ccde32e77c802b22cbeabe2ddcf769130e658fb#results))
+- ✔️Blazing fast: Decodes >250 MB/s and decode+format >130 MB/s ([see here](https://github.com/icedland/disas-bench/tree/a865849deacfb6c33ee0e78f3a3ad7f4c82099f5#results))
 - ✔️Small decoded instructions, only 40 bytes and the decoder doesn't allocate any memory
 - ✔️The encoder can be used to re-encode decoded instructions at any address
 - ✔️API to get instruction info, eg. read/written registers, memory and rflags bits; CPUID feature flag, control flow info, etc
@@ -25,14 +25,14 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-iced-x86 = "1.11.2"
+iced-x86 = "1.12.0"
 ```
 
 Or to customize which features to use:
 
 ```toml
 [dependencies.iced-x86]
-version = "1.11.2"
+version = "1.12.0"
 default-features = false
 # See below for all features
 features = ["std", "decoder", "masm"]
@@ -52,7 +52,6 @@ You can enable/disable these in your `Cargo.toml` file.
 - `masm`: (✔️Enabled by default) Enables the masm formatter
 - `nasm`: (✔️Enabled by default) Enables the nasm formatter
 - `fast_fmt`: (✔️Enabled by default) Enables [`SpecializedFormatter<TraitOptions>`] (and [`FastFormatter`]) (masm syntax) which is ~3.3x faster than the other formatters (the time includes decoding + formatting). Use it if formatting speed is more important than being able to re-assemble formatted instructions or if targeting wasm (this formatter uses less code).
-- `db`: Enables creating `db`, `dw`, `dd`, `dq` instructions. It's not enabled by default because it's possible to store up to 16 bytes in the instruction and then use another method to read an enum value.
 - `std`: (✔️Enabled by default) Enables the `std` crate. `std` or `no_std` must be defined, but not both.
 - `no_std`: Enables `#![no_std]`. `std` or `no_std` must be defined, but not both. This feature uses the `alloc` crate and the `hashbrown` crate.
 - `exhaustive_enums`: Enables exhaustive enums, i.e., no enum has the `#[non_exhaustive]` attribute
@@ -63,8 +62,8 @@ You can enable/disable these in your `Cargo.toml` file.
 
 If you use `no_vex`, `no_evex`, `no_xop` or `no_d3now`, you should run the generator again (before building iced) to generate even smaller output.
 
-[`BlockEncoder`]: https://docs.rs/iced-x86/1.11.2/iced_x86/struct.BlockEncoder.html
-[`OpCodeInfo`]: https://docs.rs/iced-x86/1.11.2/iced_x86/struct.OpCodeInfo.html
+[`BlockEncoder`]: https://docs.rs/iced-x86/1.12.0/iced_x86/struct.BlockEncoder.html
+[`OpCodeInfo`]: https://docs.rs/iced-x86/1.12.0/iced_x86/struct.OpCodeInfo.html
 
 ## How-tos
 
@@ -83,14 +82,14 @@ If you use `no_vex`, `no_evex`, `no_xop` or `no_d3now`, you should run the gener
 This example uses a [`Decoder`] and one of the [`Formatter`]s to decode and format the code,
 eg. [`GasFormatter`], [`IntelFormatter`], [`MasmFormatter`], [`NasmFormatter`], [`SpecializedFormatter<TraitOptions>`] (or [`FastFormatter`]).
 
-[`Decoder`]: https://docs.rs/iced-x86/1.11.2/iced_x86/struct.Decoder.html
-[`Formatter`]: https://docs.rs/iced-x86/1.11.2/iced_x86/trait.Formatter.html
-[`GasFormatter`]: https://docs.rs/iced-x86/1.11.2/iced_x86/struct.GasFormatter.html
-[`IntelFormatter`]: https://docs.rs/iced-x86/1.11.2/iced_x86/struct.IntelFormatter.html
-[`MasmFormatter`]: https://docs.rs/iced-x86/1.11.2/iced_x86/struct.MasmFormatter.html
-[`NasmFormatter`]: https://docs.rs/iced-x86/1.11.2/iced_x86/struct.NasmFormatter.html
-[`SpecializedFormatter<TraitOptions>`]: https://docs.rs/iced-x86/1.11.2/iced_x86/struct.SpecializedFormatter.html
-[`FastFormatter`]: https://docs.rs/iced-x86/1.11.2/iced_x86/type.FastFormatter.html
+[`Decoder`]: https://docs.rs/iced-x86/1.12.0/iced_x86/struct.Decoder.html
+[`Formatter`]: https://docs.rs/iced-x86/1.12.0/iced_x86/trait.Formatter.html
+[`GasFormatter`]: https://docs.rs/iced-x86/1.12.0/iced_x86/struct.GasFormatter.html
+[`IntelFormatter`]: https://docs.rs/iced-x86/1.12.0/iced_x86/struct.IntelFormatter.html
+[`MasmFormatter`]: https://docs.rs/iced-x86/1.12.0/iced_x86/struct.MasmFormatter.html
+[`NasmFormatter`]: https://docs.rs/iced-x86/1.12.0/iced_x86/struct.NasmFormatter.html
+[`SpecializedFormatter<TraitOptions>`]: https://docs.rs/iced-x86/1.12.0/iced_x86/struct.SpecializedFormatter.html
+[`FastFormatter`]: https://docs.rs/iced-x86/1.12.0/iced_x86/type.FastFormatter.html
 
 ```rust
 use iced_x86::{Decoder, DecoderOptions, Formatter, Instruction, NasmFormatter};
@@ -174,7 +173,7 @@ static EXAMPLE_CODE: &[u8] = &[
 
 ## Disassemble as fast as possible
 
-For fastest possible disassembly, you should *not* enable the `db` feature (or you should set [`ENABLE_DB_DW_DD_DQ`] to `false`)
+For fastest possible disassembly you should set [`ENABLE_DB_DW_DD_DQ`] to `false`
 and you should also override the unsafe [`verify_output_has_enough_bytes_left()`] and return `false`.
 
 [`ENABLE_DB_DW_DD_DQ`]: https://docs.rs/iced-x86/trait.SpecializedFormatterTraitOptions.html#associatedconstant.ENABLE_DB_DW_DD_DQ
@@ -190,11 +189,10 @@ pub(crate) fn how_to_disassemble_really_fast() {
     impl SpecializedFormatterTraitOptions for MyTraitOptions {
         // If you never create a db/dw/dd/dq 'instruction', we don't need this feature.
         const ENABLE_DB_DW_DD_DQ: bool = false;
-        // It reserves 300 bytes at the start of format() which is enough for all
-        // instructions. See the docs for more info.
-        unsafe fn verify_output_has_enough_bytes_left() -> bool {
-            false
-        }
+        // For a few percent faster code, you can also override `verify_output_has_enough_bytes_left()` and return `false`
+        // unsafe fn verify_output_has_enough_bytes_left() -> bool {
+        //     false
+        // }
     }
     type MyFormatter = SpecializedFormatter<MyTraitOptions>;
 
@@ -226,10 +224,10 @@ opt-level = 3
 
 ## Create and encode instructions
 
-This example uses a [`BlockEncoder`] to encode created [`Instruction`]s. This example needs the `db` feature because it creates `db` "instructions".
+This example uses a [`BlockEncoder`] to encode created [`Instruction`]s.
 
-[`BlockEncoder`]: https://docs.rs/iced-x86/1.11.2/iced_x86/struct.BlockEncoder.html
-[`Instruction`]: https://docs.rs/iced-x86/1.11.2/iced_x86/struct.Instruction.html
+[`BlockEncoder`]: https://docs.rs/iced-x86/1.12.0/iced_x86/struct.BlockEncoder.html
+[`Instruction`]: https://docs.rs/iced-x86/1.12.0/iced_x86/struct.Instruction.html
 
 ```rust
 use iced_x86::{
@@ -299,8 +297,7 @@ pub(crate) fn how_to_encode_instructions() {
     ));
     instructions.push(Instruction::with(Code::Nopd));
     let raw_data: &[u8] = &[0x12, 0x34, 0x56, 0x78];
-    // Creating db/dw/dd/dq instructions requires the `db` feature or it will fail
-    instructions.push(add_label(data1, Instruction::try_with_declare_byte(raw_data).unwrap()));
+    instructions.push(add_label(data1, Instruction::with_declare_byte(raw_data)));
 
     // Use BlockEncoder to encode a block of instructions. This block can contain any
     // number of branches and any number of instructions. It does support encoding more
@@ -330,7 +327,6 @@ pub(crate) fn how_to_encode_instructions() {
         formatter.format(&instruction, &mut output);
         println!("{:016X} {}", instruction.ip(), output);
     }
-    // Creating db/dw/dd/dq instructions requires the `db` feature or it will panic!()
     let db = Instruction::try_with_declare_byte(bytes_data).unwrap();
     output.clear();
     formatter.format(&db, &mut output);
@@ -363,8 +359,8 @@ Output:
 
 Creates a custom [`SymbolResolver`] that is called by a [`Formatter`].
 
-[`SymbolResolver`]: https://docs.rs/iced-x86/1.11.2/iced_x86/trait.SymbolResolver.html
-[`Formatter`]: https://docs.rs/iced-x86/1.11.2/iced_x86/trait.Formatter.html
+[`SymbolResolver`]: https://docs.rs/iced-x86/1.12.0/iced_x86/trait.SymbolResolver.html
+[`Formatter`]: https://docs.rs/iced-x86/1.12.0/iced_x86/trait.Formatter.html
 
 ```rust
 use iced_x86::{
@@ -420,8 +416,8 @@ Creates a custom [`FormatterOutput`] that is called by a [`Formatter`].
 
 This example will fail to compile unless you install the `colored` crate, see below.
 
-[`FormatterOutput`]: https://docs.rs/iced-x86/1.11.2/iced_x86/trait.FormatterOutput.html
-[`Formatter`]: https://docs.rs/iced-x86/1.11.2/iced_x86/trait.Formatter.html
+[`FormatterOutput`]: https://docs.rs/iced-x86/1.12.0/iced_x86/trait.FormatterOutput.html
+[`Formatter`]: https://docs.rs/iced-x86/1.12.0/iced_x86/trait.Formatter.html
 
 ```rust compile_fail
 // This example uses crate colored = "2.0.0"
@@ -684,8 +680,8 @@ static EXAMPLE_CODE: &[u8] = &[
 Shows how to get used registers/memory and other info. It uses [`Instruction`] methods
 and an [`InstructionInfoFactory`] to get this info.
 
-[`Instruction`]: https://docs.rs/iced-x86/1.11.2/iced_x86/struct.Instruction.html
-[`InstructionInfoFactory`]: https://docs.rs/iced-x86/1.11.2/iced_x86/struct.InstructionInfoFactory.html
+[`Instruction`]: https://docs.rs/iced-x86/1.12.0/iced_x86/struct.Instruction.html
+[`InstructionInfoFactory`]: https://docs.rs/iced-x86/1.12.0/iced_x86/struct.InstructionInfoFactory.html
 
 ```rust
 use iced_x86::{

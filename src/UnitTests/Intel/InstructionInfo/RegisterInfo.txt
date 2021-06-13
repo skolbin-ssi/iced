@@ -269,3 +269,11 @@ tmm4, 4, tmm0, tmm4, tmm4, 1024, tmm
 tmm5, 5, tmm0, tmm5, tmm5, 1024, tmm
 tmm6, 6, tmm0, tmm6, tmm6, 1024, tmm
 tmm7, 7, tmm0, tmm7, tmm7, 1024, tmm
+
+dontuse0, 0, dontuse0, dontuse0, dontuse0, 0,
+dontusefa, 0, dontusefa, dontusefa, dontusefa, 0,
+dontusefb, 1, dontusefa, dontusefb, dontusefb, 0,
+dontusefc, 2, dontusefa, dontusefc, dontusefc, 0,
+dontusefd, 3, dontusefa, dontusefd, dontusefd, 0,
+dontusefe, 4, dontusefa, dontusefe, dontusefe, 0,
+dontuseff, 5, dontusefa, dontuseff, dontuseff, 0,
